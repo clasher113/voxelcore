@@ -1,6 +1,10 @@
 #include "GfxContext.h"
 
+#ifdef USE_DIRECTX
+#include "../directx/window/DXDevice.hpp"
+#else
 #include <GL/glew.h>
+#endif // USE_DIRECTX
 
 #include "Batch2D.h"
 
@@ -12,12 +16,20 @@ GfxContext::~GfxContext() {
     if (parent == nullptr)
         return;
     if (depthTest_ != parent->depthTest_) {
+#ifdef USE_DIRECTX
+        DXDevice::setDepthTest(depthTest_);
+#else
         if (depthTest_) glDisable(GL_DEPTH_TEST);
         else glEnable(GL_DEPTH_TEST);
+#endif // USE_DIRECTX
     }
     if (cullFace_ != parent->cullFace_) {
+#ifdef USE_DIRECTX
+        DXDevice::setCullFace(cullFace_);
+#else
         if (cullFace_) glDisable(GL_CULL_FACE);
         else glEnable(GL_CULL_FACE);
+#endif // USE_DIRECTX
     }
 }
 
@@ -40,20 +52,28 @@ void GfxContext::depthTest(bool flag) {
     if (depthTest_ == flag)
         return;
     depthTest_ = flag;
+#ifdef USE_DIRECTX
+    DXDevice::setDepthTest(depthTest_);
+#else
     if (depthTest_) {
         glEnable(GL_DEPTH_TEST);
     } else {
         glDisable(GL_DEPTH_TEST);
     }
+#endif // USE_DIRECTX
 }
 
 void GfxContext::cullFace(bool flag) {
     if (cullFace_ == flag)
         return;
     cullFace_ = flag;
+#ifdef USE_DIRECTX
+    DXDevice::setCullFace(cullFace_);
+#else
     if (cullFace_) {
         glEnable(GL_CULL_FACE);
     } else {
         glDisable(GL_CULL_FACE);
     }
+#endif // USE_DIRECTX
 }

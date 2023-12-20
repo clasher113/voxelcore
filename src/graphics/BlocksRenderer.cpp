@@ -2,7 +2,6 @@
 
 #include <glm/glm.hpp>
 
-#include "Mesh.h"
 #include "UVRegion.h"
 #include "../constants.h"
 #include "../content/Content.h"
@@ -12,6 +11,13 @@
 #include "../voxels/ChunksStorage.h"
 #include "../lighting/Lightmap.h"
 #include "../frontend/ContentGfxCache.h"
+
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXMesh.hpp"
+#else
+#include "Mesh.h"
+#endif // USE_DIRECTX
+
 
 using glm::ivec3;
 using glm::vec3;
@@ -31,7 +37,7 @@ BlocksRenderer::BlocksRenderer(size_t capacity,
 	cache(cache),
 	settings(settings) {
 	vertexBuffer = new float[capacity];
-	indexBuffer = new int[capacity];
+	indexBuffer = new INDEX_TYPE[capacity];
 	voxelsBuffer = new VoxelsVolume(CHUNK_W + 2, CHUNK_H, CHUNK_D + 2);
 	blockDefsCache = content->indices->getBlockDefs();
 }

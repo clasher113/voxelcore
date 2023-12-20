@@ -403,6 +403,7 @@ Panel* create_settings_panel(Engine* engine, PagesControl* menu) {
         });
         checkbox->consumer([=](bool checked) {
             engine->getSettings().display.swapInterval = checked;
+            Window::swapInterval(checked);
         });
         checkpanel->add(checkbox);
         checkpanel->add(new Label(langs::get(L"V-Sync", L"settings")));

@@ -7,10 +7,16 @@
 
 #include "../../assets/Assets.h"
 #include "../../graphics/Batch2D.h"
-#include "../../graphics/Shader.h"
 #include "../../window/Events.h"
 #include "../../window/input.h"
 #include "../../window/Camera.h"
+
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXShader.hpp"
+#include "../../directx/ConstantBuffers.hpp"
+#else
+#include "../../graphics/Shader.h"
+#endif // USE_DIRECTX
 
 using glm::vec2;
 using glm::vec3;
@@ -118,14 +124,20 @@ void GUI::act(float delta) {
         focus = nullptr;
     }
 }
-
+ 
 void GUI::draw(Batch2D* batch, Assets* assets) {
     menu->setCoord((Window::size() - menu->size()) / 2.0f);
     uicamera->setFov(Window::height);
 
 	Shader* uishader = assets->getShader("ui");
 	uishader->use();
+#ifdef USE_DIRECTX
+    cbUI->data.projView = transpose(uicamera->getProjView());
+    cbUI->applyChanges();
+    cbUI->bind();
+#else
 	uishader->uniformMatrix("u_projview", uicamera->getProjection()*uicamera->getView());
+#endif // USE_DIRECTX
 
     batch->begin();
     container->draw(batch, assets);

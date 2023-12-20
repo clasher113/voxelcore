@@ -2,9 +2,25 @@
 #include "Window.h"
 #include "Events.h"
 #include "../graphics/ImageData.h"
+#define NOMINMAX
 
+#ifdef USE_DIRECTX
+#include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define NOMINMAX
+#include <GLFW/glfw3native.h>
+#include "../directx/window/DXDevice.hpp"
+#include "../directx/ConstantBuffers.hpp"
+#include "../directx/graphics/DXShader.hpp"
+#include "../directx/graphics/DXMesh.hpp"
+#include "../directx/graphics/DXTexture.hpp"
+#else
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include "../graphics/Mesh.h"
+#include "../graphics/Texture.h"
+#include "../graphics/Shader.h"
+#endif // USE_DIRECTX
 
 using glm::vec4;
 using std::cout;
@@ -71,14 +87,17 @@ bool Window::isMaximized() {
 	return glfwGetWindowAttrib(window, GLFW_MAXIMIZED);
 }
 
-bool Window::isFocused()
-{
+bool Window::isFocused() {
 	return glfwGetWindowAttrib(window, GLFW_FOCUSED);
 }
 
 void window_size_callback(GLFWwindow*, int width, int height) {
 	if (Window::isFocused() && width && height) {
+#ifdef USE_DIRECTX
+		DXDevice::onWindowResize(width, height);
+#else
 		glViewport(0, 0, width, height);
+#endif // !USE_DIRECTX
 		Window::width = width;
 		Window::height = height;
 	}
@@ -130,17 +149,21 @@ int Window::initialize(DisplaySettings& settings){
 		return -1;
 	}
 
+#ifdef USE_DIRECTX
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+#else
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 #ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+	glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE);
 #else
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
 #endif
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 	glfwWindowHint(GLFW_SAMPLES, settings.samples);
+#endif // USE_DIRECTX
 
 	window = glfwCreateWindow(width, height, settings.title.c_str(), nullptr, nullptr);
 	if (window == nullptr){
@@ -148,6 +171,13 @@ int Window::initialize(DisplaySettings& settings){
 		glfwTerminate();
 		return -1;
 	}
+
+#ifdef USE_DIRECTX
+	HWND windowHandle = glfwGetWin32Window(window);
+	DXDevice::initialize(windowHandle, width, height);
+	CBuffers::initialize();
+	DXDevice::setSwapInterval(settings.swapInterval);
+#else
 	glfwMakeContextCurrent(window);
 
 	glewExperimental = GL_TRUE;
@@ -163,6 +193,9 @@ int Window::initialize(DisplaySettings& settings){
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	glfwSwapInterval(settings.swapInterval);
+
+#endif // USE_DIRECTX
 	Events::initialize();
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
@@ -175,20 +208,24 @@ int Window::initialize(DisplaySettings& settings){
 		const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 		glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, GLFW_DONT_CARE);
 	}
-	glfwSwapInterval(settings.swapInterval);
-	const GLubyte* vendor = glGetString(GL_VENDOR);
-	const GLubyte* renderer = glGetString(GL_RENDERER);
-	cout << "GL Vendor: " << (char*)vendor << endl;
-	cout << "GL Renderer: " << (char*)renderer << endl;
+
 	return 0;
 }
 
 void Window::clear() {
+#ifdef USE_DIRECTX
+	DXDevice::clear();
+#else
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+#endif // USE_DIRECTX
 }
 
 void Window::clearDepth() {
+#ifdef USE_DIRECTX
+	DXDevice::clearDepth();
+#else
 	glClear(GL_DEPTH_BUFFER_BIT);
+#endif // USE_DIRECTX
 }
 
 void Window::setBgColor(glm::vec3 color) {
@@ -196,7 +233,11 @@ void Window::setBgColor(glm::vec3 color) {
 }
 
 void Window::viewport(int x, int y, int width, int height){
+#ifdef USE_DIRECTX
+	DXDevice::resizeViewPort(x, y, width, height);
+#else
 	glViewport(x, y, width, height);
+#endif // USE_DIRECTX
 }
 
 void Window::setCursorMode(int mode){
@@ -206,12 +247,20 @@ void Window::setCursorMode(int mode){
 void Window::resetScissor() {
 	scissorArea = vec4(0.0f, 0.0f, width, height);
 	scissorStack = std::stack<vec4>();
+#ifdef USE_DIRECTX
+	DXDevice::setScissorTest(false);
+#else
 	glDisable(GL_SCISSOR_TEST);
+#endif // USE_DIRECTX
 }
 
 void Window::pushScissor(vec4 area) {
 	if (scissorStack.empty()) {
+#ifdef USE_DIRECTX
+		DXDevice::setScissorTest(true);
+#else
 		glEnable(GL_SCISSOR_TEST);
+#endif // USE_DIRECTX
 	}
 	scissorStack.push(scissorArea);
 
@@ -225,11 +274,21 @@ void Window::pushScissor(vec4 area) {
 	area.w = fmin(area.w, scissorArea.w);
 
 	if (area.z < 0.0f || area.w < 0.0f) {
+#ifdef USE_DIRECTX
+		DXDevice::setScissorRect(0, 0, 0, 0);
+#else
 		glScissor(0, 0, 0, 0);
+#endif // USE_DIRECTX
 	} else {
+#ifdef USE_DIRECTX
+		DXDevice::setScissorRect(area.x, Window::height-area.w, 
+								std::max(0, int(area.z-area.x)), 
+								std::max(0, int(area.w-area.y)));
+#else
 		glScissor(area.x, Window::height-area.w, 
 				  std::max(0, int(area.z-area.x)), 
 				  std::max(0, int(area.w-area.y)));
+#endif // USE_DIRECTX
 	}
 	scissorArea = area;
 }
@@ -242,14 +301,28 @@ void Window::popScissor() {
 	vec4 area = scissorStack.top();
 	scissorStack.pop();
 	if (area.z < 0.0f || area.w < 0.0f) {
+#ifdef USE_DIRECTX
+		DXDevice::setScissorRect(0, 0, 0, 0);
+#else
 		glScissor(0, 0, 0, 0);
+#endif // USE_DIRECTX
 	} else {
+#ifdef USE_DIRECTX
+		DXDevice::setScissorRect(area.x, Window::height-area.w, 
+								std::max(0, int(area.z-area.x)), 
+								std::max(0, int(area.w-area.y)));
+#else
 		glScissor(area.x, Window::height-area.w, 
 				  std::max(0, int(area.z-area.x)), 
 				  std::max(0, int(area.w-area.y)));
+#endif // USE_DIRECTX
 	}
 	if (scissorStack.empty()) {
+#ifdef USE_DIRECTX
+		DXDevice::setScissorTest(false);
+#else
 		glDisable(GL_SCISSOR_TEST);
+#endif // USE_DIRECTX
 	}
 	scissorArea = area;
 }
@@ -268,7 +341,11 @@ void Window::setShouldClose(bool flag){
 }
 
 void Window::swapInterval(int interval){
+#ifdef USE_DIRECTX
+	DXDevice::setSwapInterval(interval);
+#else
 	glfwSwapInterval(interval);
+#endif // USE_DIRECTX
 }
 
 void Window::toggleFullscreen(){
@@ -299,7 +376,12 @@ bool Window::isFullscreen() {
 }
 
 void Window::swapBuffers(){
+#ifdef USE_DIRECTX
+	DXDevice::display();
+#else
 	glfwSwapBuffers(window);
+#endif // USE_DIRECTX
+
 	Window::resetScissor();
 }
 

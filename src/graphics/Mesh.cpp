@@ -1,3 +1,4 @@
+#ifndef USE_DIRECTX
 #include "Mesh.h"
 #include <GL/glew.h>
 
@@ -73,3 +74,5 @@ void Mesh::draw(unsigned int primitive){
 void Mesh::draw() {
 	draw(GL_TRIANGLES);
 }
+
+#endif // !USE_DIRECTX

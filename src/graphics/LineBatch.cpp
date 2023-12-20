@@ -1,7 +1,12 @@
 #include "LineBatch.h"
-#include "Mesh.h"
 
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXMesh.hpp"
+#include <d3dcommon.h>
+#else
+#include "Mesh.h"
 #include <GL/glew.h>
+#endif // USE_DIRECTX
 
 const uint LB_VERTEX_SIZE = (3+4);
 
@@ -64,10 +69,18 @@ void LineBatch::render(){
 	if (index == 0)
 		return;
 	mesh->reload(buffer, index / LB_VERTEX_SIZE);
+#ifdef USE_DIRECTX
+	mesh->draw(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+#else
 	mesh->draw(GL_LINES);
+#endif // USE_DIRECTX
 	index = 0;
 }
 
 void LineBatch::lineWidth(float width) {
+#ifdef USE_DIRECTX
+	// TODO
+#else
 	glLineWidth(width);
+#endif // USE_DIRECTX
 }

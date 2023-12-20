@@ -8,6 +8,13 @@
 #include "../voxels/voxel.h"
 #include "../settings.h"
 
+#ifdef USE_DIRECTX
+typedef unsigned long DWORD;
+#define INDEX_TYPE DWORD
+#else
+#define INDEX_TYPE int
+#endif // USE_DIRECTX
+
 class Content;
 class Mesh;
 class Block;
@@ -21,7 +28,7 @@ class BlocksRenderer {
 	static const uint VERTEX_SIZE;
 	const Content* const content;
 	float* vertexBuffer;
-	int* indexBuffer;
+	INDEX_TYPE* indexBuffer;
 	size_t vertexOffset;
 	size_t indexOffset, indexSize;
 	size_t capacity;

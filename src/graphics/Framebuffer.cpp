@@ -1,3 +1,5 @@
+#ifndef USE_DIRECTX
+
 #include "Framebuffer.h"
 
 #include <GL/glew.h>
@@ -36,3 +38,5 @@ void Framebuffer::bind() {
 void Framebuffer::unbind() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
+#endif // !USE_DIRECTX

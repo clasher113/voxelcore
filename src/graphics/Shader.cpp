@@ -1,3 +1,4 @@
+#ifndef USE_DIRECTX
 #include "Shader.h"
 
 #include <exception>
@@ -128,3 +129,5 @@ Shader* Shader::loadShader(string vertexFile,
 
 	return new Shader(id);
 }
+
+#endif // !USE_DIRECTX

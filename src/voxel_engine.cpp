@@ -31,6 +31,7 @@ int main(int argc, char** argv) {
 	platform::configure_encoding();
 	ContentBuilder contentBuilder;
 	setup_definitions(&contentBuilder);
+	setup_bindings();
 	// TODO: implement worlds indexing
 	ContentLoader loader(paths.getResources()/path("content/base"));
 	loader.load(&contentBuilder);
@@ -49,7 +50,6 @@ int main(int argc, char** argv) {
 			reader.read();
 		}
 		Engine engine(settings, &paths, content.get());
-		setup_bindings();
 		if (std::filesystem::is_regular_file(controls_file)) {
 			std::cout << "-- loading controls" << std::endl;
 			std::string content = files::read_string(controls_file);

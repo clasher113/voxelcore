@@ -238,7 +238,7 @@ ImageData* _png_load(const char* file){
 	spng_ctx *ctx = nullptr;
 	unsigned char *out = nullptr;
 
-	png = fopen(file, "rb");
+	fopen_s(&png, file, "rb");
 	if (png == nullptr){
 		std::cerr << "could not to open file " << file << std::endl;
 		return 0;

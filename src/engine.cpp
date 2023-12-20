@@ -16,7 +16,9 @@
 #include "window/Camera.h"
 #include "window/input.h"
 #include "graphics/Batch2D.h"
+#ifndef USE_DIRECTX
 #include "graphics/Shader.h"
+#endif // !USE_DIRECTX
 #include "graphics/ImageData.h"
 #include "frontend/gui/GUI.h"
 #include "frontend/screens.h"
@@ -25,7 +27,9 @@
 
 #include "coders/json.h"
 #include "coders/png.h"
+#ifndef USE_DIRECTX
 #include "coders/GLSLExtension.h"
+#endif // !USE_DIRECTX
 #include "files/files.h"
 #include "files/engine_paths.h"
 
@@ -45,8 +49,9 @@ Engine::Engine(EngineSettings& settings, EnginePaths* paths, Content* content)
 	if (Window::initialize(settings.display)){
 		throw initialize_error("could not initialize window");
 	}
+#ifndef USE_DIRECTX
 	Shader::preprocessor->setLibFolder(paths->getResources()/path("shaders/lib"));
-
+#endif // !USE_DIRECTX
 	assets = new Assets();
 	std::cout << "-- loading assets" << std::endl;
 	AssetsLoader loader(assets, paths->getResources());
@@ -107,10 +112,10 @@ void Engine::mainloop() {
 
 		gui->act(delta);
 		screen->update(delta);
+		Window::clear();
 		screen->draw(delta);
 		gui->draw(&batch, assets);
 
-		Window::swapInterval(settings.display.swapInterval);
 		Window::swapBuffers();
 		Events::pollEvents();
 	}

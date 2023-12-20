@@ -4,12 +4,16 @@
 #include "Assets.h"
 #include "../files/files.h"
 #include "../coders/png.h"
-#include "../graphics/Shader.h"
-#include "../graphics/Texture.h"
 #include "../graphics/ImageData.h"
 #include "../graphics/Atlas.h"
 #include "../graphics/Font.h"
-
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXShader.hpp"
+#include "../directx/graphics/DXTexture.hpp"
+#else
+#include "../graphics/Shader.h"
+#include "../graphics/Texture.h"
+#endif // USE_DIRECTX
 using std::string;
 using std::vector;
 using std::unique_ptr;
@@ -32,14 +36,21 @@ bool assetload::texture(Assets* assets,
 bool assetload::shader(Assets* assets, 
                         const path filename, 
                         const string name) {
-    path vertexFile = path(filename.string()+".glslv");
-    path fragmentFile = path(filename.string()+".glslf");
-    
-    string vertexSource = files::read_string(vertexFile);
-    string fragmentSource = files::read_string(fragmentFile);
+#ifdef USE_DIRECTX
+	path shaderFile = path(filename.string() + ".hlsl");
+
+	Shader* shader = Shader::loadShader(shaderFile.wstring());
+#else
+	path vertexFile = path(filename.string() + ".glslv");
+	path fragmentFile = path(filename.string() + ".glslf");
+
+	string vertexSource = files::read_string(vertexFile);
+	string fragmentSource = files::read_string(fragmentFile);
 
 	Shader* shader = Shader::loadShader(vertexFile.string(), fragmentFile.string(),
                                         vertexSource, fragmentSource);
+#endif // USE_DIRECTX
+
 	if (shader == nullptr) {
 		std::cerr << "failed to load shader '" << name << "'" << std::endl;
 		return false;
@@ -81,7 +92,11 @@ bool assetload::font(Assets* assets,
 		}
 		pages.push_back(texture);
 	}
+#ifdef USE_DIRECTX
+	Font* font = new Font(pages, pages[0]->getHeight() / 16);
+#else
 	Font* font = new Font(pages, pages[0]->height / 16);
+#endif // USE_DIRECTX
 	assets->store(font, name);
 	return true;
 }

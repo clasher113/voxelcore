@@ -1,6 +1,8 @@
 #ifndef WINDOW_INPUT_H_
 #define WINDOW_INPUT_H_
 
+#undef DELETE
+
 #include <string>
 
 struct keycode {

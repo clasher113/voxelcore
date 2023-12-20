@@ -1,3 +1,4 @@
+#ifndef USE_DIRECTX
 #include "Texture.h"
 #include <GL/glew.h>
 #include <stdexcept>
@@ -50,3 +51,5 @@ Texture* Texture::from(const ImageData* image) {
 	}
 	return new Texture((ubyte*)data, width, height, format);
 }
+
+#endif // !USE_DIRECTX

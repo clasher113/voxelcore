@@ -1,3 +1,4 @@
+#ifndef USE_DIRECTX
 #include "Skybox.h"
 #include <GL/glew.h>
 #include <iostream>
@@ -112,3 +113,5 @@ void Skybox::unbind() const {
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     glActiveTexture(GL_TEXTURE0);
 }
+
+#endif // !USE_DIRECTX

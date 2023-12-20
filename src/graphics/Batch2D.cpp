@@ -1,9 +1,14 @@
 #include "Batch2D.h"
-#include "Mesh.h"
-#include "Texture.h"
 #include "Sprite.h"
 
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXMesh.hpp"
+#include "../directx/graphics/DXTexture.hpp"
+#else
+#include "Mesh.h"
+#include "Texture.h"
 #include <GL/glew.h>
+#endif // USE_DIRECTX
 
 const uint B2D_VERTEX_SIZE = 8;
 
@@ -20,10 +25,14 @@ Batch2D::Batch2D(size_t capacity) : capacity(capacity), offset(0), color(1.0f, 1
 	mesh = new Mesh(buffer, 0, attrs);
 	index = 0;
 
-	unsigned char pixels[] = {
+	ubyte pixels[] = {
 			255, 255, 255, 255,
 	};
+#ifdef USE_DIRECTX
+	blank = new Texture(pixels, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+#else
 	blank = new Texture(pixels, 1, 1, GL_RGBA);
+#endif // USE_DIRECTX
 	_texture = nullptr;
 }
 
@@ -66,7 +75,7 @@ void Batch2D::vertex(vec2 point,
 void Batch2D::texture(Texture* new_texture){
 	if (_texture == new_texture)
 		return;
-	render(GL_TRIANGLES);
+	render();
 	_texture = new_texture;
 	if (new_texture == nullptr)
 		blank->bind();
@@ -76,19 +85,29 @@ void Batch2D::texture(Texture* new_texture){
 
 void Batch2D::point(float x, float y, float r, float g, float b, float a){
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
-		render(GL_TRIANGLES);
+		render();
 
 	vertex(x, y, 0, 0, r,g,b,a);
+#ifdef USE_DIRECTX
+	render(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+#else
 	render(GL_POINTS);
+#endif // USE_DIRECTX
+
 }
 
 void Batch2D::line(float x1, float y1, float x2, float y2, float r, float g, float b, float a){
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
-		render(GL_TRIANGLES);
+		render();
 
 	vertex(x1, y1, 0, 0, r,g,b,a);
 	vertex(x2, y2, 1, 1, r,g,b,a);
+#ifdef USE_DIRECTX
+	render(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+#else
 	render(GL_LINES);
+#endif // USE_DIRECTX
+
 }
 
 void Batch2D::rect(float x, float y, float w, float h){
@@ -97,7 +116,7 @@ void Batch2D::rect(float x, float y, float w, float h){
 	const float b = color.b;
 	const float a = color.a;
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
-		render(GL_TRIANGLES);
+		render();
 
 	vertex(x, y, 0, 0, r,g,b,a);
 	vertex(x, y+h, 0, 1, r,g,b,a);
@@ -118,7 +137,7 @@ void Batch2D::rect(
 		bool flippedY,
 		vec4 tint) {
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
-		render(GL_TRIANGLES);
+		render();
 
     float centerX = w*ox;
     float centerY = h*oy;
@@ -206,14 +225,14 @@ void Batch2D::rect(float x, float y, float w, float h,
 		float u, float v, float tx, float ty,
 		float r, float g, float b, float a){
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
-		render(GL_TRIANGLES);
+		render();
 	vertex(x, y, u, v+ty, r,g,b,a);
-	vertex(x+w, y+h, u+tx, v, r,g,b,a);
 	vertex(x, y+h, u, v, r,g,b,a);
+	vertex(x+w, y+h, u+tx, v, r,g,b,a);
 
 	vertex(x, y, u, v+ty, r,g,b,a);
-	vertex(x+w, y, u+tx, v+ty, r,g,b,a);
 	vertex(x+w, y+h, u+tx, v, r,g,b,a);
+	vertex(x+w, y, u+tx, v+ty, r,g,b,a);
 }
 
 void Batch2D::rect(float x, float y, float w, float h,
@@ -223,7 +242,7 @@ void Batch2D::rect(float x, float y, float w, float h,
 		float r3, float g3, float b3,
 		float r4, float g4, float b4, int sh){
 	if (index + 30*B2D_VERTEX_SIZE >= capacity)
-		render(GL_TRIANGLES);
+		render();
 	vec2 v0 = vec2(x+h/2,y+h/2);
 	vec2 v1 = vec2(x+w-sh,y);
 	vec2 v2 = vec2(x+sh,y);
@@ -302,7 +321,21 @@ void Batch2D::sprite(float x, float y, float w, float h, int atlasRes, int index
 	float v = 1.0f - ((index / atlasRes) * scale) - scale;
 	rect(x, y, w, h, u, v, scale, scale, tint.r, tint.g, tint.b, tint.a);
 }
+#ifdef USE_DIRECTX
+	void Batch2D::render(D3D_PRIMITIVE_TOPOLOGY primitive) {
+		mesh->reload(buffer, index / B2D_VERTEX_SIZE);
+		mesh->draw(primitive);
+		index = 0;
+	}
 
+	void Batch2D::render() {
+		render(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	}
+
+	void Batch2D::lineWidth(float width) {
+		// TODO
+	}
+#else
 void Batch2D::render(unsigned int gl_primitive) {
 	mesh->reload(buffer, index / B2D_VERTEX_SIZE);
 	mesh->draw(gl_primitive);
@@ -316,3 +349,5 @@ void Batch2D::render() {
 void Batch2D::lineWidth(float width) {
 	glLineWidth(width);
 }
+
+#endif // USE_DIRECTX

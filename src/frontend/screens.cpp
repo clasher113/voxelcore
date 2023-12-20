@@ -7,11 +7,9 @@
 #include <glm/glm.hpp>
 #include <filesystem>
 #include <stdexcept>
-
 #include "../window/Camera.h"
 #include "../window/Events.h"
 #include "../window/input.h"
-#include "../graphics/Shader.h"
 #include "../graphics/Batch2D.h"
 #include "../graphics/GfxContext.h"
 #include "../assets/Assets.h"
@@ -34,6 +32,13 @@
 
 #include "../content/Content.h"
 #include "../voxels/Block.h"
+
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXShader.hpp"
+#include "../directx/ConstantBuffers.hpp"
+#else
+#include "../graphics/Shader.h"
+#endif // USE_DIRECTX
 
 using std::string;
 using std::wstring;
@@ -68,7 +73,13 @@ void MenuScreen::draw(float delta) {
     uicamera->setFov(Window::height);
 	Shader* uishader = engine->getAssets()->getShader("ui");
 	uishader->use();
+#ifdef USE_DIRECTX
+    cbUI->data.projView = transpose(uicamera->getProjView());
+    cbUI->applyChanges();
+    cbUI->bind();
+#else 
 	uishader->uniformMatrix("u_projview", uicamera->getProjView());
+#endif // USE_DIRECTX
 
     uint width = Window::width;
     uint height = Window::height;

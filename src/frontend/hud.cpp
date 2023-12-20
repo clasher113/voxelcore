@@ -6,19 +6,16 @@
 #include <assert.h>
 #include <stdexcept>
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
 
 #include "../typedefs.h"
 #include "../content/Content.h"
 #include "../util/stringutil.h"
 #include "../util/timeutil.h"
 #include "../assets/Assets.h"
-#include "../graphics/Shader.h"
 #include "../graphics/Batch2D.h"
 #include "../graphics/Batch3D.h"
 #include "../graphics/Font.h"
 #include "../graphics/Atlas.h"
-#include "../graphics/Mesh.h"
 #include "../window/Camera.h"
 #include "../window/Window.h"
 #include "../window/Events.h"
@@ -40,6 +37,17 @@
 #include "BlocksPreview.h"
 #include "../engine.h"
 #include "../core_defs.h"
+
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXShader.hpp"
+#include "../directx/graphics/DXMesh.hpp"
+#include "../directx/ConstantBuffers.hpp"
+#else
+#include "../graphics/Shader.h"
+#include "../graphics/Mesh.h"
+#include <GLFW/glfw3.h>
+#endif // USE_DIRECTX
+
 
 using std::wstring;
 using std::shared_ptr;
@@ -265,6 +273,9 @@ void HudRenderer::drawContentAccess(const GfxContext& ctx, Player* player) {
 		}
 	}
 	uiShader->use();
+#ifdef USE_DIRECTX
+	cbUI->bind();
+#endif // USE_DIRECTX
 }
 
 void HudRenderer::update() {
@@ -307,7 +318,13 @@ void HudRenderer::draw(const GfxContext& ctx){
 
 	Shader* uishader = assets->getShader("ui");
 	uishader->use();
+#ifdef USE_DIRECTX
+	cbUI->data.projView = transpose(uicamera->getProjView());
+	cbUI->applyChanges();
+	cbUI->bind();
+#else
 	uishader->uniformMatrix("u_projview", uicamera->getProjection()*uicamera->getView());
+#endif // USE_DIRECTX
 
 	batch->begin();
 
@@ -341,6 +358,9 @@ void HudRenderer::draw(const GfxContext& ctx){
 		//drawBlockPreview(cblock, width - 56, uicamera->fov - 56, 48, 48, vec4(1.0f));
 	}
 	uishader->use();
+#ifdef USE_DIRECTX
+	cbUI->bind();
+#endif // USE_DIRECTX
 	batch->begin();
 
 	if (pause) {

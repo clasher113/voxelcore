@@ -3,13 +3,21 @@
 #include <glm/ext.hpp>
 
 #include "../graphics/Viewport.h"
-#include "../graphics/Shader.h"
-#include "../graphics/Texture.h"
 #include "../graphics/Atlas.h"
 #include "../graphics/Batch3D.h"
 #include "../window/Camera.h"
 #include "../voxels/Block.h"
 #include "ContentGfxCache.h"
+
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXShader.hpp"
+#include "../directx/graphics/DXTexture.hpp"
+#include "../directx/ConstantBuffers.hpp"
+#include "../directx/math/DXMathHelper.hpp"
+#else
+#include "../graphics/Shader.h"
+#include "../graphics/Texture.h"
+#endif // USE_DIRECTX
 
 using glm::vec4;
 using glm::vec3;
@@ -28,11 +36,18 @@ BlocksPreview::~BlocksPreview() {
 void BlocksPreview::begin(const Viewport* viewport) {
     this->viewport = viewport;
     shader->use();
-    shader->uniformMatrix("u_projview", 
-        glm::ortho(0.0f, float(viewport->getWidth()), 
-                   0.0f, float(viewport->getHeight()), 
-                    -1000.0f, 1000.0f) * 
-        glm::lookAt(vec3(2, 2, 2), vec3(0.0f), vec3(0, 1, 0)));
+    glm::mat4 viewModel = glm::ortho(0.0f, float(viewport->getWidth()),
+                                     0.0f, float(viewport->getHeight()),
+                                    -1000.0f, 1000.0f) *
+                          glm::lookAt(vec3(2, 2, 2), vec3(0.0f), vec3(0, 1, 0));
+#ifdef USE_DIRECTX
+    cbUI3D->data.projView = glm2dxm(glm::transpose(viewModel));
+    cbUI3D->applyChanges();
+    cbUI3D->bind();
+#else
+    shader->uniformMatrix("u_projview", viewModel);
+#endif // USE_DIRECTX
+
     atlas->getTexture()->bind();
 }
 
@@ -44,7 +59,16 @@ void BlocksPreview::draw(const Block* def, int x, int y, int size, vec4 tint) {
     y = height - y - 1;
     x += 2;
     y -= 35;
-    shader->uniformMatrix("u_apply", glm::translate(glm::mat4(1.0f), vec3(x/float(width) * 2, y/float(height) * 2, 0.0f)));
+    vec3 position(x / float(width) * 2, y / float(height) * 2, 0.0f);
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+#ifdef USE_DIRECTX
+    cbUI3D->data.apply = glm2dxm(glm::transpose(model));
+    cbUI3D->applyChanges();
+    cbUI3D->bind();
+#else
+    shader->uniformMatrix("u_apply", model);
+#endif // USE_DIRECTX
+
     blockid_t id = def->rt.id;
     const UVRegion texfaces[6]{ cache->getRegion(id, 0), cache->getRegion(id, 1),
                                 cache->getRegion(id, 2), cache->getRegion(id, 3),

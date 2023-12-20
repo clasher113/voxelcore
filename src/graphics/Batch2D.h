@@ -5,6 +5,10 @@
 #include <glm/glm.hpp>
 
 #include "UVRegion.h"
+#ifdef USE_DIRECTX
+#define NOMINMAX
+#include <d3d11_1.h>
+#endif // USE_DIRECTX
 
 class Mesh;
 class Texture;
@@ -58,7 +62,11 @@ public:
 			float r2, float g2, float b2,
 			float r3, float g3, float b3,
 			float r4, float g4, float b4, int sh);
+#ifdef USE_DIRECTX
+	void render(D3D_PRIMITIVE_TOPOLOGY primitive);
+#else
 	void render(unsigned int gl_primitive);
+#endif // USE_DIRECTX
 	void render();
 
 	void lineWidth(float width);

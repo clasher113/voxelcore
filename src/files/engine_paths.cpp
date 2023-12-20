@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <sstream>
 #include "../typedefs.h"
+#include <ctime>
 
 #define SCREENSHOTS_FOLDER "screenshots"
 
@@ -23,9 +24,9 @@ path EnginePaths::getScreenshotFile(string ext) {
 	if (!fs::is_directory(folder)) {
 		fs::create_directory(folder);
 	}
-
+	tm tm;
 	auto t = std::time(nullptr);
-    auto tm = *std::localtime(&t);
+    localtime_s(&tm, &t);
 
 	const char* format = "%Y-%m-%d_%H-%M-%S";
 	std::stringstream ss;

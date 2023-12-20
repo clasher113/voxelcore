@@ -1,10 +1,15 @@
 #include "Batch3D.h"
 
+#include "../typedefs.h"
+
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXMesh.hpp"
+#include "../directx/graphics/DXTexture.hpp"
+#else
 #include "Mesh.h"
 #include "Texture.h"
-
 #include <GL/glew.h>
-#include "../typedefs.h"
+#endif // USE_DIRECTX
 
 const uint B3D_VERTEX_SIZE = 9;
 
@@ -26,7 +31,12 @@ Batch3D::Batch3D(size_t capacity)
 	ubyte pixels[] = {
 		255, 255, 255, 255,
 	};
+#ifdef USE_DIRECTX
+	blank = new Texture(pixels, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+#else
 	blank = new Texture(pixels, 1, 1, GL_RGBA);
+#endif // !USE_DIRECTX
+
 	_texture = nullptr;
 }
 
