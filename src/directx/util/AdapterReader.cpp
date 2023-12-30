@@ -12,7 +12,7 @@ std::vector<AdapterData> AdapterReader::GetAdapters() {
 
 	Microsoft::WRL::ComPtr<IDXGIFactory> pFactory;
 
-	DXError::checkError(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(pFactory.GetAddressOf())),
+	CHECK_ERROR2(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(pFactory.GetAddressOf())),
 		L"Failed to create DXGIFactory for enumerating adapters.");
 
 	IDXGIAdapter* pAdapter;
@@ -26,7 +26,7 @@ std::vector<AdapterData> AdapterReader::GetAdapters() {
 
 AdapterData::AdapterData(IDXGIAdapter* pAdapter) {
 	this->pAdapter = pAdapter;
-	DXError::checkError(pAdapter->GetDesc(&this->description),
+	CHECK_ERROR2(pAdapter->GetDesc(&this->description),
 		L"Failed to Get Description for IDXGIAdapter.");
 }
 

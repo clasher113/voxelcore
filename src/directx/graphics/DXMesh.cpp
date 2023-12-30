@@ -31,6 +31,8 @@ Mesh::~Mesh() {
 
 void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer, size_t indices) {
     if (vertexBuffer == nullptr || vertices == 0) return;
+    if (m_p_vertexBuffer != nullptr) m_p_vertexBuffer->Release();
+    if (m_p_indexBuffer != nullptr) m_p_indexBuffer->Release();
 
     auto device = DXDevice::getDevice();
 
@@ -48,9 +50,7 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
     ZeroMemory(&bufferData, sizeof(bufferData));
     bufferData.pSysMem = vertexBuffer;
 
-    if (m_p_vertexBuffer != nullptr) m_p_vertexBuffer->Release();
-
-    DXError::checkError(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_vertexBuffer),
+    CHECK_ERROR2(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_vertexBuffer),
         L"Failed to create vertex buffer");
 
     if (indexBuffer != nullptr && indices > 0) {
@@ -60,12 +60,8 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
         bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
         bufferData.pSysMem = indexBuffer;
 
-        DXError::checkError(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_indexBuffer),
+        CHECK_ERROR2(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_indexBuffer),
             L"Failed to create index buffer");
-    }
-    else if (m_p_indexBuffer != nullptr) {
-        m_p_indexBuffer->Release();
-        m_p_indexBuffer = nullptr;
     }
 }
 
@@ -80,7 +76,7 @@ void Mesh::draw(D3D_PRIMITIVE_TOPOLOGY primitive) {
         context->Draw(m_vertices, 0);
     }
     else {
-        context->IASetIndexBuffer(m_p_indexBuffer, DXGI_FORMAT_R32_UINT, 0); // TODO maybe unbind
+        context->IASetIndexBuffer(m_p_indexBuffer, DXGI_FORMAT_R32_UINT, 0);
         context->DrawIndexed(m_indices, 0, 0);
     }
 }

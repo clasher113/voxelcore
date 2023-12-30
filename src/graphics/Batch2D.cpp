@@ -4,6 +4,7 @@
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXMesh.hpp"
 #include "../directx/graphics/DXTexture.hpp"
+#include "../directx/graphics/DXLine.hpp"
 #else
 #include "Mesh.h"
 #include "Texture.h"
@@ -85,7 +86,11 @@ void Batch2D::texture(Texture* new_texture){
 
 void Batch2D::point(float x, float y, float r, float g, float b, float a){
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
-		render();
+#ifdef USE_DIRECTX
+		render(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+#else
+		render(GL_POINTS);
+#endif // USE_DIRECTX
 
 	vertex(x, y, 0, 0, r,g,b,a);
 #ifdef USE_DIRECTX
@@ -98,7 +103,11 @@ void Batch2D::point(float x, float y, float r, float g, float b, float a){
 
 void Batch2D::line(float x1, float y1, float x2, float y2, float r, float g, float b, float a){
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
-		render();
+#ifdef USE_DIRECTX
+		render(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+#else
+		render(GL_LINES);
+#endif // USE_DIRECTX
 
 	vertex(x1, y1, 0, 0, r,g,b,a);
 	vertex(x2, y2, 1, 1, r,g,b,a);
@@ -323,8 +332,15 @@ void Batch2D::sprite(float x, float y, float w, float h, int atlasRes, int index
 }
 #ifdef USE_DIRECTX
 	void Batch2D::render(D3D_PRIMITIVE_TOPOLOGY primitive) {
+		if (index == 0)
+			return;
 		mesh->reload(buffer, index / B2D_VERTEX_SIZE);
-		mesh->draw(primitive);
+		if (primitive == D3D11_PRIMITIVE_TOPOLOGY_LINELIST) {
+			DXLine::draw(mesh);
+		}
+		else {
+			mesh->draw(primitive);
+		}
 		index = 0;
 	}
 
@@ -333,7 +349,7 @@ void Batch2D::sprite(float x, float y, float w, float h, int atlasRes, int index
 	}
 
 	void Batch2D::lineWidth(float width) {
-		// TODO
+		DXLine::setWidth(width);
 	}
 #else
 void Batch2D::render(unsigned int gl_primitive) {

@@ -2,12 +2,11 @@
 #include "Window.h"
 #include "Events.h"
 #include "../graphics/ImageData.h"
-#define NOMINMAX
 
 #ifdef USE_DIRECTX
+#define NOMINMAX
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
-#define NOMINMAX
 #include <GLFW/glfw3native.h>
 #include "../directx/window/DXDevice.hpp"
 #include "../directx/ConstantBuffers.hpp"
@@ -177,6 +176,10 @@ int Window::initialize(DisplaySettings& settings){
 	DXDevice::initialize(windowHandle, width, height);
 	CBuffers::initialize();
 	DXDevice::setSwapInterval(settings.swapInterval);
+
+	auto adapterDesc = DXDevice::getAdapterDesc();
+
+	std::wcout << L"Renderer: " << adapterDesc.Description << std::endl;
 #else
 	glfwMakeContextCurrent(window);
 
@@ -194,6 +197,10 @@ int Window::initialize(DisplaySettings& settings){
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glfwSwapInterval(settings.swapInterval);
+	const GLubyte* vendor = glGetString(GL_VENDOR);
+	const GLubyte* renderer = glGetString(GL_RENDERER);
+	cout << "GL Vendor: " << (char*)vendor << endl;
+	cout << "GL Renderer: " << (char*)renderer << endl;
 
 #endif // USE_DIRECTX
 	Events::initialize();
@@ -281,9 +288,9 @@ void Window::pushScissor(vec4 area) {
 #endif // USE_DIRECTX
 	} else {
 #ifdef USE_DIRECTX
-		DXDevice::setScissorRect(area.x, Window::height-area.w, 
-								std::max(0, int(area.z-area.x)), 
-								std::max(0, int(area.w-area.y)));
+		DXDevice::setScissorRect(area.x, area.y, 
+				  std::max(0, int(area.z-area.x)), 
+				  std::max(0, int(area.w-area.y)));
 #else
 		glScissor(area.x, Window::height-area.w, 
 				  std::max(0, int(area.z-area.x)), 
@@ -308,7 +315,7 @@ void Window::popScissor() {
 #endif // USE_DIRECTX
 	} else {
 #ifdef USE_DIRECTX
-		DXDevice::setScissorRect(area.x, Window::height-area.w, 
+		DXDevice::setScissorRect(area.x, area.y, 
 								std::max(0, int(area.z-area.x)), 
 								std::max(0, int(area.w-area.y)));
 #else

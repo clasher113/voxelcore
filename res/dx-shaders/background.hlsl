@@ -4,9 +4,10 @@ struct VSInput {
 
 struct PSInput {
     float4 coord : SV_POSITION;
+    float3 v_coord : V_COORD;
 };
 
-cbuffer CBuf : register(b0) {
+cbuffer CBuff : register(b0) {
     float4x4 c_view;
     float c_ar;
     float c_zoom;
@@ -14,15 +15,16 @@ cbuffer CBuf : register(b0) {
 
 PSInput VShader(VSInput input) {
     PSInput output;
-    output.coord = mul(c_view, float4(input.position * float2(c_ar, 1.0f) * c_zoom, -1.0, 1.0));
+    output.v_coord = mul(c_view, float4(input.position * float2(c_ar, 1.f) * c_zoom, -1.f, 1.f)).xyz;
+    output.coord = float4(input.position, 0.f, 1.f);
     return output;
 }
 
-TextureCube my_texture;
-samplerCUBE my_sampler;
+TextureCube my_texture : register(t0);
+SamplerState my_samplerLinear : register(s1);
+
 
 float4 PShader(PSInput input) : SV_TARGET {
-    float3 dir = normalize(input.coord);
-    return float4(1.f, 1.f, 1.f, 1.f); 
-    //my_texture.Sample(my_sampler, dir);
+    float3 dir = normalize(input.v_coord);
+    return my_texture.Sample(my_samplerLinear, dir);
 };

@@ -16,7 +16,6 @@ struct CB_Main {
 	float fogFactor;
 	DirectX::XMFLOAT3 fogColor;
 	float fogCurve;
-	int cubemap;
 };
 
 struct CB_Lines {
@@ -40,11 +39,11 @@ struct CB_Background {
 
 struct CB_Skybox {
 	DirectX::XMFLOAT3 xAxis;
-	int quality;
-	DirectX::XMFLOAT3 yAxis;
 	float mie;
-	DirectX::XMFLOAT3 uAxis;
+	DirectX::XMFLOAT3 yAxis;
 	float fog;
+	DirectX::XMFLOAT3 zAxis;
+	int quality;
 	DirectX::XMFLOAT3 lightDir;
 };
 

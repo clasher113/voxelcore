@@ -1,10 +1,11 @@
 #ifdef USE_DIRECTX
 #include "DXDevice.hpp"
+#include "../graphics/DXLine.hpp"
 #include "../util/DXError.hpp"
 #include "../util/AdapterReader.hpp"
+#include "../../util/stringutil.h"
 
 #include <DirectXColors.h>
-#include <iostream>
 
 UINT DXDevice::s_m_swapInterval = 1;
 HWND DXDevice::s_m_windowHandle = 0;
@@ -31,6 +32,7 @@ bool DXDevice::initialize(HWND window, UINT windowWidth, UINT windowHeight) {
     createSwapChain();
     createResources();
     resizeViewPort(0.f, 0.f, windowWidth, windowHeight);
+    DXLine::init();
 
     return true;
 }
@@ -71,7 +73,7 @@ void DXDevice::createDevice() {
     Microsoft::WRL::ComPtr<ID3D11Device> device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
 
-    DXError::checkError(D3D11CreateDevice (
+    CHECK_ERROR2(D3D11CreateDevice (
         performanceAdapter->pAdapter,
         driverType,
         nullptr,
@@ -104,8 +106,8 @@ void DXDevice::createDevice() {
     }
 #endif
 
-    DXError::checkError(device.As(&s_m_device));
-    DXError::checkError(context.As(&s_m_context));
+    CHECK_ERROR1(device.As(&s_m_device));
+    CHECK_ERROR1(context.As(&s_m_context));
 
 }
 
@@ -116,18 +118,13 @@ void DXDevice::createSwapChain() {
     constexpr UINT backBufferCount = 2;
 
     Microsoft::WRL::ComPtr<IDXGIDevice1> dxgiDevice;
-    DXError::checkError(s_m_device.As(&dxgiDevice));
+    CHECK_ERROR1(s_m_device.As(&dxgiDevice));
 
     Microsoft::WRL::ComPtr<IDXGIAdapter> dxgiAdapter;
-    DXError::checkError(dxgiDevice->GetAdapter(dxgiAdapter.GetAddressOf()));
-
-    DXGI_ADAPTER_DESC adapterDesc{};
-    dxgiAdapter->GetDesc(&adapterDesc);
+    CHECK_ERROR1(dxgiDevice->GetAdapter(dxgiAdapter.GetAddressOf()));
     
-    std::wcout << L"Renderer: " << adapterDesc.Description << std::endl; 
-
     Microsoft::WRL::ComPtr<IDXGIFactory2> dxgiFactory;
-    DXError::checkError(dxgiAdapter->GetParent(IID_PPV_ARGS(dxgiFactory.GetAddressOf())));
+    CHECK_ERROR1(dxgiAdapter->GetParent(IID_PPV_ARGS(dxgiFactory.GetAddressOf())));
 
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
     swapChainDesc.Width = backBufferWidth;
@@ -141,16 +138,16 @@ void DXDevice::createSwapChain() {
     DXGI_SWAP_CHAIN_FULLSCREEN_DESC fsSwapChainDesc = {};
     fsSwapChainDesc.Windowed = TRUE;
 
-    DXError::checkError(dxgiFactory->CreateSwapChainForHwnd(
+    CHECK_ERROR1(dxgiFactory->CreateSwapChainForHwnd(
         s_m_device.Get(),
         s_m_windowHandle,
         &swapChainDesc,
         &fsSwapChainDesc,
         nullptr,
-        s_m_swapChain.ReleaseAndGetAddressOf()
+        s_m_swapChain.GetAddressOf()
     ));
 
-    DXError::checkError(dxgiFactory->MakeWindowAssociation(s_m_windowHandle, DXGI_MWA_NO_ALT_ENTER));
+    CHECK_ERROR1(dxgiFactory->MakeWindowAssociation(s_m_windowHandle, DXGI_MWA_NO_ALT_ENTER));
 }
 
 void DXDevice::createResources() {
@@ -160,15 +157,15 @@ void DXDevice::createResources() {
 
     // create render target view
     Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
-    DXError::checkError(s_m_swapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.GetAddressOf())));
-    DXError::checkError(s_m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, s_m_renderTargetView.ReleaseAndGetAddressOf()));
+    CHECK_ERROR1(s_m_swapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.GetAddressOf())));
+    CHECK_ERROR1(s_m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, s_m_renderTargetView.GetAddressOf()));
 
     CD3D11_TEXTURE2D_DESC depthTexDesc(depthBufferFormat, backBufferWidth, backBufferHeight, 1, 1, D3D11_BIND_DEPTH_STENCIL);
 
     Microsoft::WRL::ComPtr<ID3D11Texture2D> depthStencil;
-    DXError::checkError(s_m_device->CreateTexture2D(&depthTexDesc, nullptr, depthStencil.GetAddressOf()));
+    CHECK_ERROR1(s_m_device->CreateTexture2D(&depthTexDesc, nullptr, depthStencil.GetAddressOf()));
 
-    DXError::checkError(s_m_device->CreateDepthStencilView(depthStencil.Get(), nullptr, s_m_depthStencilView.ReleaseAndGetAddressOf()),
+    CHECK_ERROR2(s_m_device->CreateDepthStencilView(depthStencil.Get(), nullptr, s_m_depthStencilView.GetAddressOf()),
         L"Failed to create depth stencil view");
 
     // create depth stencil state
@@ -179,8 +176,8 @@ void DXDevice::createResources() {
     depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK::D3D11_DEPTH_WRITE_MASK_ALL;
     depthStencilDesc.DepthFunc = D3D11_COMPARISON_FUNC::D3D11_COMPARISON_LESS_EQUAL;
 
-    DXError::checkError(s_m_device->CreateDepthStencilState(&depthStencilDesc, s_m_depthStencilState.GetAddressOf()),
-        L"Failed to create depth stencil state");
+    CHECK_ERROR3(s_m_device->CreateDepthStencilState(&depthStencilDesc, s_m_depthStencilState.GetAddressOf()),
+        L"Failed to create depth stencil state", false);
 
     s_m_context->OMSetRenderTargets(1, s_m_renderTargetView.GetAddressOf(), s_m_depthStencilView.Get());
     s_m_context->OMSetDepthStencilState(s_m_depthStencilState.Get(), 0);
@@ -204,8 +201,8 @@ void DXDevice::createResources() {
 
     blendStateDesc.RenderTarget[0] = rtbd;
 
-    DXError::checkError(s_m_device->CreateBlendState1(&blendStateDesc, s_m_blendState.GetAddressOf()),
-        L"Failed to create blend state");
+    CHECK_ERROR3(s_m_device->CreateBlendState1(&blendStateDesc, s_m_blendState.GetAddressOf()),
+        L"Failed to create blend state", false);
 
     float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     UINT sampleMask = 0xffffffff;
@@ -218,7 +215,7 @@ void DXDevice::createResources() {
     rasterizerDesc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
     rasterizerDesc.CullMode = D3D11_CULL_MODE::D3D11_CULL_FRONT;
 
-    DXError::checkError(s_m_device->CreateRasterizerState(&rasterizerDesc, s_m_rasterizerState.GetAddressOf()));
+    CHECK_ERROR1(s_m_device->CreateRasterizerState(&rasterizerDesc, s_m_rasterizerState.GetAddressOf()));
 
     s_m_context->RSSetState(s_m_rasterizerState.Get());
 
@@ -229,13 +226,20 @@ void DXDevice::createResources() {
     samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
     samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
     samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    samplerDesc.MinLOD = 0;
+    samplerDesc.MipLODBias = 0.f;
+    samplerDesc.MinLOD = 0.f;
     samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
     ID3D11SamplerState* samplerState;
     s_m_device->CreateSamplerState(&samplerDesc, &samplerState);
 
     s_m_context->PSSetSamplers(0, 1, &samplerState);
+
+    samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+
+    s_m_device->CreateSamplerState(&samplerDesc, &samplerState);
+
+    s_m_context->PSSetSamplers(1, 1, &samplerState);
 }
 
 void DXDevice::onDeviceLost() {
@@ -252,26 +256,9 @@ void DXDevice::clearContext() {
     s_m_context->OMSetRenderTargets(0, nullptr, nullptr);
     s_m_renderTargetView.Reset();
     s_m_depthStencilView.Reset();
+    s_m_rasterizerState.Reset();
+    s_m_blendState.Reset();
     s_m_context->Flush();
-}
-
-void DXDevice::onFullScreenToggle(bool isFullScreen, UINT windowWidth, UINT windowHeight) {
-    if (isFullScreen) {
-        SetWindowLongPtr(s_m_windowHandle, GWL_STYLE, WS_OVERLAPPEDWINDOW);
-        SetWindowLongPtr(s_m_windowHandle, GWL_EXSTYLE, 0);
-
-        ShowWindow(s_m_windowHandle, SW_SHOWNORMAL);
-
-        SetWindowPos(s_m_windowHandle, HWND_TOP, 0, 0, windowWidth, windowHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
-    }
-    else {
-        SetWindowLongPtr(s_m_windowHandle, GWL_STYLE, WS_POPUP);
-        SetWindowLongPtr(s_m_windowHandle, GWL_EXSTYLE, WS_EX_TOPMOST);
-
-        SetWindowPos(s_m_windowHandle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-
-        ShowWindow(s_m_windowHandle, SW_SHOWMAXIMIZED);
-    }
 }
 
 void DXDevice::onWindowResize(UINT windowWidth, UINT windowHeight) {
@@ -287,7 +274,7 @@ void DXDevice::onWindowResize(UINT windowWidth, UINT windowHeight) {
         return;
     }
     else {
-        DXError::checkError(hr);
+        CHECK_ERROR1(hr);
     }
 
     createResources();
@@ -296,16 +283,12 @@ void DXDevice::onWindowResize(UINT windowWidth, UINT windowHeight) {
 }
 
 void DXDevice::resizeViewPort(FLOAT x, FLOAT y, FLOAT width, FLOAT height, FLOAT depthNear, FLOAT depthFar) {
-    D3D11_VIEWPORT viewport = { x, y, width, height, depthNear, depthFar };
+    D3D11_VIEWPORT viewport{ x, y, width, height, depthNear, depthFar };
     s_m_context->RSSetViewports(1, &viewport);
 }
 
 void DXDevice::setScissorRect(LONG x, LONG y, LONG width, LONG height) {
-    D3D11_RECT rect;
-    rect.left = x;
-    rect.top = y;
-    rect.right = x + width;
-    rect.bottom = y + height;
+    D3D11_RECT rect{ x, y, x + width, y + height };
     s_m_context->RSSetScissorRects(1, &rect);
 }
 
@@ -325,7 +308,7 @@ void DXDevice::display() {
         onDeviceLost();
     }
     else {
-        DXError::checkError(hr);
+        CHECK_ERROR1(hr);
     }
 }
 
@@ -336,23 +319,39 @@ void DXDevice::setDepthTest(bool enabled) {
 void DXDevice::setCullFace(BOOL enabled) {
     D3D11_RASTERIZER_DESC rasterizerDesc{};
     s_m_rasterizerState->GetDesc(&rasterizerDesc);
-    rasterizerDesc.CullMode = (enabled ? D3D11_CULL_MODE::D3D11_CULL_FRONT : D3D11_CULL_MODE::D3D11_CULL_BACK);
+    rasterizerDesc.CullMode = (enabled ? D3D11_CULL_MODE::D3D11_CULL_FRONT : D3D11_CULL_MODE::D3D11_CULL_NONE);
     s_m_rasterizerState->Release();
-    DXError::checkError(s_m_device->CreateRasterizerState(&rasterizerDesc, s_m_rasterizerState.GetAddressOf()));
+    CHECK_ERROR1(s_m_device->CreateRasterizerState(&rasterizerDesc, s_m_rasterizerState.GetAddressOf()));
     s_m_context->RSSetState(s_m_rasterizerState.Get());
 }
 
 void DXDevice::setScissorTest(BOOL enabled) {
-    //D3D11_RASTERIZER_DESC rasterizerDesc{};
-    //s_m_rasterizerState->GetDesc(&rasterizerDesc);
-    //rasterizerDesc.ScissorEnable = enabled;
-    //s_m_rasterizerState->Release();
-    //DXError::checkError(s_m_device->CreateRasterizerState(&rasterizerDesc, s_m_rasterizerState.GetAddressOf()));
-    //s_m_context->RSSetState(s_m_rasterizerState.Get());
+    D3D11_RASTERIZER_DESC rasterizerDesc{};
+    s_m_rasterizerState->GetDesc(&rasterizerDesc);
+    rasterizerDesc.ScissorEnable = enabled;
+    s_m_rasterizerState->Release();
+    CHECK_ERROR1(s_m_device->CreateRasterizerState(&rasterizerDesc, s_m_rasterizerState.GetAddressOf()));
+    s_m_context->RSSetState(s_m_rasterizerState.Get());
 }
 
 void DXDevice::setSwapInterval(UINT interval) {
     s_m_swapInterval = interval;
+}
+
+void DXDevice::rebindRenderTarget() {
+    s_m_context->OMSetRenderTargets(1, s_m_renderTargetView.GetAddressOf(), s_m_depthStencilView.Get());
+}
+
+DXGI_ADAPTER_DESC DXDevice::getAdapterDesc() {
+    Microsoft::WRL::ComPtr<IDXGIDevice1> dxgiDevice;
+    CHECK_ERROR1(s_m_device.As(&dxgiDevice));
+
+    Microsoft::WRL::ComPtr<IDXGIAdapter> dxgiAdapter;
+    CHECK_ERROR1(dxgiDevice->GetAdapter(dxgiAdapter.GetAddressOf()));
+
+    DXGI_ADAPTER_DESC adapterDesc{};
+    dxgiAdapter->GetDesc(&adapterDesc);
+    return adapterDesc;
 }
 
 #endif // USE_DIRECTX

@@ -24,7 +24,6 @@ cbuffer CBuff : register(b0) {
 	float c_fogFactor;
 	float3 c_fogColor;
 	float c_fogCurve;
-	//samplerCUBE c_cubemap;
 }
 
 float4 decompress_light(float compressed_light) {
@@ -37,8 +36,10 @@ float4 decompress_light(float compressed_light) {
 	return result;
 }
 
-Texture2D my_texture : register(t0);;
-SamplerState my_sampler : register(s0);;
+Texture2D my_texture : register(t0);
+TextureCube my_textureCube : register(t1);
+SamplerState my_sampler : register(s0);
+SamplerState my_samplerLinear : register(s1);
 
 #define SKY_LIGHT_MUL 2.5
 
@@ -52,26 +53,26 @@ PSInput VShader(VSInput input) {
 	float torchlight = max(0.f, 1.f - distance(c_cameraPos, modelpos.xyz) / c_torchLightDistance);
 	output.dir = modelpos.xyz - c_cameraPos;
 	light += torchlight * c_torchLightColor;
-    output.color = float4(pow(light, float3(c_gamma, c_gamma, c_gamma)), 1.f);
-	output.texCoord = input.texCoord;
+    output.color = float4(pow(abs(light), float3(c_gamma, c_gamma, c_gamma)), 1.f);
+    output.texCoord = input.texCoord;
 	
-	float3 skyLightColor = 1.f; //my_texture.Sample(my_sampler, float3(-0.4f, 0.05f, -0.4f)).rgb;
+    float3 skyLightColor = my_textureCube.SampleLevel(my_sampler, float3(-0.4f, 0.05f, -0.4f), 0).rgb;
 	skyLightColor.g *= 0.9;
 	skyLightColor.b *= 0.8;
     skyLightColor = min(float3(1.f, 1.f, 1.f), skyLightColor * SKY_LIGHT_MUL);
 	
 	output.color.rgb = max(output.color.rgb, skyLightColor.rgb * decomp_light.a);
-	output.distance = length(viewmodelpos);
+    output.distance = length(viewmodelpos);
     output.position = mul(viewmodelpos, c_projection);
 	return output;
 }
 
 float4 PShader(PSInput input) : SV_TARGET {
-	float3 fogColor = 1.f; //my_texture.Sample(my_sampler, input.dir);
+    float3 fogColor = my_textureCube.SampleLevel(my_samplerLinear, input.dir, 0).rgb;
 	float4 tex_color = my_texture.Sample(my_sampler, input.texCoord);
 	float depth = (input.distance / 256.f);
 	float alpha = input.color.a * tex_color.a;
 	if (alpha < 0.1f)
 		discard;
-    return input.color * tex_color; //float4(lerp(input.color * tex_color, float4(fogColor, 1.f), min(1.f, pow(depth * c_fogFactor, c_fogCurve))).rgb, alpha);
+    return float4(lerp(input.color * tex_color, float4(fogColor, 1.0), min(1.0, pow(abs(depth * c_fogFactor), c_fogCurve))).rgb, alpha);
 }

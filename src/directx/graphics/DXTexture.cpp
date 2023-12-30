@@ -6,37 +6,62 @@
 
 #include <stdexcept>
 
+constexpr UINT MAX_MIP_LEVEL = 3u;
+
+static UINT GetNumMipLevels(UINT width, UINT height) {
+    UINT numLevels = 1;
+    while (width > 32 && height > 32) {
+        if (++numLevels >= MAX_MIP_LEVEL) return MAX_MIP_LEVEL;
+        width = max(width / 2, 1);
+        height = max(height / 2, 1);
+    }
+    return numLevels;
+}
+
 Texture::Texture(ID3D11Texture2D* texture, const D3D11_TEXTURE2D_DESC& description) :
     m_p_texture(texture),
     m_description(description)
 {
     auto device = DXDevice::getDevice();
-    DXError::checkError(device->CreateShaderResourceView(m_p_texture, nullptr, &m_p_resourceView),
+    CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, nullptr, &m_p_resourceView),
         L"Failed to create shader resource view");
+
+    auto context = DXDevice::getContext();
+    context->GenerateMips(m_p_resourceView);
 }
 
 Texture::Texture(ubyte* data, UINT width, UINT height, DXGI_FORMAT format) {
+    ZeroMemory(&m_description, sizeof(D3D11_TEXTURE2D_DESC));
     m_description.Width = width;
     m_description.Height = height;
-    m_description.MipLevels = 1;
+    m_description.MipLevels = 0;
     m_description.ArraySize = 1;
     m_description.Format = format;
     m_description.SampleDesc.Count = 1;
+    m_description.SampleDesc.Quality = 0;
+    m_description.CPUAccessFlags = 0;
     m_description.Usage = D3D11_USAGE_DEFAULT;
     m_description.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
     m_description.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
-    D3D11_SUBRESOURCE_DATA sub{};
-    sub.pSysMem = data,
-    sub.SysMemPitch = width * (format == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 3);
-
     auto device = DXDevice::getDevice();
-    DXError::checkError(device->CreateTexture2D(&m_description, &sub, &m_p_texture),
+    CHECK_ERROR2(device->CreateTexture2D(&m_description, nullptr, &m_p_texture),
         L"Failed to create texture");
-    DXError::checkError(device->CreateShaderResourceView(m_p_texture, nullptr, &m_p_resourceView),
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+    ZeroMemory(&srvDesc, sizeof(D3D11_SHADER_RESOURCE_VIEW_DESC));
+    srvDesc.Format = m_description.Format;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = GetNumMipLevels(width, height);
+
+    CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, &srvDesc, &m_p_resourceView),
         L"Failed to create shader resource view");
 
     auto context = DXDevice::getContext();
+
+    reload(data);
+
     context->GenerateMips(m_p_resourceView);
 }
 
@@ -51,7 +76,8 @@ void Texture::bind() const {
 }
 
 void Texture::reload(ubyte* data) {
-    // TODO
+    auto context = DXDevice::getContext();
+    context->UpdateSubresource(m_p_texture, 0u, nullptr, data, m_description.Width * (m_description.Format == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 3), 0u);
 }
 
 Texture* Texture::from(const ImageData* image) {

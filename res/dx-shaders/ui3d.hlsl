@@ -10,7 +10,7 @@ struct PSInput {
     float4 color : COLOR;
 };
 
-cbuffer CBuf : register(b0) {
+cbuffer CBuff : register(b0) {
     float4x4 c_projview;
     float4x4 c_apply;
 }
@@ -28,5 +28,4 @@ SamplerState my_sampler;
 
 float4 PShader(PSInput input) : SV_TARGET {
     return input.color * my_texture.Sample(my_sampler, input.texCoord);
-
 }

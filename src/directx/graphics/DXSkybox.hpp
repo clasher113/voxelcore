@@ -5,14 +5,11 @@
 
 class Mesh;
 class Shader;
+struct ID3D11Texture2D;
+struct ID3D11RenderTargetView;
+struct ID3D11ShaderResourceView;
 
 class Skybox {
-    uint fbo;
-    uint cubemap;
-    uint size;
-    Mesh* mesh;
-    Shader* shader;
-    bool ready = false;
 public:
     Skybox(uint size, Shader* shader);
     ~Skybox();
@@ -25,6 +22,15 @@ public:
     bool isReady() const {
         return ready;
     }
+private:
+    uint m_size;
+    bool ready = false;
+
+    ID3D11Texture2D* m_p_texture;
+    ID3D11RenderTargetView* m_p_renderTargets[6];
+    ID3D11ShaderResourceView* m_p_resourceView;
+    Shader* m_p_shader;
+    Mesh* m_p_mesh;
 };
 
 #endif // !DX_SKYBOX_HPP

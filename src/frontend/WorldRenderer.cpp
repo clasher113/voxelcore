@@ -63,16 +63,12 @@ WorldRenderer::WorldRenderer(Engine* engine,
 		}
 	);
 	auto assets = engine->getAssets();
-#ifndef USE_DIRECTX
 	skybox = new Skybox(settings.graphics.skyboxResolution, 
 						assets->getShader("skybox_gen"));
-#endif // !USE_DIRECTX
 }
 
 WorldRenderer::~WorldRenderer() {
-#ifndef USE_DIRECTX
 	delete skybox;
-#endif // !USE_DIRECTX
 	delete lineBatch;
 	delete renderer;
 	delete frustumCulling;
@@ -152,10 +148,8 @@ void WorldRenderer::drawChunks(Chunks* chunks,
 
 void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 	EngineSettings& settings = engine->getSettings();
-#ifndef USE_DIRECTX
 	skybox->refresh(level->world->daytime, 
 					fmax(1.0f, 10.0f/(settings.chunks.loadDistance-2))+fog*2.0f, 4);
-#endif // !USE_DIRECTX
 
 	const Content* content = level->content;
 	const ContentIndices* contentIds = content->indices;
@@ -179,12 +173,13 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 	cbBackground->data.ar = float(displayWidth) / float(displayHeight);
 	cbBackground->applyChanges();
 	cbBackground->bind();
+	DXDevice::setDepthTest(false);
 #else
 	backShader->uniformMatrix("u_view", camera->getView(false));
 	backShader->uniform1f("u_zoom", camera->zoom * camera->getFov() / (3.141592 * 0.5f));
 	backShader->uniform1f("u_ar", float(displayWidth) / float(displayHeight));
-	skybox->draw(backShader);
 #endif // USE_DIRECTX
+	skybox->draw(backShader);
 
 	{
 		GfxContext ctx = pctx.sub();
@@ -203,7 +198,6 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 		cbMain->data.fogFactor = fogFactor;
 		cbMain->data.fogCurve = settings.graphics.fogCurve;
 		cbMain->data.cameraPos = glm2dxm(camera->position);
-		cbMain->data.cubemap = 1;
 #else
 		shader->uniformMatrix("u_proj", camera->getProjection());
 		shader->uniformMatrix("u_view", camera->getView());
@@ -234,9 +228,7 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 		}
 
 		// Binding main shader textures
-#ifndef USE_DIRECTX
 		skybox->bind();
-#endif // !USE_DIRECTX
 		atlas->getTexture()->bind();
 
 		drawChunks(level->chunks, camera, shader);
@@ -272,9 +264,7 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 				lineBatch->line(point, point+norm*0.5f, vec4(1.0f, 0.0f, 1.0f, 1.0f));
 			lineBatch->render();
 		}
-#ifndef USE_DIRECTX
 		skybox->unbind();
-#endif // !USE_DIRECTX
 	}
 
 	if (level->player->debug) {

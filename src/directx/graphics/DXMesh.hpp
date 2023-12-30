@@ -19,7 +19,7 @@ public:
 	~Mesh();
 
 	void reload(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer = nullptr, size_t indices = 0);
-	void draw(D3D_PRIMITIVE_TOPOLOGY primitive = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	void draw(D3D_PRIMITIVE_TOPOLOGY primitive = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 private:
 	size_t m_vertices;

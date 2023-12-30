@@ -6,11 +6,11 @@ struct VSInput {
 
 struct PSInput {
     float4 position : SV_POSITION;
-    float2 texCoord : TEXCOORD;
     float4 color : COLOR;
+    float2 texCoord : TEXCOORD;
 };
 
-cbuffer CBuf : register(b0) {
+cbuffer CBuff : register(b0) {
     float4x4 c_projview;
 };
 
