@@ -335,7 +335,7 @@ void Batch2D::sprite(float x, float y, float w, float h, int atlasRes, int index
 		if (index == 0)
 			return;
 		mesh->reload(buffer, index / B2D_VERTEX_SIZE);
-		if (primitive == D3D11_PRIMITIVE_TOPOLOGY_LINELIST) {
+		if (false/*primitive == D3D11_PRIMITIVE_TOPOLOGY_LINELIST*/) {
 			DXLine::draw(mesh);
 		}
 		else {

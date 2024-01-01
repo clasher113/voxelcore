@@ -112,7 +112,7 @@ void Engine::mainloop() {
 
 		gui->act(delta);
 		screen->update(delta);
-		Window::clear();
+
 		screen->draw(delta);
 		gui->draw(&batch, assets);
 

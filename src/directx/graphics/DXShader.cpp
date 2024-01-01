@@ -6,6 +6,8 @@
 #include "../../util/stringutil.h"
 
 #include <d3dcompiler.h>
+#include <glm\glm.hpp>
+#include <glm\gtc\type_ptr.hpp>
 
 Shader::Shader(ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout) :
 	m_p_vertexShader(vertexShader),
@@ -64,37 +66,39 @@ Shader* Shader::loadShader(const std::wstring_view& shaderFile) {
 	CHECK_ERROR2(device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &pPS),
 		L"Failed to create pixel shader:\n" + std::wstring(shaderFile));
 
-	auto context = DXDevice::getContext();
+	InputLayoutBuilder::build(VS);
 
-	static int index = 0;
-	switch (index) {
-	case 0: InputLayoutBuilder::add("POSITION", 3);
-			InputLayoutBuilder::add("TEXCOORD", 2);
-			InputLayoutBuilder::add("LIGHT", 1);
-			break; // main
-	case 1:	InputLayoutBuilder::add("POSITION", 3);
-			InputLayoutBuilder::add("COLOR", 4);
-			break; // lines
-	case 2: InputLayoutBuilder::add("POSITION", 2);
-			InputLayoutBuilder::add("UV", 2);
-			InputLayoutBuilder::add("COLOR", 4);
-			break; // ui
-	case 3:	InputLayoutBuilder::add("POSITION", 3);
-			InputLayoutBuilder::add("TEXCOORD", 2);
-			InputLayoutBuilder::add("COLOR", 4);
-			break; // ui3d
-	case 4: InputLayoutBuilder::add("POSITION", 2);
-			break; // skybox background
-	case 5: InputLayoutBuilder::add("POSITION", 2);
-			break; // skybox generator
+	ID3D11ShaderReflection* pReflector = NULL;
+	D3DReflect(VS->GetBufferPointer(), VS->GetBufferSize(),
+		IID_ID3D11ShaderReflection, (void**)&pReflector);
+	D3D11_SHADER_DESC shaderDesc;
+	CHECK_ERROR1(pReflector->GetDesc(&shaderDesc));
+
+	CBuff buffer;
+
+	for (UINT i = 0; i < shaderDesc.ConstantBuffers; i++) {
+		ID3D11ShaderReflectionConstantBuffer* cBuff = pReflector->GetConstantBufferByIndex(i);
+		D3D11_SHADER_BUFFER_DESC cBuffDesc;
+		cBuff->GetDesc(&cBuffDesc);
+		buffer.data = new unsigned char[cBuffDesc.Size];
+		for (UINT j = 0; j < cBuffDesc.Variables; j++) {
+			ID3D11ShaderReflectionVariable* var = cBuff->GetVariableByIndex(j);
+			D3D11_SHADER_VARIABLE_DESC varDesc{};
+			var->GetDesc(&varDesc);
+
+			CBuffVar cBuffVar;
+			cBuffVar.size = varDesc.Size;
+			cBuffVar.startOffset = varDesc.StartOffset;
+
+			buffer.vars.emplace(varDesc.Name, cBuffVar);
+		}
 	}
 
 	ID3D11InputLayout* pLayout;
-	CHECK_ERROR2(device->CreateInputLayout(InputLayoutBuilder::get(), InputLayoutBuilder::getSize(), VS->GetBufferPointer(), VS->GetBufferSize(), &pLayout),
+	CHECK_ERROR2(device->CreateInputLayout(InputLayoutBuilder::getData(), InputLayoutBuilder::getSize(), VS->GetBufferPointer(), VS->GetBufferSize(), &pLayout),
 		L"Failed to create input layoyt for shader:\n" + std::wstring(shaderFile));
 
 	InputLayoutBuilder::clear();
-	index++;
 
 	VS->Release();
 	PS->Release();

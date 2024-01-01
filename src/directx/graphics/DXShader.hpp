@@ -2,10 +2,21 @@
 #define DX_SHADER_HPP
 
 #include <string_view>
+#include <unordered_map>
 
 struct ID3D11VertexShader;
 struct ID3D11PixelShader;
 struct ID3D11InputLayout;
+
+struct CBuffVar {
+	unsigned int startOffset;
+	unsigned int size;
+};
+
+struct CBuff {
+	unsigned char* data;
+	std::unordered_map<const char*, CBuffVar> vars;
+};
 
 class Shader {
 public:

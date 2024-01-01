@@ -98,8 +98,8 @@ void GShader(line PSInput input[2], inout TriangleStream<PSInput> triangleStream
     fAngle -= PI * 0.5f;
 
     //first half circle of the line
-    addHalfCircle(triangleStream, nCountTriangles, positionPoint0Transformed, fPoint0w, fAngle, color0);
-    addHalfCircle(triangleStream, nCountTriangles, positionPoint1Transformed, fPoint1w, fAngle + PI, color1);
+    //addHalfCircle(triangleStream, nCountTriangles, positionPoint0Transformed, fPoint0w, fAngle, color0);
+    //addHalfCircle(triangleStream, nCountTriangles, positionPoint1Transformed, fPoint1w, fAngle + PI, color1);
 
     //connection between the two circles
     //triangle1

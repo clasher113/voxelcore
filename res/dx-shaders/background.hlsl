@@ -1,5 +1,5 @@
 struct VSInput {
-    float2 position : POSITION;
+    float2 position : POSITION0;
 };
 
 struct PSInput {
