@@ -13,8 +13,7 @@
 
 #ifdef USE_DIRECTX
 #include "../../directx/graphics/DXShader.hpp"
-#include "../../directx/ConstantBuffers.hpp"
-#else
+#elif USE_OPENGL
 #include "../../graphics/Shader.h"
 #endif // USE_DIRECTX
 
@@ -130,14 +129,9 @@ void GUI::draw(Batch2D* batch, Assets* assets) {
     uicamera->setFov(Window::height);
 
 	Shader* uishader = assets->getShader("ui");
-	uishader->use();
-#ifdef USE_DIRECTX
-    cbUI->data.projView = transpose(uicamera->getProjView());
-    cbUI->applyChanges();
-    cbUI->bind();
-#else
+
 	uishader->uniformMatrix("u_projview", uicamera->getProjection()*uicamera->getView());
-#endif // USE_DIRECTX
+	uishader->use();
 
     batch->begin();
     container->draw(batch, assets);

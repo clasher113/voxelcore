@@ -41,8 +41,7 @@
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXShader.hpp"
 #include "../directx/graphics/DXMesh.hpp"
-#include "../directx/ConstantBuffers.hpp"
-#else
+#elif USE_OPENGL
 #include "../graphics/Shader.h"
 #include "../graphics/Mesh.h"
 #include <GLFW/glfw3.h>
@@ -273,9 +272,6 @@ void HudRenderer::drawContentAccess(const GfxContext& ctx, Player* player) {
 		}
 	}
 	uiShader->use();
-#ifdef USE_DIRECTX
-	cbUI->bind();
-#endif // USE_DIRECTX
 }
 
 void HudRenderer::update() {
@@ -317,14 +313,9 @@ void HudRenderer::draw(const GfxContext& ctx){
 	uicamera->setFov(height);
 
 	Shader* uishader = assets->getShader("ui");
-	uishader->use();
-#ifdef USE_DIRECTX
-	cbUI->data.projView = transpose(uicamera->getProjView());
-	cbUI->applyChanges();
-	cbUI->bind();
-#else
+
 	uishader->uniformMatrix("u_projview", uicamera->getProjection()*uicamera->getView());
-#endif // USE_DIRECTX
+	uishader->use();
 
 	batch->begin();
 
@@ -358,9 +349,7 @@ void HudRenderer::draw(const GfxContext& ctx){
 		//drawBlockPreview(cblock, width - 56, uicamera->fov - 56, 48, 48, vec4(1.0f));
 	}
 	uishader->use();
-#ifdef USE_DIRECTX
-	cbUI->bind();
-#endif // USE_DIRECTX
+
 	batch->begin();
 
 	if (pause) {

@@ -26,14 +26,11 @@
 #include "ContentGfxCache.h"
 
 #ifdef USE_DIRECTX
-#define NOMINMAX
 #include "../directx/graphics/DXMesh.hpp"
 #include "../directx/graphics/DXShader.hpp"
 #include "../directx/graphics/DXTexture.hpp"
 #include "../directx/graphics/DXSkybox.hpp"
-#include "../directx/ConstantBuffers.hpp"
-#include "../directx/math/DXMathHelper.hpp"
-#else
+#elif USE_OPENGL
 #include "../graphics/Mesh.h"
 #include "../graphics/Shader.h"
 #include "../graphics/Texture.h"
@@ -99,12 +96,11 @@ bool WorldRenderer::drawChunk(size_t index,
 	vec3 coord = vec3(chunk->x*CHUNK_W, 0.0f, chunk->z*CHUNK_D+1);
 	mat4 model = glm::translate(mat4(1.0f), coord);
 
-#ifdef USE_DIRECTX
-	cbMain->data.model = glm2dxm(glm::transpose(model));
-	cbMain->applyChanges();
-#else
 	shader->uniformMatrix("u_model", model);
+#ifdef USE_DIRECTX
+	shader->applyChanges();
 #endif // USE_DIRECTX
+
 	mesh->draw();
 	return true;
 }
@@ -133,11 +129,7 @@ void WorldRenderer::drawChunks(Chunks* chunks,
 
 	bool culling = engine->getSettings().graphics.frustumCulling;
 	if (culling) {
-#ifdef USE_DIRECTX
-		frustumCulling->update(dxm2glm(camera->getProjView()));
-#else
 		frustumCulling->update(camera->getProjView());
-#endif // USE_DIRECTX
 	}
 	chunks->visible = 0;
 	for (size_t i = 0; i < indices.size(); i++){
@@ -166,19 +158,12 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 
 	// Drawing background sky plane
 	Shader* backShader = assets->getShader("background");
+
 	backShader->use();
-#ifdef USE_DIRECTX
-	cbBackground->data.view = transpose(camera->getView(false));
-	cbBackground->data.zoom = camera->zoom * camera->getFov() / (3.141592 * 0.5f);
-	cbBackground->data.ar = float(displayWidth) / float(displayHeight);
-	cbBackground->applyChanges();
-	cbBackground->bind();
-	DXDevice::setDepthTest(false);
-#else
 	backShader->uniformMatrix("u_view", camera->getView(false));
 	backShader->uniform1f("u_zoom", camera->zoom * camera->getFov() / (3.141592 * 0.5f));
 	backShader->uniform1f("u_ar", float(displayWidth) / float(displayHeight));
-#endif // USE_DIRECTX
+
 	skybox->draw(backShader);
 
 	{
@@ -190,41 +175,25 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 
 		// Setting up main shader
 		shader->use();
-#ifdef USE_DIRECTX
-		cbMain->bind();
-		cbMain->data.projection = transpose(camera->getProjection());
-		cbMain->data.view = transpose(camera->getView());
-		cbMain->data.gamma = 1.0f;
-		cbMain->data.fogFactor = fogFactor;
-		cbMain->data.fogCurve = settings.graphics.fogCurve;
-		cbMain->data.cameraPos = glm2dxm(camera->position);
-#else
+
 		shader->uniformMatrix("u_proj", camera->getProjection());
 		shader->uniformMatrix("u_view", camera->getView());
 		shader->uniform1f("u_gamma", 1.0f);
 		shader->uniform1f("u_fogFactor", fogFactor);
 		shader->uniform1f("u_fogCurve", settings.graphics.fogCurve);
 		shader->uniform3f("u_cameraPos", camera->position);
-		shader->uniform1i("u_cubemap", 1);
-#endif // USE_DIRECTX
+		//shader->uniform1i("u_cubemap", 1); ???
 		{
 			blockid_t id = level->player->choosenBlock;
 			Block* block = contentIds->getBlockDef(id);
 			assert(block != nullptr);
 			float multiplier = 0.5f;
-#ifdef USE_DIRECTX
-			cbMain->data.torchLightColor = DirectX::XMFLOAT3(
-				block->emission[0] / 15.0f * multiplier,
-				block->emission[1] / 15.0f * multiplier,
-				block->emission[2] / 15.0f * multiplier);
-			cbMain->data.torchLightDistance = 6.f;
-#else
+
 			shader->uniform3f("u_torchlightColor",
 					block->emission[0] / 15.0f * multiplier,
 					block->emission[1] / 15.0f * multiplier,
 					block->emission[2] / 15.0f * multiplier);
 			shader->uniform1f("u_torchlightDistance", 6.0f);
-#endif // USE_DIRECTX
 		}
 
 		// Binding main shader textures
@@ -249,15 +218,10 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 
 			const vec3 center = pos + hitbox.center();
 			const vec3 size = hitbox.size();
-			linesShader->use();
-#ifdef USE_DIRECTX
-			cbLines->data.projView = transpose(camera->getProjView());
-			cbLines->applyChanges();
-			cbLines->bind();
-#else
-			linesShader->uniformMatrix("u_projview", camera->getProjView());
-#endif // USE_DIRECTX
 
+			linesShader->uniformMatrix("u_projview", camera->getProjView());
+			linesShader->use();
+			
 			lineBatch->lineWidth(2.0f);
 			lineBatch->box(center, size + vec3(0.02), vec4(0.f, 0.f, 0.f, 0.5f));
 			if (level->player->debug)
@@ -274,13 +238,12 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 		linesShader->use();
 
 		if (settings.debug.showChunkBorders){
-#ifdef USE_DIRECTX
-			cbLines->data.projView = transpose(camera->getProjView());
-			cbLines->applyChanges();
-			cbLines->bind();
-#else
+
 			linesShader->uniformMatrix("u_projview", camera->getProjView());
+#ifdef USE_DIRECTX
+			linesShader->applyChanges();
 #endif // USE_DIRECTX
+
 			vec3 coord = level->player->camera->position;
 			if (coord.x < 0) coord.x--;
 			if (coord.z < 0) coord.z--;
@@ -298,12 +261,10 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 			0.f, (float)displayWidth,
 			0.f, (float)displayHeight,
 			-length, length)* model* glm::inverse(camera->rotation);
-#ifdef USE_DIRECTX
-		cbLines->data.projView = glm2dxm(glm::transpose(viewModel));
-		cbLines->applyChanges();
-		cbLines->bind();
-#else
+
 		linesShader->uniformMatrix("u_projview", viewModel);
+#ifdef USE_DIRECTX
+		linesShader->applyChanges();
 #endif // USE_DIRECTX
 
 		ctx.depthTest(false);

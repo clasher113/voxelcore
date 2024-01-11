@@ -1,4 +1,4 @@
-#ifndef USE_DIRECTX
+#ifdef USE_OPENGL
 
 #include "Framebuffer.h"
 
@@ -39,4 +39,4 @@ void Framebuffer::unbind() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-#endif // !USE_DIRECTX
+#endif // USE_OPENGL

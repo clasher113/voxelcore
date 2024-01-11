@@ -3,17 +3,16 @@
 
 #include <vector> 
 #include <d3d11_1.h>
+#include <wrl/client.h>
 
-class AdapterData
-{
+class AdapterData {
 public:
-	AdapterData(IDXGIAdapter* pAdapter);
-	IDXGIAdapter* pAdapter = nullptr;
-	DXGI_ADAPTER_DESC description;
+	AdapterData(Microsoft::WRL::ComPtr<IDXGIAdapter> pAdapter);
+	Microsoft::WRL::ComPtr<IDXGIAdapter> m_adapter;
+	DXGI_ADAPTER_DESC m_description;
 };
 
-class AdapterReader
-{
+class AdapterReader {
 public:
 	static std::vector<AdapterData> GetAdapters();
 private:

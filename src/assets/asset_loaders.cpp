@@ -10,7 +10,7 @@
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXShader.hpp"
 #include "../directx/graphics/DXTexture.hpp"
-#else
+#elif USE_OPENGL
 #include "../graphics/Shader.h"
 #include "../graphics/Texture.h"
 #endif // USE_DIRECTX
@@ -40,7 +40,7 @@ bool assetload::shader(Assets* assets,
 	path shaderFile = path(filename.string() + ".hlsl");
 
 	Shader* shader = Shader::loadShader(shaderFile.wstring());
-#else
+#elif USE_OPENGL
 	path vertexFile = path(filename.string() + ".glslv");
 	path fragmentFile = path(filename.string() + ".glslf");
 
@@ -94,7 +94,7 @@ bool assetload::font(Assets* assets,
 	}
 #ifdef USE_DIRECTX
 	Font* font = new Font(pages, pages[0]->getHeight() / 16);
-#else
+#elif USE_OPENGL
 	Font* font = new Font(pages, pages[0]->height / 16);
 #endif // USE_DIRECTX
 	assets->store(font, name);

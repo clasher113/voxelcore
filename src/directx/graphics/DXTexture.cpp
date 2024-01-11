@@ -3,6 +3,7 @@
 #include "../window/DXDevice.hpp"
 #include "../util/DXError.hpp"
 #include "../../graphics/ImageData.h"
+#include "../util/DebugUtil.hpp"
 
 #include <stdexcept>
 
@@ -12,22 +13,29 @@ static UINT GetNumMipLevels(UINT width, UINT height) {
     UINT numLevels = 1;
     while (width > 32 && height > 32) {
         if (++numLevels >= MAX_MIP_LEVEL) return MAX_MIP_LEVEL;
-        width = max(width / 2, 1);
-        height = max(height / 2, 1);
+        width = std::max(width / 2, 1U);
+        height = std::max(height / 2, 1U);
     }
     return numLevels;
 }
 
-Texture::Texture(ID3D11Texture2D* texture, const D3D11_TEXTURE2D_DESC& description) :
+Texture::Texture(ID3D11Texture2D* texture) :
     m_p_texture(texture),
-    m_description(description)
+    m_description()
 {
     auto device = DXDevice::getDevice();
     CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, nullptr, &m_p_resourceView),
         L"Failed to create shader resource view");
 
+    m_p_texture->GetDesc(&m_description);
+
     auto context = DXDevice::getContext();
     context->GenerateMips(m_p_resourceView);
+
+#ifdef _DEBUG
+    SetDebugObjectName(m_p_texture, "Texture");
+    SetDebugObjectName(m_p_resourceView, "Resource View");
+#endif // _DEBUG
 }
 
 Texture::Texture(ubyte* data, UINT width, UINT height, DXGI_FORMAT format) {
@@ -63,6 +71,11 @@ Texture::Texture(ubyte* data, UINT width, UINT height, DXGI_FORMAT format) {
     reload(data);
 
     context->GenerateMips(m_p_resourceView);
+
+#ifdef _DEBUG
+    SetDebugObjectName(m_p_texture, "Texture");
+    SetDebugObjectName(m_p_resourceView, "Resource View");
+#endif // _DEBUG
 }
 
 Texture::~Texture() {
@@ -70,9 +83,11 @@ Texture::~Texture() {
     m_p_resourceView->Release();
 }
 
-void Texture::bind() const {
+void Texture::bind(unsigned int shaderType, UINT startSlot) const {
     auto context = DXDevice::getContext();
-    context->PSSetShaderResources(0, 1, &m_p_resourceView);
+    if (shaderType & VERTEX)	context->VSSetShaderResources(startSlot, 1u, &m_p_resourceView);
+    if (shaderType & PIXEL)		context->PSSetShaderResources(startSlot, 1u, &m_p_resourceView);
+    if (shaderType & GEOMETRY)	context->GSSetShaderResources(startSlot, 1u, &m_p_resourceView);
 }
 
 void Texture::reload(ubyte* data) {
@@ -86,7 +101,7 @@ Texture* Texture::from(const ImageData* image) {
     DXGI_FORMAT format;
     const void* data = image->getData();
     switch (image->getFormat()) {
-        case ImageFormat::rgb888: format = DXGI_FORMAT_D24_UNORM_S8_UINT; break;
+        case ImageFormat::rgb888: format = DXGI_FORMAT_D24_UNORM_S8_UINT; break; // TODO convert to rgba
         case ImageFormat::rgba8888: format = DXGI_FORMAT_R8G8B8A8_UNORM; break;
     default:
         throw std::runtime_error("unsupported image data format");

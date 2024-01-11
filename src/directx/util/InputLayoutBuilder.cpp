@@ -3,20 +3,17 @@
 #include "DXError.hpp"
 
 #include <d3dcompiler.h>
+#include <vector>
 
-std::vector<D3D11_INPUT_ELEMENT_DESC> InputLayoutBuilder::inputLayout;
-
-void InputLayoutBuilder::build(ID3D10Blob* shader) {
-
+HRESULT InputLayoutBuilder::create(ID3D11Device1* device, ID3D10Blob* shader, ID3D11InputLayout** inputLayout) {
+	std::vector<D3D11_INPUT_ELEMENT_DESC> elements;
 	ID3D11ShaderReflection* pReflector;
-	CHECK_ERROR1(D3DReflect(shader->GetBufferPointer(), shader->GetBufferSize(),
-		IID_ID3D11ShaderReflection, (void**)&pReflector));
+	CHECK_ERROR1(D3DReflect(shader->GetBufferPointer(), shader->GetBufferSize(), IID_PPV_ARGS(&pReflector)));
 	D3D11_SHADER_DESC shaderDesc;
 	CHECK_ERROR1(pReflector->GetDesc(&shaderDesc));
 
-	D3D11_SIGNATURE_PARAMETER_DESC paramDesc;
-
 	for (UINT i = 0; i < shaderDesc.InputParameters; i++) {
+		D3D11_SIGNATURE_PARAMETER_DESC paramDesc;
 		CHECK_ERROR1(pReflector->GetInputParameterDesc(i, &paramDesc));
 
 		D3D11_INPUT_ELEMENT_DESC elemDesc{};
@@ -53,20 +50,13 @@ void InputLayoutBuilder::build(ID3D10Blob* shader) {
 		elemDesc.InputSlot = 0u;
 		elemDesc.AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
 		elemDesc.InstanceDataStepRate = 0u;
-		inputLayout.emplace_back(elemDesc);
+		elements.emplace_back(elemDesc);
 	}
-}
+	HRESULT hr = device->CreateInputLayout(elements.data(), elements.size(),
+		shader->GetBufferPointer(), shader->GetBufferSize(), inputLayout);
 
-void InputLayoutBuilder::clear() {
-	inputLayout.clear();
-}
-
-UINT InputLayoutBuilder::getSize() {
-	return static_cast<UINT>(inputLayout.size());
-}
-
-D3D11_INPUT_ELEMENT_DESC* InputLayoutBuilder::getData() {
-	return inputLayout.data();
+	pReflector->Release();
+	return hr;
 }
 
 #endif // USE_DIRECTX

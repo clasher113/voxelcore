@@ -2,7 +2,7 @@
 
 #ifdef USE_DIRECTX
 #include "../directx/window/DXDevice.hpp"
-#else
+#elif USE_OPENGL
 #include <GL/glew.h>
 #endif // USE_DIRECTX
 
@@ -17,16 +17,16 @@ GfxContext::~GfxContext() {
         return;
     if (depthTest_ != parent->depthTest_) {
 #ifdef USE_DIRECTX
-        DXDevice::setDepthTest(depthTest_);
-#else
+        DXDevice::setDepthTest(!depthTest_);
+#elif USE_OPENGL
         if (depthTest_) glDisable(GL_DEPTH_TEST);
         else glEnable(GL_DEPTH_TEST);
 #endif // USE_DIRECTX
     }
     if (cullFace_ != parent->cullFace_) {
 #ifdef USE_DIRECTX
-        DXDevice::setCullFace(cullFace_);
-#else
+        DXDevice::setCullFace(!cullFace_);
+#elif USE_OPENGL
         if (cullFace_) glDisable(GL_CULL_FACE);
         else glEnable(GL_CULL_FACE);
 #endif // USE_DIRECTX
@@ -54,7 +54,7 @@ void GfxContext::depthTest(bool flag) {
     depthTest_ = flag;
 #ifdef USE_DIRECTX
     DXDevice::setDepthTest(depthTest_);
-#else
+#elif USE_OPENGL
     if (depthTest_) {
         glEnable(GL_DEPTH_TEST);
     } else {
@@ -69,7 +69,7 @@ void GfxContext::cullFace(bool flag) {
     cullFace_ = flag;
 #ifdef USE_DIRECTX
     DXDevice::setCullFace(cullFace_);
-#else
+#elif USE_OPENGL
     if (cullFace_) {
         glEnable(GL_CULL_FACE);
     } else {

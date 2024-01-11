@@ -3,9 +3,7 @@
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXMesh.hpp"
 #include "../directx/graphics/DXLine.hpp"
-#include "../directx/window/DXDevice.hpp"
-#include <d3dcommon.h>
-#else
+#elif USE_OPENGL
 #include "Mesh.h"
 #include <GL/glew.h>
 #endif // USE_DIRECTX
@@ -73,7 +71,7 @@ void LineBatch::render(){
 	mesh->reload(buffer, index / LB_VERTEX_SIZE);
 #ifdef USE_DIRECTX
 	DXLine::draw(mesh);
-#else
+#elif USE_OPENGL
 	mesh->draw(GL_LINES);
 #endif // USE_DIRECTX
 	index = 0;
@@ -82,7 +80,7 @@ void LineBatch::render(){
 void LineBatch::lineWidth(float width) {
 #ifdef USE_DIRECTX
 	DXLine::setWidth(width);
-#else
+#elif USE_OPENGL
 	glLineWidth(width);
 #endif // USE_DIRECTX
 }

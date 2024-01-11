@@ -14,7 +14,7 @@
 
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXMesh.hpp"
-#else
+#elif USE_OPENGL
 #include "Mesh.h"
 #endif // USE_DIRECTX
 

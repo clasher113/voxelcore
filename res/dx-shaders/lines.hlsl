@@ -6,16 +6,18 @@ struct VSInput {
 struct PSInput {
     float4 position : SV_POSITION;
     float4 color : COLOR0;
+    float2 texCoord : TEXCOORD;
 };
 
 cbuffer CBuff : register(b0) {
-    float4x4 c_projview;
+    float4x4 u_projview;
 }
 
 PSInput VShader(VSInput input) {
     PSInput output;
     output.color = input.color;
-    output.position = mul(float4(input.position, 1.f), c_projview);
+    output.position = mul(float4(input.position, 1.f), u_projview);
+    output.texCoord = float2(0.f, 0.f);
     return output;
 }
 
@@ -28,7 +30,7 @@ cbuffer CBuff : register(b1) {
 
 void addHalfCircle(inout TriangleStream<PSInput> triangleStream, int nCountTriangles, float4 linePointToConnect, float fPointWComponent, float fAngle, float4 color)
 {
-    float fThickness = c_lineWidth / 1000.f;
+    float fThickness = c_lineWidth / 1000;
     
     PSInput output = (PSInput) 0;
     for (int nI = 0; nI < nCountTriangles; ++nI)
@@ -59,10 +61,11 @@ void addHalfCircle(inout TriangleStream<PSInput> triangleStream, int nCountTrian
 }
 
 [maxvertexcount(42)]
-void GShader(line PSInput input[2], inout TriangleStream<PSInput> triangleStream) {
+void GShader(line PSInput input[2], inout TriangleStream<PSInput> triangleStream)
+{
     PSInput output = (PSInput) 0;
     
-    float fThickness = c_lineWidth / 1000.f;
+    float fThickness = c_lineWidth / 1000;
 
     int nCountTriangles = 6;
 
@@ -79,7 +82,7 @@ void GShader(line PSInput input[2], inout TriangleStream<PSInput> triangleStream
     positionPoint0Transformed.w = 1.0f;
     positionPoint1Transformed.xyz = positionPoint1Transformed.xyz / positionPoint1Transformed.w;
     positionPoint1Transformed.w = 1.0f;
-
+    
     //calculate the angle between the 2 points on the screen
     float3 positionDifference = positionPoint0Transformed.xyz - positionPoint1Transformed.xyz;
     float3 coordinateSysten = float3(1.0f, 0.0f, 0.0f);
@@ -89,8 +92,7 @@ void GShader(line PSInput input[2], inout TriangleStream<PSInput> triangleStream
 
     float fAngle = acos(dot(positionDifference.xy, coordinateSysten.xy) / (length(positionDifference.xy) * length(coordinateSysten.xy)));
 
-    if (cross(positionDifference, coordinateSysten).z < 0.0f)
-    {
+    if (cross(positionDifference, coordinateSysten).z < 0.0f) {
         fAngle = 2.0f * PI - fAngle;
     }
 
@@ -98,9 +100,10 @@ void GShader(line PSInput input[2], inout TriangleStream<PSInput> triangleStream
     fAngle -= PI * 0.5f;
 
     //first half circle of the line
-    //addHalfCircle(triangleStream, nCountTriangles, positionPoint0Transformed, fPoint0w, fAngle, color0);
-    //addHalfCircle(triangleStream, nCountTriangles, positionPoint1Transformed, fPoint1w, fAngle + PI, color1);
-
+    if (c_lineWidth > 2.f) {
+        addHalfCircle(triangleStream, nCountTriangles, positionPoint0Transformed, fPoint0w, fAngle, color0);
+        addHalfCircle(triangleStream, nCountTriangles, positionPoint1Transformed, fPoint1w, fAngle + PI, color1);
+    }
     //connection between the two circles
     //triangle1
     output.position.x = cos(fAngle) * fThickness / fRatio;

@@ -4,16 +4,13 @@
 #include "../graphics/ImageData.h"
 
 #ifdef USE_DIRECTX
-#define NOMINMAX
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
+#define NOMINMAX
 #include <GLFW/glfw3native.h>
 #include "../directx/window/DXDevice.hpp"
-#include "../directx/ConstantBuffers.hpp"
-#include "../directx/graphics/DXShader.hpp"
-#include "../directx/graphics/DXMesh.hpp"
-#include "../directx/graphics/DXTexture.hpp"
-#else
+#include "../directx/util/TextureUtil.hpp"
+#elif USE_OPENGL
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "../graphics/Mesh.h"
@@ -94,7 +91,7 @@ void window_size_callback(GLFWwindow*, int width, int height) {
 	if (Window::isFocused() && width && height) {
 #ifdef USE_DIRECTX
 		DXDevice::onWindowResize(width, height);
-#else
+#elif USE_OPENGL
 		glViewport(0, 0, width, height);
 #endif // !USE_DIRECTX
 		Window::width = width;
@@ -150,7 +147,7 @@ int Window::initialize(DisplaySettings& settings){
 
 #ifdef USE_DIRECTX
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-#else
+#elif USE_OPENGL
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 #ifdef __APPLE__
@@ -174,13 +171,12 @@ int Window::initialize(DisplaySettings& settings){
 #ifdef USE_DIRECTX
 	HWND windowHandle = glfwGetWin32Window(window);
 	DXDevice::initialize(windowHandle, width, height);
-	CBuffers::initialize();
 	DXDevice::setSwapInterval(settings.swapInterval);
 
 	auto adapterDesc = DXDevice::getAdapterDesc();
 
 	std::wcout << L"Renderer: " << adapterDesc.Description << std::endl;
-#else
+#elif USE_OPENGL
 	glfwMakeContextCurrent(window);
 
 	glewExperimental = GL_TRUE;
@@ -222,7 +218,7 @@ int Window::initialize(DisplaySettings& settings){
 void Window::clear() {
 #ifdef USE_DIRECTX
 	DXDevice::clear();
-#else
+#elif USE_OPENGL
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #endif // USE_DIRECTX
 }
@@ -230,7 +226,7 @@ void Window::clear() {
 void Window::clearDepth() {
 #ifdef USE_DIRECTX
 	DXDevice::clearDepth();
-#else
+#elif USE_OPENGL
 	glClear(GL_DEPTH_BUFFER_BIT);
 #endif // USE_DIRECTX
 }
@@ -242,7 +238,7 @@ void Window::setBgColor(glm::vec3 color) {
 void Window::viewport(int x, int y, int width, int height){
 #ifdef USE_DIRECTX
 	DXDevice::resizeViewPort(x, y, width, height);
-#else
+#elif USE_OPENGL
 	glViewport(x, y, width, height);
 #endif // USE_DIRECTX
 }
@@ -256,7 +252,7 @@ void Window::resetScissor() {
 	scissorStack = std::stack<vec4>();
 #ifdef USE_DIRECTX
 	DXDevice::setScissorTest(false);
-#else
+#elif USE_OPENGL
 	glDisable(GL_SCISSOR_TEST);
 #endif // USE_DIRECTX
 }
@@ -265,7 +261,7 @@ void Window::pushScissor(vec4 area) {
 	if (scissorStack.empty()) {
 #ifdef USE_DIRECTX
 		DXDevice::setScissorTest(true);
-#else
+#elif USE_OPENGL
 		glEnable(GL_SCISSOR_TEST);
 #endif // USE_DIRECTX
 	}
@@ -283,7 +279,7 @@ void Window::pushScissor(vec4 area) {
 	if (area.z < 0.0f || area.w < 0.0f) {
 #ifdef USE_DIRECTX
 		DXDevice::setScissorRect(0, 0, 0, 0);
-#else
+#elif USE_OPENGL
 		glScissor(0, 0, 0, 0);
 #endif // USE_DIRECTX
 	} else {
@@ -291,7 +287,7 @@ void Window::pushScissor(vec4 area) {
 		DXDevice::setScissorRect(area.x, area.y, 
 				  std::max(0, int(area.z-area.x)), 
 				  std::max(0, int(area.w-area.y)));
-#else
+#elif USE_OPENGL
 		glScissor(area.x, Window::height-area.w, 
 				  std::max(0, int(area.z-area.x)), 
 				  std::max(0, int(area.w-area.y)));
@@ -310,7 +306,7 @@ void Window::popScissor() {
 	if (area.z < 0.0f || area.w < 0.0f) {
 #ifdef USE_DIRECTX
 		DXDevice::setScissorRect(0, 0, 0, 0);
-#else
+#elif USE_OPENGL
 		glScissor(0, 0, 0, 0);
 #endif // USE_DIRECTX
 	} else {
@@ -318,7 +314,7 @@ void Window::popScissor() {
 		DXDevice::setScissorRect(area.x, area.y, 
 								std::max(0, int(area.z-area.x)), 
 								std::max(0, int(area.w-area.y)));
-#else
+#elif USE_OPENGL
 		glScissor(area.x, Window::height-area.w, 
 				  std::max(0, int(area.z-area.x)), 
 				  std::max(0, int(area.w-area.y)));
@@ -327,7 +323,7 @@ void Window::popScissor() {
 	if (scissorStack.empty()) {
 #ifdef USE_DIRECTX
 		DXDevice::setScissorTest(false);
-#else
+#elif USE_OPENGL
 		glDisable(GL_SCISSOR_TEST);
 #endif // USE_DIRECTX
 	}
@@ -337,6 +333,10 @@ void Window::popScissor() {
 void Window::terminate(){
 	Events::finalize();
 	glfwTerminate();
+#ifdef USE_DIRECTX
+	DXDevice::terminate();
+#endif // USE_DIRECTX
+
 }
 
 bool Window::isShouldClose(){
@@ -350,7 +350,7 @@ void Window::setShouldClose(bool flag){
 void Window::swapInterval(int interval){
 #ifdef USE_DIRECTX
 	DXDevice::setSwapInterval(interval);
-#else
+#elif USE_OPENGL
 	glfwSwapInterval(interval);
 #endif // USE_DIRECTX
 }
@@ -385,10 +385,9 @@ bool Window::isFullscreen() {
 void Window::swapBuffers(){
 #ifdef USE_DIRECTX
 	DXDevice::display();
-#else
+#elif USE_OPENGL
 	glfwSwapBuffers(window);
 #endif // USE_DIRECTX
-
 	Window::resetScissor();
 }
 
@@ -401,10 +400,20 @@ DisplaySettings* Window::getSettings() {
 }
 
 ImageData* Window::takeScreenshot() {
+#ifdef USE_DIRECTX
+	ubyte* data = new ubyte[width * height * 4];
+	auto texture = DXDevice::getSurface();
+	ID3D11Texture2D* staged = nullptr;
+	TextureUtil::stageTexture(texture.Get(), &staged);
+	TextureUtil::readPixels(staged, data);
+	staged->Release();
+	return new ImageData(ImageFormat::rgba8888, width, height, data); 
+#elif USE_OPENGL
 	ubyte* data = new ubyte[width * height * 3];
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
 	return new ImageData(ImageFormat::rgb888, width, height, data);
+#endif // USE_DIRECTX
 }
 
 bool Window::tryToMaximize(GLFWwindow* window, GLFWmonitor* monitor) {

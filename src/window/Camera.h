@@ -2,9 +2,6 @@
 #define WINDOW_CAMERA_H_
 
 #include <glm/glm.hpp>
-#ifdef USE_DIRECTX
-#include "../directx/math/DXMathHelper.hpp"
-#endif // USE_DIRECTX
 
 class Camera {
 	void updateVectors();
@@ -26,15 +23,9 @@ public:
 
 	void rotate(float x, float y, float z);
 
-#ifdef USE_DIRECTX
-	DirectX::XMFLOAT4X4 getProjection();
-	DirectX::XMFLOAT4X4 getView(bool position=true);
-	DirectX::XMFLOAT4X4 getProjView();
-#else
 	glm::mat4 getProjection();
 	glm::mat4 getView(bool position=true);
 	glm::mat4 getProjView();
-#endif // USE_DIRECTX
 
 	void setFov(float fov);
 	float getFov() const;

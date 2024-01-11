@@ -2,26 +2,34 @@
 #include "DXShader.hpp"
 #include "../window/DXDevice.hpp"
 #include "../util/DXError.hpp"
+#include "../util/DebugUtil.hpp"
 #include "../util/InputLayoutBuilder.hpp"
+#include "../util/ConstantBufferBuilder.hpp"
 #include "../../util/stringutil.h"
 
 #include <d3dcompiler.h>
-#include <glm\glm.hpp>
-#include <glm\gtc\type_ptr.hpp>
 
-Shader::Shader(ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout) :
+Shader::Shader(ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout, ConstantBuffer* cBuffer) :
+	ConstantBuffer(*cBuffer),
 	m_p_vertexShader(vertexShader),
 	m_p_pixelShader(pixelShader),
 	m_p_inputLayout(inputLayout)
 {
+#ifdef _DEBUG
+	SetDebugObjectName(m_p_vertexShader, "Vertex Shader");
+	SetDebugObjectName(m_p_pixelShader, "Pixel Shader");
+	SetDebugObjectName(m_p_inputLayout, "Input Layout");
+#endif // _DEBUG
 }
 
 Shader::~Shader() {
 	m_p_vertexShader->Release();
 	m_p_pixelShader->Release();
+	m_p_inputLayout->Release();
 }
 
-void Shader::use() const {
+void Shader::use() {
+	ConstantBuffer::bind();
 	auto context = DXDevice::getContext();
 	context->VSSetShader(m_p_vertexShader, 0, 0);
 	context->PSSetShader(m_p_pixelShader, 0, 0);
@@ -66,44 +74,20 @@ Shader* Shader::loadShader(const std::wstring_view& shaderFile) {
 	CHECK_ERROR2(device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &pPS),
 		L"Failed to create pixel shader:\n" + std::wstring(shaderFile));
 
-	InputLayoutBuilder::build(VS);
-
-	ID3D11ShaderReflection* pReflector = NULL;
-	D3DReflect(VS->GetBufferPointer(), VS->GetBufferSize(),
-		IID_ID3D11ShaderReflection, (void**)&pReflector);
-	D3D11_SHADER_DESC shaderDesc;
-	CHECK_ERROR1(pReflector->GetDesc(&shaderDesc));
-
-	CBuff buffer;
-
-	for (UINT i = 0; i < shaderDesc.ConstantBuffers; i++) {
-		ID3D11ShaderReflectionConstantBuffer* cBuff = pReflector->GetConstantBufferByIndex(i);
-		D3D11_SHADER_BUFFER_DESC cBuffDesc;
-		cBuff->GetDesc(&cBuffDesc);
-		buffer.data = new unsigned char[cBuffDesc.Size];
-		for (UINT j = 0; j < cBuffDesc.Variables; j++) {
-			ID3D11ShaderReflectionVariable* var = cBuff->GetVariableByIndex(j);
-			D3D11_SHADER_VARIABLE_DESC varDesc{};
-			var->GetDesc(&varDesc);
-
-			CBuffVar cBuffVar;
-			cBuffVar.size = varDesc.Size;
-			cBuffVar.startOffset = varDesc.StartOffset;
-
-			buffer.vars.emplace(varDesc.Name, cBuffVar);
-		}
-	}
+	ConstantBufferBuilder::build(VS, ShaderType::VERTEX);
+	ConstantBufferBuilder::build(PS, ShaderType::PIXEL);
+	ConstantBuffer* cBuff = ConstantBufferBuilder::create();
 
 	ID3D11InputLayout* pLayout;
-	CHECK_ERROR2(device->CreateInputLayout(InputLayoutBuilder::getData(), InputLayoutBuilder::getSize(), VS->GetBufferPointer(), VS->GetBufferSize(), &pLayout),
-		L"Failed to create input layoyt for shader:\n" + std::wstring(shaderFile));
+	CHECK_ERROR2(InputLayoutBuilder::create(device, VS, &pLayout),
+		L"Failed to create input layout for shader:\n" + std::wstring(shaderFile));
 
-	InputLayoutBuilder::clear();
+	ConstantBufferBuilder::clear();
 
 	VS->Release();
 	PS->Release();
 
-	return new Shader(pVS, pPS, pLayout);
+	return new Shader(pVS, pPS, pLayout, cBuff);
 }
 
 #endif // USE_DIRECTX

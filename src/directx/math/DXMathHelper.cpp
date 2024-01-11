@@ -23,6 +23,10 @@ inline DirectX::XMFLOAT3 glm2dxm(const glm::vec3& vector3) {
 	return DirectX::XMFLOAT3(vector3.x, vector3.y, vector3.z);
 }
 
+inline DirectX::XMFLOAT2 glm2dxm(const glm::vec2& vector2) {
+	return DirectX::XMFLOAT2(vector2.x, vector2.y);
+}
+
 inline DirectX::XMFLOAT4X4 glm2dxm(const glm::mat4& matrix) {
 	return DirectX::XMFLOAT4X4(glm::value_ptr(matrix));
 }

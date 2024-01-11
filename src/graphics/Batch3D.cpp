@@ -5,7 +5,7 @@
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXMesh.hpp"
 #include "../directx/graphics/DXTexture.hpp"
-#else
+#elif USE_OPENGL
 #include "Mesh.h"
 #include "Texture.h"
 #include <GL/glew.h>
@@ -33,7 +33,7 @@ Batch3D::Batch3D(size_t capacity)
 	};
 #ifdef USE_DIRECTX
 	blank = new Texture(pixels, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
-#else
+#elif USE_OPENGL
 	blank = new Texture(pixels, 1, 1, GL_RGBA);
 #endif // !USE_DIRECTX
 

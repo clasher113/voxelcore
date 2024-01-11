@@ -5,7 +5,7 @@
 #include "../directx/graphics/DXMesh.hpp"
 #include "../directx/graphics/DXTexture.hpp"
 #include "../directx/graphics/DXLine.hpp"
-#else
+#elif USE_OPENGL
 #include "Mesh.h"
 #include "Texture.h"
 #include <GL/glew.h>
@@ -31,7 +31,7 @@ Batch2D::Batch2D(size_t capacity) : capacity(capacity), offset(0), color(1.0f, 1
 	};
 #ifdef USE_DIRECTX
 	blank = new Texture(pixels, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
-#else
+#elif USE_OPENGL
 	blank = new Texture(pixels, 1, 1, GL_RGBA);
 #endif // USE_DIRECTX
 	_texture = nullptr;
@@ -88,24 +88,23 @@ void Batch2D::point(float x, float y, float r, float g, float b, float a){
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
 #ifdef USE_DIRECTX
 		render(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
-#else
+#elif USE_OPENGL
 		render(GL_POINTS);
 #endif // USE_DIRECTX
 
 	vertex(x, y, 0, 0, r,g,b,a);
 #ifdef USE_DIRECTX
 	render(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
-#else
+#elif USE_OPENGL
 	render(GL_POINTS);
 #endif // USE_DIRECTX
-
 }
 
 void Batch2D::line(float x1, float y1, float x2, float y2, float r, float g, float b, float a){
 	if (index + 6*B2D_VERTEX_SIZE >= capacity)
 #ifdef USE_DIRECTX
 		render(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-#else
+#elif USE_OPENGL
 		render(GL_LINES);
 #endif // USE_DIRECTX
 
@@ -113,10 +112,9 @@ void Batch2D::line(float x1, float y1, float x2, float y2, float r, float g, flo
 	vertex(x2, y2, 1, 1, r,g,b,a);
 #ifdef USE_DIRECTX
 	render(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-#else
+#elif USE_OPENGL
 	render(GL_LINES);
 #endif // USE_DIRECTX
-
 }
 
 void Batch2D::rect(float x, float y, float w, float h){
@@ -335,7 +333,7 @@ void Batch2D::sprite(float x, float y, float w, float h, int atlasRes, int index
 		if (index == 0)
 			return;
 		mesh->reload(buffer, index / B2D_VERTEX_SIZE);
-		if (false/*primitive == D3D11_PRIMITIVE_TOPOLOGY_LINELIST*/) {
+		if (primitive == D3D11_PRIMITIVE_TOPOLOGY_LINELIST) {
 			DXLine::draw(mesh);
 		}
 		else {
@@ -351,7 +349,7 @@ void Batch2D::sprite(float x, float y, float w, float h, int atlasRes, int index
 	void Batch2D::lineWidth(float width) {
 		DXLine::setWidth(width);
 	}
-#else
+#elif USE_OPENGL
 void Batch2D::render(unsigned int gl_primitive) {
 	mesh->reload(buffer, index / B2D_VERTEX_SIZE);
 	mesh->draw(gl_primitive);

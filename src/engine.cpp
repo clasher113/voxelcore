@@ -16,9 +16,9 @@
 #include "window/Camera.h"
 #include "window/input.h"
 #include "graphics/Batch2D.h"
-#ifndef USE_DIRECTX
+#ifdef USE_OPENGL
 #include "graphics/Shader.h"
-#endif // !USE_DIRECTX
+#endif // USE_OPENGL
 #include "graphics/ImageData.h"
 #include "frontend/gui/GUI.h"
 #include "frontend/screens.h"
@@ -27,9 +27,9 @@
 
 #include "coders/json.h"
 #include "coders/png.h"
-#ifndef USE_DIRECTX
+#ifdef USE_OPENGL
 #include "coders/GLSLExtension.h"
-#endif // !USE_DIRECTX
+#endif // USE_OPENGL
 #include "files/files.h"
 #include "files/engine_paths.h"
 
@@ -87,7 +87,9 @@ void Engine::updateTimers() {
 void Engine::updateHotkeys() {
 	if (Events::jpressed(keycode::F2)) {
 		unique_ptr<ImageData> image(Window::takeScreenshot());
+#ifdef USE_OPENGL
 		image->flipY();
+#endif USE_OPENGL
 		path filename = paths->getScreenshotFile("png");
 		png::write_image(filename.string(), image.get());
 		std::cout << "saved screenshot as " << filename << std::endl;

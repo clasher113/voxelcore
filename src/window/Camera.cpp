@@ -32,41 +32,6 @@ void Camera::rotate(float x, float y, float z){
 	updateVectors();
 }
 
-#ifdef USE_DIRECTX
-
-DirectX::XMFLOAT4X4 Camera::getProjection() {
-	float aspect = this->aspect;
-	if (aspect == 0.0f) {
-		aspect = (float)Window::width / (float)Window::height;
-	}
-	if (perspective)
-		return glm2dxm(glm::perspective(fov * zoom, aspect, 0.05f, 1500.0f));
-	else
-		if (flipped)
-			return glm2dxm(glm::ortho(0.0f, fov * aspect, fov, 0.0f));
-		else
-			return glm2dxm(glm::ortho(0.0f, fov * aspect, 0.0f, fov));
-}
-
-DirectX::XMFLOAT4X4 Camera::getView(bool pos) {
-	vec3 position = this->position;
-	if (!pos) {
-		position = vec3(0.0f);
-	}
-	if (perspective) {
-		return glm2dxm(glm::lookAt(position, position + front, up));
-	}
-	else {
-		return glm2dxm(glm::translate(glm::mat4(1.0f), position));
-	}
-}
-
-DirectX::XMFLOAT4X4 Camera::getProjView() {
-	return getProjection() * getView();
-}
-
-#else
-
 mat4 Camera::getProjection(){
 	float aspect = this->aspect;
 	if (aspect == 0.0f){
@@ -96,8 +61,6 @@ mat4 Camera::getView(bool pos){
 mat4 Camera::getProjView(){
 	return getProjection()*getView();
 }
-
-#endif // USE_DIRECTX
 
 void Camera::setFov(float fov) {
 	this->fov = fov;

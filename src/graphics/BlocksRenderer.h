@@ -11,7 +11,7 @@
 #ifdef USE_DIRECTX
 typedef unsigned long DWORD;
 #define INDEX_TYPE DWORD
-#else
+#elif USE_OPENGL
 #define INDEX_TYPE int
 #endif // USE_DIRECTX
 

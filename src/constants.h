@@ -25,7 +25,7 @@ inline uint vox_index(int x, int y, int z, int w=CHUNK_W, int d=CHUNK_D) {
 //cannot replace defines with const while used for substitution
 #ifdef USE_DIRECTX
 #define SHADERS_FOLDER "dx-shaders" 
-#else
+#elif USE_OPENGL
 #define SHADERS_FOLDER "shaders" 
 #endif // USE_DIRECTX
 #define TEXTURES_FOLDER "textures"

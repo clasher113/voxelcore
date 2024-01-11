@@ -1,4 +1,4 @@
-#ifndef USE_DIRECTX
+#ifdef USE_OPENGL
 #include "Mesh.h"
 #include <GL/glew.h>
 
@@ -75,4 +75,4 @@ void Mesh::draw() {
 	draw(GL_TRIANGLES);
 }
 
-#endif // !USE_DIRECTX
+#endif // USE_OPENGL

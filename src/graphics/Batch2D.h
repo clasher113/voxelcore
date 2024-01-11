@@ -6,8 +6,7 @@
 
 #include "UVRegion.h"
 #ifdef USE_DIRECTX
-#define NOMINMAX
-#include <d3d11_1.h>
+#include <d3dcommon.h>
 #endif // USE_DIRECTX
 
 class Mesh;
@@ -64,7 +63,7 @@ public:
 			float r4, float g4, float b4, int sh);
 #ifdef USE_DIRECTX
 	void render(D3D_PRIMITIVE_TOPOLOGY primitive);
-#else
+#elif USE_OPENGL
 	void render(unsigned int gl_primitive);
 #endif // USE_DIRECTX
 	void render();

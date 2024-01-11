@@ -8,21 +8,20 @@ struct PSInput {
 };
 
 cbuffer CBuff : register(b0) {
-    float4x4 c_view;
-    float c_ar;
-    float c_zoom;
+    float4x4 u_view;
+    float u_ar;
+    float u_zoom;
 };
 
 PSInput VShader(VSInput input) {
     PSInput output;
-    output.v_coord = mul(c_view, float4(input.position * float2(c_ar, 1.f) * c_zoom, -1.f, 1.f)).xyz;
+    output.v_coord = mul(u_view, float4(input.position * float2(u_ar, 1.f) * u_zoom, -1.f, 1.f)).xyz;
     output.coord = float4(input.position, 0.f, 1.f);
     return output;
 }
 
 TextureCube my_texture : register(t0);
 SamplerState my_samplerLinear : register(s1);
-
 
 float4 PShader(PSInput input) : SV_TARGET {
     float3 dir = normalize(input.v_coord);

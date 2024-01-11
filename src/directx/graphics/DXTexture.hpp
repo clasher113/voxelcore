@@ -1,9 +1,12 @@
 #ifndef DX_TEXTURE_HPP
 #define DX_TEXTURE_HPP
 
+#include "../../typedefs.h"
+#include "../ShaderTypes.hpp"
+
+#define NOMINMAX
 #include <d3d11_1.h>
 
-#include "../../typedefs.h"
 
 typedef unsigned int UINT;
 
@@ -13,14 +16,14 @@ class ImageData;
 
 class Texture {
 public:
-	Texture(ID3D11Texture2D* texture, const D3D11_TEXTURE2D_DESC& description);
+	Texture(ID3D11Texture2D* texture);
 	Texture(ubyte* data, UINT width, UINT height, DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM);
 	~Texture();
 
 	int getWidth() const { return m_description.Width; };
 	int getHeight() const { return m_description.Height; };
 
-	void bind() const;
+	void bind(unsigned int shaderType = ShaderType::PIXEL, UINT startSlot = 0u) const;
 	void reload(ubyte* data);
 
 	static Texture* from(const ImageData* image);

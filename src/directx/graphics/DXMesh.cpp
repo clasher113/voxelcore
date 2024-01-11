@@ -2,6 +2,7 @@
 #include "DXMesh.hpp"
 #include "../window/DXDevice.hpp"
 #include "../util/DXError.hpp"
+#include "../util/DebugUtil.hpp"
 
 #include <d3d11_1.h>
 
@@ -52,6 +53,9 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 
     CHECK_ERROR2(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_vertexBuffer),
         L"Failed to create vertex buffer");
+#ifdef _DEBUG
+    SetDebugObjectName(m_p_vertexBuffer, "Vertex Buffer");
+#endif // _DEBUG
 
     if (indexBuffer != nullptr && indices > 0) {
         m_indices = indices;
@@ -62,11 +66,13 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 
         CHECK_ERROR2(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_indexBuffer),
             L"Failed to create index buffer");
+#ifdef _DEBUG
+        SetDebugObjectName(m_p_indexBuffer, "Index Buffer");
+#endif // _DEBUG
     }
 }
 
 void Mesh::draw(D3D_PRIMITIVE_TOPOLOGY primitive) {
-    if (m_p_vertexBuffer == nullptr) return;
     UINT stride = sizeof(float) * m_vertexSize;
     UINT offset = 0;
     auto context = DXDevice::getContext();

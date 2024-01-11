@@ -35,8 +35,7 @@
 
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXShader.hpp"
-#include "../directx/ConstantBuffers.hpp"
-#else
+#elif USE_OPENGL
 #include "../graphics/Shader.h"
 #endif // USE_DIRECTX
 
@@ -72,14 +71,9 @@ void MenuScreen::draw(float delta) {
 
     uicamera->setFov(Window::height);
 	Shader* uishader = engine->getAssets()->getShader("ui");
-	uishader->use();
-#ifdef USE_DIRECTX
-    cbUI->data.projView = transpose(uicamera->getProjView());
-    cbUI->applyChanges();
-    cbUI->bind();
-#else 
+
 	uishader->uniformMatrix("u_projview", uicamera->getProjView());
-#endif // USE_DIRECTX
+	uishader->use();
 
     uint width = Window::width;
     uint height = Window::height;

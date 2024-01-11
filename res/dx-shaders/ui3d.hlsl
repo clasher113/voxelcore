@@ -11,15 +11,15 @@ struct PSInput {
 };
 
 cbuffer CBuff : register(b0) {
-    float4x4 c_projview;
-    float4x4 c_apply;
+    float4x4 u_projview;
+    float4x4 u_apply;
 }
 
 PSInput VShader(VSInput input) {
     PSInput output;
     output.texCoord = input.texCoord;
     output.color = input.color;
-    output.position = mul(float4(input.position, 1.f), mul(c_projview, c_apply));
+    output.position = mul(float4(input.position, 1.f), mul(u_projview, u_apply));
     return output;
 }
 
