@@ -5,11 +5,11 @@
 
 #include "ImageData.h"
 
-Texture::Texture(uint id, int width, int height) 
+Texture::Texture(uint id, unsigned int width, unsigned int height) 
 	: id(id), width(width), height(height) {
 }
 
-Texture::Texture(ubyte* data, int width, int height, uint format) 
+Texture::Texture(ubyte* data, unsigned int width, unsigned int height, uint format) 
 	: width(width), height(height) {
 	glGenTextures(1, &id);
 	glBindTexture(GL_TEXTURE_2D, id);

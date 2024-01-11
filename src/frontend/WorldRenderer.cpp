@@ -24,6 +24,7 @@
 #include "../settings.h"
 #include "../engine.h"
 #include "ContentGfxCache.h"
+#include "LevelFrontend.h"
 
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXMesh.hpp"
@@ -44,14 +45,14 @@ using glm::mat4;
 using std::string;
 using std::shared_ptr;
 
-WorldRenderer::WorldRenderer(Engine* engine, 
-							 Level* level, 
-							 const ContentGfxCache* cache) 
+WorldRenderer::WorldRenderer(Engine* engine, LevelFrontend* frontend) 
 	: engine(engine), 
-	  level(level),
+	  level(frontend->getLevel()),
 	  frustumCulling(new Frustum()),
 	  lineBatch(new LineBatch()),
-	  renderer( new ChunksRenderer(level, cache, engine->getSettings())) {
+	  renderer(new ChunksRenderer(level, 
+                frontend->getContentGfxCache(), 
+                engine->getSettings())) {
 
 	auto& settings = engine->getSettings();
 	level->events->listen(EVT_CHUNK_HIDDEN, 
@@ -93,7 +94,7 @@ bool WorldRenderer::drawChunk(size_t index,
 
 		if (!frustumCulling->IsBoxVisible(min, max)) return false;
 	}
-	vec3 coord = vec3(chunk->x*CHUNK_W, 0.0f, chunk->z*CHUNK_D+1);
+	vec3 coord = vec3(chunk->x*CHUNK_W+0.5f, 0.5f, chunk->z*CHUNK_D+0.5f);
 	mat4 model = glm::translate(mat4(1.0f), coord);
 
 	shader->uniformMatrix("u_model", model);
@@ -141,7 +142,7 @@ void WorldRenderer::drawChunks(Chunks* chunks,
 void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 	EngineSettings& settings = engine->getSettings();
 	skybox->refresh(level->world->daytime, 
-					fmax(1.0f, 10.0f/(settings.chunks.loadDistance-2))+fog*2.0f, 4);
+					1.0f+fog*2.0f, 4);
 
 	const Content* content = level->content;
 	const ContentIndices* contentIds = content->indices;
@@ -184,7 +185,7 @@ void WorldRenderer::draw(const GfxContext& pctx, Camera* camera){
 		shader->uniform3f("u_cameraPos", camera->position);
 		//shader->uniform1i("u_cubemap", 1); ???
 		{
-			blockid_t id = level->player->choosenBlock;
+			blockid_t id = level->player->getChosenItem();
 			Block* block = contentIds->getBlockDef(id);
 			assert(block != nullptr);
 			float multiplier = 0.5f;

@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "../../window/Events.h"
 #include "../../assets/Assets.h"
 #include "../../graphics/Batch2D.h"
 #include "../../graphics/Font.h"
@@ -21,7 +22,9 @@ const uint KEY_BACKSPACE = 259;
 using namespace gui;
 
 Label::Label(wstring text, string fontName) 
- : UINode(vec2(), vec2(text.length() * 8, 15)), text_(text), fontName_(fontName) {
+     : UINode(vec2(), vec2(text.length() * 8, 15)), 
+       text_(text), 
+       fontName_(fontName) {
 }
 
 Label& Label::text(wstring text) {
@@ -64,7 +67,9 @@ Button::Button(shared_ptr<UINode> content, glm::vec4 padding) : Panel(vec2(32,32
     scrollable(false);
 }
 
-Button::Button(wstring text, glm::vec4 padding) : Panel(vec2(32,32), padding, 0) {
+Button::Button(wstring text, glm::vec4 padding, glm::vec4 margin) 
+    : Panel(vec2(32,32), padding, 0) {
+    this->margin(margin);
     Label* label = new Label(text);
     label->align(Align::center);
     this->label = shared_ptr<UINode>(label);
@@ -139,7 +144,19 @@ TextBox::TextBox(wstring placeholder, vec4 padding)
 void TextBox::drawBackground(Batch2D* batch, Assets* assets) {
     vec2 coord = calcCoord();
     batch->texture(nullptr);
-    batch->color = (isfocused() ? focusedColor : (hover_ ? hoverColor : color_));
+    
+    if (valid) {
+        if (isfocused()) {
+            batch->color = focusedColor;
+        } else if (hover_) {
+            batch->color = hoverColor;
+        } else {
+            batch->color = color_;
+        }
+    } else {
+        batch->color = invalidColor;
+    }
+
     batch->rect(coord.x, coord.y, size_.x, size_.y);
     if (!focused_ && supplier) {
         input = supplier();
@@ -157,6 +174,24 @@ void TextBox::drawBackground(Batch2D* batch, Assets* assets) {
 
 void TextBox::typed(unsigned int codepoint) {
     input += wstring({(wchar_t)codepoint});
+    validate();
+}
+
+bool TextBox::validate() {
+    if (validator) {
+        valid = validator(input);
+    } else {
+        valid = true;
+    }
+    return valid;
+}
+
+void TextBox::setValid(bool valid) {
+    this->valid = valid;
+}
+
+bool TextBox::isValid() const {
+    return valid;
 }
 
 void TextBox::keyPressed(int key) {
@@ -164,14 +199,23 @@ void TextBox::keyPressed(int key) {
         case KEY_BACKSPACE:
             if (!input.empty()){
                 input = input.substr(0, input.length()-1);
+                validate();
             }
             break;
         case KEY_ENTER:
-            if (consumer) {
+            if (validate() && consumer) {
                 consumer(label->text());
             }
             defocus();
             break;
+    }
+    // Pasting text from clipboard
+    if (key == keycode::V && Events::pressed(keycode::LEFT_CONTROL)) {
+        const char* text = Window::getClipboardText();
+        if (text) {
+            input += util::str2wstr_utf8(text);
+            validate();
+        }
     }
 }
 
@@ -185,6 +229,10 @@ void TextBox::textSupplier(wstringsupplier supplier) {
 
 void TextBox::textConsumer(wstringconsumer consumer) {
     this->consumer = consumer;
+}
+
+void TextBox::textValidator(wstringchecker validator) {
+    this->validator = validator;
 }
 
 wstring TextBox::text() const {
@@ -315,4 +363,17 @@ void CheckBox::consumer(boolconsumer consumer) {
 CheckBox* CheckBox::checked(bool flag) {
     checked_ = flag;
     return this;
+}
+
+FullCheckBox::FullCheckBox(std::wstring text, glm::vec2 size, bool checked)
+    : Panel(size), 
+      checkbox(std::make_shared<CheckBox>(checked)){
+    color(vec4(0.0f));
+    orientation(Orientation::horizontal);
+
+    add(checkbox);
+
+    auto label = std::make_shared<Label>(text); 
+    label->margin(vec4(5.0f, 5.0f, 0.0f, 0.0f));
+    add(label);
 }

@@ -20,8 +20,8 @@ public:
 	Texture(ubyte* data, UINT width, UINT height, DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM);
 	~Texture();
 
-	int getWidth() const { return m_description.Width; };
-	int getHeight() const { return m_description.Height; };
+	UINT getWidth() const { return m_description.Width; };
+	UINT getHeight() const { return m_description.Height; };
 
 	void bind(unsigned int shaderType = ShaderType::PIXEL, UINT startSlot = 0u) const;
 	void reload(ubyte* data);

@@ -9,16 +9,22 @@ class ImageData;
 class Texture {
 public:
 	uint id;
-	int width;
-	int height;
-	Texture(uint id, int width, int height);
-	Texture(ubyte* data, int width, int height, uint format);
+
+	Texture(uint id, unsigned int width, unsigned int height);
+	Texture(ubyte* data, unsigned int width, unsigned int height, uint format);
 	~Texture();
 
 	void bind();
 	void reload(ubyte* data);
 
+	unsigned int getHeight() { return height; };
+	unsigned int getWidth() { return width; };
+
 	static Texture* from(const ImageData* image);
+
+private:
+	unsigned int width;
+	unsigned int height;
 };
 
 #endif /* GRAPHICS_TEXTURE_H_ */

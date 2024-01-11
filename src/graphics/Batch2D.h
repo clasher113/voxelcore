@@ -6,6 +6,7 @@
 
 #include "UVRegion.h"
 #ifdef USE_DIRECTX
+#define NOMINMAX
 #include <d3dcommon.h>
 #endif // USE_DIRECTX
 

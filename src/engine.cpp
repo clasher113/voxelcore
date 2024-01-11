@@ -33,45 +33,47 @@
 #include "files/files.h"
 #include "files/engine_paths.h"
 
+#include "content/Content.h"
 #include "content/ContentPack.h"
+#include "content/ContentLoader.h"
 #include "frontend/locale/langs.h"
+#include "logic/scripting/scripting.h"
 
-using std::unique_ptr;
-using std::shared_ptr;
-using std::string;
-using std::vector;
-using std::filesystem::path;
-using glm::vec3;
-using gui::GUI;
+#include "definitions.h"
 
-Engine::Engine(EngineSettings& settings, EnginePaths* paths, Content* content) 
-	   : settings(settings), content(content), paths(paths) {    
+namespace fs = std::filesystem;
+
+Engine::Engine(EngineSettings& settings, EnginePaths* paths) 
+	   : settings(settings), paths(paths) {    
 	if (Window::initialize(settings.display)){
 		throw initialize_error("could not initialize window");
 	}
-#ifndef USE_DIRECTX
-	Shader::preprocessor->setLibFolder(paths->getResources()/path("shaders/lib"));
-#endif // !USE_DIRECTX
-	assets = new Assets();
+	auto resdir = paths->getResources();
+	scripting::initialize(paths);
+
 	std::cout << "-- loading assets" << std::endl;
-	AssetsLoader loader(assets, paths->getResources());
+    std::vector<fs::path> roots {resdir};
+    resPaths.reset(new ResPaths(resdir, roots));
+    assets.reset(new Assets());
+	AssetsLoader loader(assets.get(), resPaths.get());
 	AssetsLoader::createDefaults(loader);
-	AssetsLoader::addDefaults(loader);
+	AssetsLoader::addDefaults(loader, true);
+
+#ifdef USE_OPENGL
+    Shader::preprocessor->setPaths(resPaths.get());
+#endif // USE_OPENGL
 	while (loader.hasNext()) {
 		if (!loader.loadNext()) {
-			delete assets;
+			assets.reset();
 			Window::terminate();
 			throw initialize_error("could not to initialize assets");
 		}
 	}
+
 	Audio::initialize();
-	gui = new GUI();
-
-    auto resdir = paths->getResources();
-    contentPacks.push_back(ContentPack("base", resdir/path("content/base")));
-
+	gui = std::make_unique<gui::GUI>();
     if (settings.ui.language == "auto") {
-        settings.ui.language = platform::detect_locale();
+        settings.ui.language = langs::locale_by_envlocale(platform::detect_locale(), paths->getResources());
     }
     setLanguage(settings.ui.language);
 	std::cout << "-- initializing finished" << std::endl;
@@ -86,11 +88,11 @@ void Engine::updateTimers() {
 
 void Engine::updateHotkeys() {
 	if (Events::jpressed(keycode::F2)) {
-		unique_ptr<ImageData> image(Window::takeScreenshot());
+		std::unique_ptr<ImageData> image(Window::takeScreenshot());
 #ifdef USE_OPENGL
 		image->flipY();
 #endif USE_OPENGL
-		path filename = paths->getScreenshotFile("png");
+		fs::path filename = paths->getScreenshotFile("png");
 		png::write_image(filename.string(), image.get());
 		std::cout << "saved screenshot as " << filename << std::endl;
 	}
@@ -100,7 +102,7 @@ void Engine::updateHotkeys() {
 }
 
 void Engine::mainloop() {
-	setScreen(shared_ptr<Screen>(new MenuScreen(this)));
+    setScreen(std::make_shared<MenuScreen>(this));
 	
 	std::cout << "-- preparing systems" << std::endl;
 
@@ -115,28 +117,87 @@ void Engine::mainloop() {
 		gui->act(delta);
 		screen->update(delta);
 
-		screen->draw(delta);
-		gui->draw(&batch, assets);
-
+		if (!Window::isIconified()) {
+			screen->draw(delta);
+			gui->draw(&batch, assets.get());
+			Window::swapInterval(settings.display.swapInterval);
+		}
+		else {
+			Window::swapInterval(1);
+		}
 		Window::swapBuffers();
 		Events::pollEvents();
 	}
 }
 
 Engine::~Engine() {
+    scripting::close();
 	screen = nullptr;
-	delete gui;
 
 	Audio::finalize();
 
 	std::cout << "-- shutting down" << std::endl;
-	delete assets;
+    assets.reset();
 	Window::terminate();
 	std::cout << "-- engine finished" << std::endl;
 }
 
-GUI* Engine::getGUI() {
-	return gui;
+void Engine::loadContent() {
+    auto resdir = paths->getResources();
+    ContentBuilder contentBuilder;
+    setup_definitions(&contentBuilder);
+    
+    std::vector<fs::path> resRoots;
+    for (auto& pack : contentPacks) {
+        ContentLoader loader(&pack);
+        loader.load(&contentBuilder);
+        resRoots.push_back(pack.folder);
+    }
+    content.reset(contentBuilder.build());
+    resPaths.reset(new ResPaths(resdir, resRoots));
+
+#ifdef USE_OPENGL
+    Shader::preprocessor->setPaths(resPaths.get());
+#endif // USE_OPENGL
+    std::unique_ptr<Assets> new_assets(new Assets());
+	std::cout << "-- loading assets" << std::endl;
+	AssetsLoader loader(new_assets.get(), resPaths.get());
+    AssetsLoader::createDefaults(loader);
+    AssetsLoader::addDefaults(loader, false);
+	while (loader.hasNext()) {
+		if (!loader.loadNext()) {
+			new_assets.reset();
+			throw std::runtime_error("could not to load assets");
+		}
+	}
+    assets->extend(*new_assets.get());
+}
+
+void Engine::loadWorldContent(const fs::path& folder) {
+    contentPacks.clear();
+    auto packNames = ContentPack::worldPacksList(folder);
+    ContentPack::readPacks(paths, contentPacks, packNames, folder);
+    loadContent();
+}
+
+void Engine::loadAllPacks() {
+	auto resdir = paths->getResources();
+	contentPacks.clear();
+	ContentPack::scan(resdir/fs::path("content"), contentPacks);
+}
+
+void Engine::setScreen(std::shared_ptr<Screen> screen) {
+	this->screen = screen;
+}
+
+void Engine::setLanguage(std::string locale) {
+	settings.ui.language = locale;
+	langs::setup(paths->getResources(), locale, contentPacks);
+	menus::create_menus(this, gui->getMenu());
+}
+
+gui::GUI* Engine::getGUI() {
+	return gui.get();
 }
 
 EngineSettings& Engine::getSettings() {
@@ -144,27 +205,17 @@ EngineSettings& Engine::getSettings() {
 }
 
 Assets* Engine::getAssets() {
-	return assets;
-}
-
-void Engine::setScreen(shared_ptr<Screen> screen) {
-	this->screen = screen;
+	return assets.get();
 }
 
 const Content* Engine::getContent() const {
-	return content;
+	return content.get();
 }
 
-vector<ContentPack>& Engine::getContentPacks() {
+std::vector<ContentPack>& Engine::getContentPacks() {
     return contentPacks;
 }
 
 EnginePaths* Engine::getPaths() {
 	return paths;
-}
-
-void Engine::setLanguage(string locale) {
-	settings.ui.language = locale;
-	langs::setup(paths->getResources(), locale, contentPacks);
-	menus::create_menus(this, gui->getMenu());
 }
