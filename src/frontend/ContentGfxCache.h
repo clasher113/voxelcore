@@ -14,6 +14,8 @@ public:
     ContentGfxCache(const Content* content, Assets* assets);
     ~ContentGfxCache();
 
+    void refresh(const Content* content, Assets* assets);
+
     inline const UVRegion& getRegion(blockid_t id, int side) const {
         return sideregions[id * 6 + side];
     }

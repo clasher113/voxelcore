@@ -74,18 +74,31 @@ Label* Label::textSupplier(wstringsupplier supplier) {
 }
 
 // ================================= Image ====================================
-Image::Image(std::string texture, vec2 size) : UINode(vec2(), size), texture(texture) {
+Image::Image(std::string texture, vec2 size) : UINode(vec2(), size), textureName(texture), uv(UVRegion()) {
     setInteractive(false);
+}
+
+gui::Image::Image(Texture* texture, glm::vec2 size) : UINode(vec2(), size), texture(texture), uv(UVRegion()) {
+    setInteractive(false);
+}
+
+void gui::Image::setTexture(Texture* texture) {
+    this->texture = texture;
+}
+
+void gui::Image::setUVRegion(const UVRegion& uv) {
+    this->uv = uv;
 }
 
 void Image::draw(const GfxContext* pctx, Assets* assets) {
     vec2 coord = calcCoord();
     vec4 color = getColor();
     auto batch = pctx->getBatch2D();
-    batch->texture(assets->getTexture(texture));
+    if (texture) batch->texture(texture);
+    else batch->texture(assets->getTexture(textureName));
     batch->color = color;
     batch->rect(coord.x, coord.y, size.x, size.y, 
-                0, 0, 0, UVRegion(), false, true, color);
+                0, 0, 0, uv, false, true, color);
 }
 
 // ================================= Button ===================================
@@ -341,6 +354,10 @@ void TextBox::textValidator(wstringchecker validator) {
 std::wstring TextBox::getText() const {
     if (input.empty())
         return placeholder;
+    return input;
+}
+
+std::wstring gui::TextBox::getInput() const {
     return input;
 }
 

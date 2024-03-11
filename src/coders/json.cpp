@@ -11,6 +11,8 @@
 using namespace json;
 using namespace dynamic;
 
+std::streamsize json::precision = 15;
+
 inline void newline(std::stringstream& ss, 
                     bool nice, uint indent, 
                     const std::string& indentstr) {
@@ -54,7 +56,7 @@ void stringify(const Value* value,
         for (uint i = 0; i < list->size(); i++) {
             Value* value = list->get(i);
             if (i > 0 || nice) {
-                newline(ss, nice, indent, indentstr);
+                newline(ss, list->multiline, indent, indentstr);
             }
             stringify(value, ss, indent+1, indentstr, nice);
             if (i + 1 < list->size()) {
@@ -62,13 +64,13 @@ void stringify(const Value* value,
             }
         }
         if (nice) {
-            newline(ss, true, indent - 1, indentstr);
+            newline(ss, list->multiline, indent - 1, indentstr);
         }
         ss << ']';
     } else if (value->type == valtype::boolean) {
         ss << (value->value.boolean ? "true" : "false");
     } else if (value->type == valtype::number) {
-        ss << std::setprecision(15);
+        ss << std::setprecision(precision);
         ss << value->value.decimal;
     } else if (value->type == valtype::integer) {
         ss << value->value.integer;

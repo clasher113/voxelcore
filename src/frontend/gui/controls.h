@@ -10,11 +10,13 @@
 #include "GUI.h"
 #include "UINode.h"
 #include "panels.h"
+#include "../../graphics/UVRegion.h"
 #include "../../window/input.h"
 #include "../../delegates.h"
 
 class Batch2D;
 class Assets;
+class Texture;
 
 namespace gui {
     using wstringsupplier = std::function<std::wstring()>;
@@ -47,9 +49,15 @@ namespace gui {
 
     class Image : public UINode {
     protected:
-        std::string texture;
+        std::string textureName;
+        UVRegion uv;
+        Texture* texture = nullptr;
     public:
         Image(std::string texture, glm::vec2 size);
+        Image(Texture* texture, glm::vec2 size);
+
+        virtual void setTexture(Texture* texture);
+        virtual void setUVRegion(const UVRegion& uv);
 
         virtual void draw(const GfxContext* pctx, Assets* assets) override;
     };
@@ -123,6 +131,7 @@ namespace gui {
         virtual void textValidator(wstringchecker validator);
         virtual bool isFocuskeeper() const override {return true;}
         virtual std::wstring getText() const;
+        virtual std::wstring getInput() const;
         virtual void setText(std::wstring value);
         virtual bool validate();
         virtual void setValid(bool valid);

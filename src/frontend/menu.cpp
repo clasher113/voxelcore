@@ -258,6 +258,7 @@ void create_main_menu_panel(Engine* engine) {
     panel->add(guiutil::gotoButton(L"New World", "new-world", menu));
     panel->add(create_worlds_panel(engine));
     panel->add(guiutil::gotoButton(L"Settings", "settings", menu));
+    panel->add(guiutil::gotoButton(L"Workshop", "workshop", menu));
 
     panel->add(std::make_shared<Button>(
         langs::get(L"Quit", L"menu"), vec4(10.f), [](GUI*) {
@@ -626,6 +627,50 @@ void create_pause_panel(Engine* engine) {
     }));
 }
 
+void create_workshop_panel(Engine* engine) {
+    auto menu = engine->getGUI()->getMenu();
+    auto panel = create_page(engine, "workshop", 400, 0.0f, 1);
+
+    std::vector<ContentPack> scanned;
+    ContentPack::scan(engine->getPaths(), scanned);
+    panel->add(create_packs_panel(scanned, engine, false, [engine](const ContentPack& pack) {
+        engine->setScreen(std::make_shared<WorkShopScreen>(engine, pack));
+    }));
+    panel->add(create_button(L"Create new", vec4(10.f), vec4(1.f), [engine](GUI*) {
+        auto newContent = create_page(engine, "new-content", 400, 0.f, 1);
+        auto menu = engine->getGUI()->getMenu();
+        menu->setPage("new-content");
+        fs::path path = engine->getPaths()->getResources() / "content";
+
+        newContent->add(std::make_shared<Label>(L"Name"));
+        auto nameInput = std::make_shared<TextBox>(L"example_pack", vec4(6.0f));
+        nameInput->textValidator([=](const std::wstring& text) {
+            std::string textutf8 = util::wstr2str_utf8(text);
+            return util::is_valid_filename(text) &&
+                !fs::exists(path/text) && !nameInput->getInput().empty();
+        });
+        newContent->add(nameInput);
+
+        newContent->add(create_button(L"Create", vec4(10.f), vec4(1.f), [=](GUI*) {
+            if (!nameInput->validate()) return;
+            ContentPack pack;
+            pack.folder = path / nameInput->getInput();
+            pack.id = pack.title = util::wstr2str_utf8(nameInput->getInput());
+            pack.version = std::to_string(ENGINE_VERSION_MAJOR) + "." + std::to_string(ENGINE_VERSION_MINOR);
+            fs::create_directory(pack.folder);
+            fs::create_directory(pack.folder / ContentPack::BLOCKS_FOLDER);
+            fs::create_directory(pack.folder / ContentPack::ITEMS_FOLDER);
+            fs::create_directory(pack.folder / TEXTURES_FOLDER);
+            ContentPack::write(pack);
+            menu->remove(newContent);
+
+            engine->setScreen(std::make_shared<WorkShopScreen>(engine, pack));
+        }));
+        newContent->add(guiutil::backButton(menu));
+    }));
+    panel->add(guiutil::backButton(menu));
+}
+
 void menus::create_menus(Engine* engine) {
     create_new_world_panel(engine);
     create_settings_panel(engine);
@@ -633,9 +678,11 @@ void menus::create_menus(Engine* engine) {
     create_pause_panel(engine);
     create_languages_panel(engine);
     create_main_menu_panel(engine);
+    create_workshop_panel(engine);
 }
 
 void menus::refresh_menus(Engine* engine) {
     create_main_menu_panel(engine);
     create_new_world_panel(engine);
+    create_workshop_panel(engine);
 }

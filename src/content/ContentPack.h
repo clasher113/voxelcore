@@ -39,6 +39,7 @@ struct ContentPack {
 
     static bool is_pack(std::filesystem::path folder);
     static ContentPack read(std::filesystem::path folder);
+    static void write(const ContentPack& pack);
 
     static void scan(std::filesystem::path folder, 
                      std::vector<ContentPack>& packs);

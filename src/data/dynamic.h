@@ -68,6 +68,8 @@ namespace dynamic {
         Map& putMap();
 
         void remove(size_t index);
+
+        bool multiline = true;
     };
 
     class Map {

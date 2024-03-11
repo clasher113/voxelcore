@@ -29,6 +29,7 @@ namespace json {
         dynamic::Map* parse();
     };
 
+    extern std::streamsize precision;
     extern std::unique_ptr<dynamic::Map> parse(std::string filename, std::string source);
     extern std::unique_ptr<dynamic::Map> parse(std::string source);
 

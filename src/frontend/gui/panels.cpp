@@ -89,7 +89,7 @@ void Container::draw(const GfxContext* pctx, Assets* assets) {
     {
         GfxContext ctx = pctx->sub();
         ctx.scissors(vec4(coord.x, coord.y, size.x, size.y));
-        for (auto node : nodes) {
+        for (auto& node : nodes) {
             if (node->isVisible())
                 node->draw(pctx, assets);
         }
@@ -127,11 +127,12 @@ void Container::add(std::shared_ptr<UINode> node, glm::vec2 coord) {
 
 void Container::remove(std::shared_ptr<UINode> selected) {
     selected->setParent(nullptr);
-    nodes.erase(std::remove_if(nodes.begin(), nodes.end(), 
-        [selected](const std::shared_ptr<UINode> node) {
-            return node == selected;
-        }
-    ), nodes.end());
+    //nodes.erase(std::remove_if(nodes.begin(), nodes.end(), 
+    //    [selected](const std::shared_ptr<UINode> node) {
+    //        return node == selected;
+    //    }
+    //), nodes.end());
+    nodes.erase(std::remove(nodes.begin(), nodes.end(), selected), nodes.end());
     refresh();
 }
 

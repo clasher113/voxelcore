@@ -7,13 +7,25 @@
 #include "../graphics/Atlas.h"
 #include "../voxels/Block.h"
 
-ContentGfxCache::ContentGfxCache(const Content* content, Assets* assets) {
-    auto indices = content->getIndices();
-    sideregions = new UVRegion[indices->countBlockDefs() * 6];
+ContentGfxCache::ContentGfxCache(const Content* content, Assets* assets) :
+	sideregions(nullptr)
+{
+	refresh(content, assets);
+}
+
+ContentGfxCache::~ContentGfxCache() {
+	delete[] sideregions;
+}
+
+void ContentGfxCache::refresh(const Content* content, Assets* assets) {
+	if (sideregions != nullptr) delete[] sideregions;
+	auto indices = content->getIndices();
+	sideregions = new UVRegion[indices->countBlockDefs() * 6];
 	Atlas* atlas = assets->getAtlas("blocks");
-	
+
 	for (uint i = 0; i < indices->countBlockDefs(); i++) {
 		Block* def = indices->getBlockDef(i);
+		def->modelUVs.clear();
 		for (uint side = 0; side < 6; side++) {
 			std::string tex = def->textureFaces[side];
 			if (atlas->has(tex)) {
@@ -33,9 +45,5 @@ ContentGfxCache::ContentGfxCache(const Content* content, Assets* assets) {
 					def->modelUVs.push_back(atlas->get("notfound"));
 			}
 		}
-    }
-}
-
-ContentGfxCache::~ContentGfxCache() {
-	delete[] sideregions;
+	}
 }

@@ -86,6 +86,23 @@ ContentPack ContentPack::read(fs::path folder) {
     return pack;
 }
 
+void ContentPack::write(const ContentPack& pack) {
+    dynamic::Map root;
+    root.put("id", pack.id);
+    root.put("title", pack.title);
+    root.put("version", pack.version);
+    root.put("creator", pack.creator);
+    root.put("description", pack.description);
+
+    if (!pack.dependencies.empty()) {
+        auto& dependencies = root.putList("dependencies");
+        for (const auto& elem : pack.dependencies) {
+            if (!elem.empty()) dependencies.put(elem);
+        }
+    }
+    files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, &root);
+}
+
 void ContentPack::scan(fs::path rootfolder,
                        std::vector<ContentPack>& packs) {
     if (!fs::is_directory(rootfolder)) {
