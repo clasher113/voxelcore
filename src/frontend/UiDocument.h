@@ -12,8 +12,9 @@ namespace gui {
     class UINode;
 }
 
-class InventoryInteraction;
-class LevelFrontend;
+namespace scripting {
+    class Environment;
+}
 
 struct uidocscript {
     int environment;
@@ -23,27 +24,32 @@ struct uidocscript {
 
 using uinodes_map = std::unordered_map<std::string, std::shared_ptr<gui::UINode>>;
 
+class AssetsLoader;
+
 class UiDocument {
-    std::string namesp;
+    std::string id;
     uidocscript script;
     uinodes_map map;
     std::shared_ptr<gui::UINode> root;
+    std::unique_ptr<scripting::Environment> env;
 public:
-    UiDocument(std::string namesp, uidocscript script, std::shared_ptr<gui::UINode> root);
+    UiDocument(
+        std::string id, 
+        uidocscript script, 
+        std::shared_ptr<gui::UINode> root, 
+        std::unique_ptr<scripting::Environment> env
+    );
 
+    const std::string& getId() const;
     const uinodes_map& getMap() const;
-    const std::string& getNamespace() const;
-
+    const std::shared_ptr<gui::UINode> getRoot() const;
+    const std::shared_ptr<gui::UINode> get(const std::string& id) const;
+    const uidocscript& getScript() const;
+    int getEnvironment() const;
     /* Collect map of all uinodes having identifiers */
     static void collect(uinodes_map& map, std::shared_ptr<gui::UINode> node);
 
-    /* @return root node is always an InventoryView */
-    static std::unique_ptr<UiDocument> readInventory (
-        std::string namesp,
-        fs::path file,
-        LevelFrontend* frontend,
-        InventoryInteraction& interaction
-    );
+    static std::unique_ptr<UiDocument> read(AssetsLoader& loader, int env, std::string namesp, fs::path file);
 };
 
 #endif // FRONTEND_UI_DOCUMENT_H_

@@ -40,7 +40,7 @@ namespace dynamic {
 
         std::string str(size_t index) const;
         double num(size_t index) const;
-        int64_t integer(size_t num) const;
+        int64_t integer(size_t index) const;
         Map* map(size_t index) const;
         List* list(size_t index) const;
         bool flag(size_t index) const;
@@ -64,6 +64,8 @@ namespace dynamic {
         List& put(List* value);
         List& put(bool value);
 
+        Value* getValueWriteable(size_t index) const;
+
         List& putList();
         Map& putMap();
 
@@ -76,6 +78,11 @@ namespace dynamic {
     public:
         std::unordered_map<std::string, std::unique_ptr<Value>> values;
         ~Map();
+
+        std::string getStr(std::string key) const;
+        double getNum(std::string key) const;
+        int64_t getInt(std::string key) const;
+        bool getBool(std::string key) const;
 
         std::string getStr(std::string key, const std::string& def) const;
         double getNum(std::string key, double def) const;

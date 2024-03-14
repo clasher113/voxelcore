@@ -8,12 +8,13 @@
 #include <unordered_map>
 #include <set>
 #include "../typedefs.h"
+#include "../voxels/Block.h"
 
-using DrawGroups = std::set<unsigned char>;
+using DrawGroups = std::set<ubyte>;
 
-class Block;
 class ItemDef;
 class Content;
+class ContentPackRuntime;
 
 enum class contenttype {
     none, block, item
@@ -46,14 +47,20 @@ class ContentBuilder {
 
     std::unordered_map<std::string, ItemDef*> itemDefs;
     std::vector<std::string> itemIds;
+
+    std::unordered_map<std::string, BlockMaterial> blockMaterials;
+
+    std::unordered_map<std::string, std::unique_ptr<ContentPackRuntime>> packs;
 public:
     ~ContentBuilder();
 
     void add(Block* def);
     void add(ItemDef* def);
+    void add(ContentPackRuntime* pack);
+    void add(BlockMaterial material);
 
-    Block* createBlock(std::string id);
-    ItemDef* createItem(std::string id);
+    Block& createBlock(std::string id);
+    ItemDef& createItem(std::string id);
 
     void checkIdentifier(std::string id);
     contenttype checkContentType(std::string id);
@@ -61,13 +68,15 @@ public:
     Content* build();
 };
 
-/* Runtime defs cache: indices */
+/// @brief Runtime defs cache: indices
 class ContentIndices {
     std::vector<Block*> blockDefs;
     std::vector<ItemDef*> itemDefs;
 public:
-    ContentIndices(std::vector<Block*> blockDefs,
-                   std::vector<ItemDef*> itemDefs);
+    ContentIndices(
+        std::vector<Block*> blockDefs, 
+        std::vector<ItemDef*> itemDefs
+    );
 
     inline Block* getBlockDef(blockid_t id) const {
         if (id >= blockDefs.size())
@@ -104,12 +113,19 @@ class Content {
     std::unordered_map<std::string, Block*> blockDefs;
     std::unordered_map<std::string, ItemDef*> itemDefs;
     std::unique_ptr<ContentIndices> indices;
+    std::unordered_map<std::string, std::unique_ptr<ContentPackRuntime>> packs;
+    std::unordered_map<std::string, BlockMaterial> blockMaterials;
 public:
-    DrawGroups* const drawGroups;
+    std::unique_ptr<DrawGroups> const drawGroups;
 
-    Content(ContentIndices* indices, DrawGroups* drawGroups,
-            std::unordered_map<std::string, Block*> blockDefs,
-            std::unordered_map<std::string, ItemDef*> itemDefs);
+    Content(
+        ContentIndices* indices, 
+        std::unique_ptr<DrawGroups> drawGroups,
+        std::unordered_map<std::string, Block*> blockDefs,
+        std::unordered_map<std::string, ItemDef*> itemDefs,
+        std::unordered_map<std::string, std::unique_ptr<ContentPackRuntime>> packs,
+        std::unordered_map<std::string, BlockMaterial> blockMaterials
+    );
     ~Content();
 
     inline ContentIndices* getIndices() const {
@@ -117,10 +133,17 @@ public:
     }
     
     Block* findBlock(std::string id) const;
-    Block* requireBlock(std::string id) const;
+    Block& requireBlock(std::string id) const;
 
     ItemDef* findItem(std::string id) const;
-    ItemDef* requireItem(std::string id) const;
+    ItemDef& requireItem(std::string id) const;
+
+    const BlockMaterial* findBlockMaterial(std::string id) const;
+
+    const ContentPackRuntime* getPackRuntime(std::string id) const;
+
+    const std::unordered_map<std::string, BlockMaterial>& getBlockMaterials() const;
+    const std::unordered_map<std::string, std::unique_ptr<ContentPackRuntime>>& getPacks() const;
 };
 
 #endif // CONTENT_CONTENT_H_

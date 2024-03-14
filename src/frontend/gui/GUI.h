@@ -1,12 +1,15 @@
 #ifndef FRONTEND_GUI_GUI_H_
 #define FRONTEND_GUI_GUI_H_
 
+#include <queue>
 #include <memory>
 #include <vector>
 #include <string>
 #include <glm/glm.hpp>
 #include <functional>
 #include <unordered_map>
+
+#include "../../delegates.h"
 
 class GfxContext;
 class Assets;
@@ -48,6 +51,7 @@ namespace gui {
     class Container;
     class PagesControl;
 
+    /// @brief The main UI controller
     class GUI {
         std::shared_ptr<Container> container;
         std::shared_ptr<UINode> hover = nullptr;
@@ -57,25 +61,67 @@ namespace gui {
 
         std::unique_ptr<Camera> uicamera;
         std::shared_ptr<PagesControl> menu;
+        std::queue<runnable> postRunnables;
         void actMouse(float delta);
     public:
         GUI();
         ~GUI();
 
+        /// @brief Get the main menu (PagesControl) node
         std::shared_ptr<PagesControl> getMenu();
 
+        /// @brief Get current focused node 
+        /// @return focused node or nullptr
         std::shared_ptr<UINode> getFocused() const;
+
+        /// @brief Check if all user input is caught by some element like TextBox
         bool isFocusCaught() const;
 
+        /// @brief Main input handling and logic update method 
+        /// @param delta delta time
         void act(float delta);
+
+        /// @brief Draw all visible elements on main container 
+        /// @param pctx parent graphics context
+        /// @param assets active assets storage
         void draw(const GfxContext* pctx, Assets* assets);
-        void addBack(std::shared_ptr<UINode> panel);
-        void add(std::shared_ptr<UINode> panel);
-        void remove(std::shared_ptr<UINode> panel);
+
+        /// @brief Add element to the main container
+        /// @param node UI element
+        void add(std::shared_ptr<UINode> node);
+
+        /// @brief Add element to the main container
+        /// @param node UI element
+        /// @param coord element position within the main container
+        void add(std::shared_ptr<UINode> node, glm::vec2 coord);
+
+        /// @brief Remove node from the main container
+        void remove(std::shared_ptr<UINode> node) noexcept;
+
+        /// @brief Store node in the GUI nodes dictionary 
+        /// (does not add node to the main container)
+        /// @param name node key
+        /// @param node target node
         void store(std::string name, std::shared_ptr<UINode> node);
-        std::shared_ptr<UINode> get(std::string name);
-        void remove(std::string name);
+
+        /// @brief Get node from the GUI nodes dictionary 
+        /// @param name node key
+        /// @return stored node or nullptr
+        std::shared_ptr<UINode> get(std::string name) noexcept;
+
+        /// @brief Remove node from the GUI nodes dictionary
+        /// @param name node key 
+        void remove(std::string name) noexcept;
+
+        /// @brief Set node as focused 
+        /// @param node new focused node or nullptr to remove focus
         void setFocus(std::shared_ptr<UINode> node);
+
+        /// @brief Get the main container
+        /// @deprecated
+        std::shared_ptr<Container> getContainer() const;
+
+        void postRunnable(runnable callback);
     };
 }
 

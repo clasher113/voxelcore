@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "../frontend/gui/UINode.h"
-#include "../frontend/gui/panels.h"
+#include "../frontend/gui/containers.h"
 #include "../frontend/gui/controls.h"
 #include "../items/ItemStack.h"
 #include "../typedefs.h"
@@ -18,12 +18,15 @@ class ContentIndices;
 class LevelFrontend;
 class Inventory;
 
+namespace gui {
+    class UiXmlReader;
+}
+
 namespace scripting {
     class Environment;
 }
 
-using itemsharefunc = std::function<void(ItemStack&)>;
-using slotcallback = std::function<void(ItemStack&, ItemStack&)>;
+using slotcallback = std::function<void(uint, ItemStack&)>;
 
 class InventoryInteraction {
     ItemStack grabbedItem;
@@ -40,7 +43,8 @@ struct SlotLayout {
     glm::vec2 position;
     bool background;
     bool itemSource;
-    itemsharefunc shareFunc;
+    slotcallback updateFunc;
+    slotcallback shareFunc;
     slotcallback rightClick;
     int padding = 0;
 
@@ -48,32 +52,37 @@ struct SlotLayout {
                glm::vec2 position, 
                bool background,
                bool itemSource,
-               itemsharefunc shareFunc,
+               slotcallback updateFunc,
+               slotcallback shareFunc,
                slotcallback rightClick);
 };
 
 class SlotView : public gui::UINode {
-    LevelFrontend* frontend;
-    InventoryInteraction& interaction;
-    const Content* const content;
+    LevelFrontend* frontend = nullptr;
+    InventoryInteraction* interaction = nullptr;
+    const Content* content;
     SlotLayout layout;
     bool highlighted = false;
 
+    int64_t inventoryid = 0;
     ItemStack* bound = nullptr;
 public:
-    SlotView(LevelFrontend* frontend,
-             InventoryInteraction& interaction,
-             SlotLayout layout);
+    SlotView(SlotLayout layout);
 
     virtual void draw(const GfxContext* pctx, Assets* assets) override;
 
     void setHighlighted(bool flag);
     bool isHighlighted() const;
 
-    virtual void clicked(gui::GUI*, int) override;
-    virtual void focus(gui::GUI*) override;
+    virtual void clicked(gui::GUI*, mousecode) override;
+    virtual void onFocus(gui::GUI*) override;
 
-    void bind(ItemStack& stack);
+    void bind(
+        int64_t inventoryid,
+        ItemStack& stack,
+        LevelFrontend* frontend, 
+        InventoryInteraction* interaction
+    );
 
     const SlotLayout& getLayout() const;
 };
@@ -83,35 +92,39 @@ class InventoryView : public gui::Container {
     const ContentIndices* indices;
     
     std::shared_ptr<Inventory> inventory;
-    LevelFrontend* frontend;
-    InventoryInteraction& interaction;
+    LevelFrontend* frontend = nullptr;
+    InventoryInteraction* interaction = nullptr;
 
     std::vector<SlotView*> slots;
     glm::vec2 origin {};
 public:
-    InventoryView(LevelFrontend* frontend, InventoryInteraction& interaction);
+    InventoryView();
     virtual ~InventoryView();
 
     void setInventory(std::shared_ptr<Inventory> inventory);
 
-    virtual void setCoord(glm::vec2 coord) override;
+    virtual void setPos(glm::vec2 pos) override;
 
     void setOrigin(glm::vec2 origin);
     glm::vec2 getOrigin() const;
 
     void setSelected(int index);
 
-    void bind(std::shared_ptr<Inventory> inventory);
+    void bind(
+        std::shared_ptr<Inventory> inventory,
+        LevelFrontend* frontend, 
+        InventoryInteraction* interaction
+    );
+    
+    void unbind();
 
     std::shared_ptr<SlotView> addSlot(SlotLayout layout);
 
-    static std::shared_ptr<InventoryView> readXML(
-        LevelFrontend* frontend, 
-        InventoryInteraction& interaction,
-        const std::string& src,
-        const std::string& file,
-        const scripting::Environment& env
-    );
+    std::shared_ptr<Inventory> getInventory() const;
+
+    size_t getSlotsCount() const;
+
+    static void createReaders(gui::UiXmlReader& reader);
 
     static const int SLOT_INTERVAL = 4;
     static const int SLOT_SIZE = ITEM_ICON_SIZE;
@@ -120,11 +133,11 @@ public:
 class InventoryBuilder {
     std::shared_ptr<InventoryView> view;
 public:
-    InventoryBuilder(LevelFrontend* frontend, InventoryInteraction& interaction);
+    InventoryBuilder();
 
     void addGrid(
         int cols, int count, 
-        glm::vec2 coord, 
+        glm::vec2 pos, 
         int padding,
         bool addpanel,
         SlotLayout slotLayout

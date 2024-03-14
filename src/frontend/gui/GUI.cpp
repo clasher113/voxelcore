@@ -1,6 +1,6 @@
 #include "GUI.h"
 #include "UINode.h"
-#include "panels.h"
+#include "containers.h"
 
 #include <iostream>
 #include <algorithm>
@@ -16,7 +16,7 @@
 using namespace gui;
 
 GUI::GUI() {
-    container = std::make_shared<Container>(glm::vec2(0, 0), glm::vec2(1000));
+    container = std::make_shared<Container>(glm::vec2(1000));
     uicamera = std::make_unique<Camera>(glm::vec3(), Window::height);
 	uicamera->perspective = false;
 	uicamera->flipped = true;
@@ -33,6 +33,9 @@ std::shared_ptr<PagesControl> GUI::getMenu() {
     return menu;
 }
 
+/** Mouse related input and logic handling 
+ * @param delta delta time
+*/
 void GUI::actMouse(float delta) {
     auto hover = container->getAt(Events::cursor, nullptr);
     if (this->hover && this->hover != hover) {
@@ -55,7 +58,7 @@ void GUI::actMouse(float delta) {
             }
             if (focus != pressed) {
                 focus = pressed;
-                focus->focus(this);
+                focus->onFocus(this);
                 return;
             }
         }
@@ -68,16 +71,25 @@ void GUI::actMouse(float delta) {
         pressed = nullptr;
     }
 
-    if (hover) {
-        for (int i = mousecode::BUTTON_1; i < mousecode::BUTTON_1+12; i++) {
+    if (hover) {//WTF?! FIXME 
+        for (int i = static_cast<int>(mousecode::BUTTON_1); i < static_cast<int>(mousecode::BUTTON_1)+12; i++) {
             if (Events::jclicked(i)) {
-                hover->clicked(this, i);
+                hover->clicked(this, static_cast<mousecode>(i));
             }
         }
     }
 } 
 
+/** Processing user input and UI logic 
+ * @param delta delta time
+*/
 void GUI::act(float delta) {
+    while (!postRunnables.empty()) {
+        runnable callback = postRunnables.back();
+        postRunnables.pop();
+        callback();
+    }
+
     container->setSize(glm::vec2(Window::width, Window::height));
     container->act(delta);
     auto prevfocus = focus;
@@ -100,7 +112,11 @@ void GUI::act(float delta) {
 
             if (!Events::_cursor_locked) {
                 if (Events::clicked(mousecode::BUTTON_1)) {
-                    focus->mouseMove(this, Events::cursor.x, Events::cursor.y);
+                    if (Events::jclicked(mousecode::BUTTON_1) ||
+                        Events::delta.x || Events::delta.y)
+                    {
+                        focus->mouseMove(this, Events::cursor.x, Events::cursor.y);
+                    }
                 }
             }
         }
@@ -114,7 +130,7 @@ void GUI::draw(const GfxContext* pctx, Assets* assets) {
     auto& viewport = pctx->getViewport();
     glm::vec2 wsize = viewport.size();
 
-    menu->setCoord((wsize - menu->getSize()) / 2.0f);
+    menu->setPos((wsize - menu->getSize()) / 2.0f);
     uicamera->setFov(wsize.y);
 
 	Shader* uishader = assets->getShader("ui");
@@ -133,23 +149,19 @@ bool GUI::isFocusCaught() const {
     return focus && focus->isFocuskeeper();
 }
 
-void GUI::addBack(std::shared_ptr<UINode> panel) {
-    container->addBack(panel);
+void GUI::add(std::shared_ptr<UINode> node) {
+    container->add(node);
 }
 
-void GUI::add(std::shared_ptr<UINode> panel) {
-    container->add(panel);
-}
-
-void GUI::remove(std::shared_ptr<UINode> panel) {
-    container->remove(panel);
+void GUI::remove(std::shared_ptr<UINode> node) noexcept {
+    container->remove(node);
 }
 
 void GUI::store(std::string name, std::shared_ptr<UINode> node) {
     storage[name] = node;
 }
 
-std::shared_ptr<UINode> GUI::get(std::string name) {
+std::shared_ptr<UINode> GUI::get(std::string name) noexcept {
     auto found = storage.find(name);
     if (found == storage.end()) {
         return nullptr;
@@ -157,7 +169,7 @@ std::shared_ptr<UINode> GUI::get(std::string name) {
     return found->second;
 }
 
-void GUI::remove(std::string name) {
+void GUI::remove(std::string name) noexcept {
     storage.erase(name);
 }
 
@@ -167,6 +179,14 @@ void GUI::setFocus(std::shared_ptr<UINode> node) {
     }
     focus = node;
     if (focus) {
-        focus->focus(this);
+        focus->onFocus(this);
     }
+}
+
+std::shared_ptr<Container> GUI::getContainer() const {
+    return container;
+}
+
+void GUI::postRunnable(runnable callback) {
+    postRunnables.push(callback);
 }

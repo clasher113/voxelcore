@@ -20,8 +20,10 @@ function parse_path(path)
     return string.sub(path, 1, index-1), string.sub(path, index+1, -1)
 end
 
+package = {
+    loaded={}
+}
 local __cached_scripts = {}
-local __cached_results = {}
 
 -- Load script with caching
 --
@@ -31,26 +33,42 @@ local __cached_results = {}
 -- nocache - ignore cached script, load anyway
 function load_script(path, nocache)
     local packname, filename = parse_path(path)
-    local fullpath = file.resolve(path);
 
     -- __cached_scripts used in condition because cached result may be nil
-    if not nocache and __cached_scripts[fullpath] ~= nil then
-        return __cached_results[fullpath]
+    if not nocache and __cached_scripts[path] ~= nil then
+        return package.loaded[path]
     end
-    if not file.isfile(fullpath) then
+    if not file.isfile(path) then
         error("script '"..filename.."' not found in '"..packname.."'")
     end
 
-    local script, err = loadfile(fullpath)
+    local script, err = load(file.read(path), path)
     if script == nil then
         error(err)
     end
     local result = script()
     if not nocache then
-        __cached_scripts[fullpath] = script
-        __cached_results[fullpath] = result
+        __cached_scripts[path] = script
+        package.loaded[path] = result
     end
     return result
+end
+
+function __scripts_cleanup()
+    print("cleaning scripts cache")
+    for k, v in pairs(__cached_scripts) do
+        local packname, _ = parse_path(k)
+        if packname ~= "core" then
+            print("unloaded "..k)
+            __cached_scripts[k] = nil
+            package.loaded[k] = nil
+        end
+    end
+end
+
+function require(path)
+    local prefix, file = parse_path(path)
+    return load_script(prefix..":modules/"..file..".lua")
 end
 
 function sleep(timesec)
@@ -78,69 +96,92 @@ function dofile(path)
     return _dofile(path)
 end
 
-toml = {}
-
--- Convert table to TOML
-function toml.from_table(tb, isinner)
-    local text = ""
-    for k, v in pairs(tb) do
-        local tp = type(v)
-        if tp ~= "table" then
-            text = text..k.." = "
-            if tp == "string" then
-                text = text..string.format("%q", v)
-            else
-                text = text..tostring(v)
-            end
-            text = text.."\n"
-        end
-    end
-    for k, v in pairs(tb) do
-        local tp = type(v)
-        if tp == "table" then
-            if isinner then
-                error("only one level of subtables supported")
-            end
-            text = text.."["..k.."]\n"..toml.from_table(v).."\n"
-        end
-    end
-    return text
-end
-
--- Parse TOML to new table
-function toml.parse(s)
-    local output = {}
-    local current = output
-    local lines = {}
-    for line in string.gmatch(s, "[^\r\n]+") do
-        line = string.gsub(line, "%s+", "")
-        table.insert(lines, line)
-    end
-    for i = 1,#lines do
-        local s = lines[i]
-        if string.sub(s, 1, 1) == "[" then
-            local section = s.sub(s, 2, #s-1)
-            current = {}
-            output[section] = current
-        else 
-            for k, v in string.gmatch(s, "(%w+)=(.+)" ) do
-                v = string.gsub(v, "%s+", "")
-                if v.sub(v, 1, 1) == "\"" then
-                    current[k] = v.sub(v, 2, #v-1)
-                elseif v == "true" or v == "false" then
-                    current[k] = v == "true"
-                end
-                
-                local num = tonumber(v)
-                if num ~= nil then
-                    current[k] = num
-                end
-            end
-        end
-    end
-    return output
-end
-
 function pack.is_installed(packid)
     return file.isfile(packid..":package.json")
 end
+
+function pack.data_file(packid, name)
+    file.mkdirs("world:data/"..packid)
+    return "world:data/"..packid.."/"..name
+end
+
+vec2_mt = {}
+function vec2_mt.__tostring(self)
+    return "vec2("..self[1]..", "..self[2]..")"
+end
+
+vec3_mt = {}
+function vec3_mt.__tostring(self)
+    return "vec3("..self[1]..", "..self[2]..", "..self[3]..")"
+end
+
+vec4_mt = {}
+function vec4_mt.__tostring(self)
+    return "vec4("..self[1]..", "..self[2]..", "..self[3]..", "..self[4]..")"
+end
+
+color_mt = {}
+function color_mt.__tostring(self)
+    return "rgba("..self[1]..", "..self[2]..", "..self[3]..", "..self[4]..")"
+end
+
+-- events
+events = {
+    handlers = {}
+}
+
+function events.on(event, func)
+    events.handlers[event] = events.handlers[event] or {}
+    table.insert(events.handlers[event], func)
+end
+
+function events.emit(event, ...)
+    result = nil
+    if events.handlers[event] then
+        for _, func in ipairs(events.handlers[event]) do
+            result = result or func(...)
+        end
+    end
+    return result
+end
+
+-- class designed for simple UI-nodes access via properties syntax
+local Element = {}
+function Element.new(docname, name)
+    return setmetatable({docname=docname, name=name}, {
+        __index=function(self, k)
+            return gui.getattr(self.docname, self.name, k)
+        end,
+        __newindex=function(self, k, v)
+            gui.setattr(self.docname, self.name, k, v)
+        end
+    })
+end
+
+-- the engine automatically creates an instance for every ui document (layout)
+Document = {}
+function Document.new(docname)
+    return setmetatable({name=docname}, {
+        __index=function(self, k)
+            return Element.new(self.name, k)
+        end
+    })
+end
+
+-- Deprecated functions
+block_index = block.index
+block_name = block.name
+blocks_count = block.defs_count
+is_solid_at = block.is_solid_at
+is_replaceable_at = block.is_replaceable_at
+set_block = block.set
+get_block = block.get
+get_block_X = block.get_X
+get_block_Y = block.get_Y
+get_block_Z = block.get_Z
+get_block_states = block.get_states
+set_block_states = block.set_states
+get_block_rotation = block.get_rotation
+set_block_rotation = block.set_rotation
+get_block_user_bits = block.get_user_bits
+set_block_user_bits = block.set_user_bits

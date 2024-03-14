@@ -7,11 +7,15 @@
 #include <glm/glm.hpp>
 #include <filesystem>
 #include <unordered_set>
+#include <functional>
 #define GLEW_STATIC
 
-#include "audio/Audio.h"
+#include "audio/audio.h"
 #include "assets/Assets.h"
 #include "assets/AssetsLoader.h"
+#include "world/WorldGenerators.h"
+#include "voxels/DefaultWorldGenerator.h"
+#include "voxels/FlatWorldGenerator.h"
 #include "window/Window.h"
 #include "window/Events.h"
 #include "window/Camera.h"
@@ -22,7 +26,7 @@
 #include "graphics/ImageData.h"
 #include "frontend/gui/GUI.h"
 #include "frontend/screens.h"
-#include "frontend/menu.h"
+#include "frontend/menu/menu.h"
 #include "util/platform.h"
 
 #include "coders/json.h"
@@ -41,39 +45,53 @@
 
 namespace fs = std::filesystem;
 
+void addWorldGenerators() {
+	WorldGenerators::addGenerator<DefaultWorldGenerator>("core:default");
+	WorldGenerators::addGenerator<FlatWorldGenerator>("core:flat");
+}
+
 Engine::Engine(EngineSettings& settings, EnginePaths* paths) 
-	   : settings(settings), paths(paths) {    
+    : settings(settings), paths(paths) 
+{    
 	if (Window::initialize(settings.display)){
 		throw initialize_error("could not initialize window");
 	}
+    audio::initialize(true);
+    audio::create_channel("regular");
+    audio::create_channel("music");
+    audio::create_channel("ambient");
+    audio::create_channel("ui");
 
     auto resdir = paths->getResources();
     scripting::initialize(this);
 
 	std::cout << "-- loading assets" << std::endl;
     std::vector<fs::path> roots {resdir};
-    resPaths.reset(new ResPaths(resdir, roots));
-    assets.reset(new Assets());
+
+    resPaths = std::make_unique<ResPaths>(resdir, roots);
+    assets = std::make_unique<Assets>();
+
 	AssetsLoader loader(assets.get(), resPaths.get());
-	AssetsLoader::createDefaults(loader);
-	AssetsLoader::addDefaults(loader, false);
+	AssetsLoader::addDefaults(loader, nullptr);
 
     Shader::preprocessor->setPaths(resPaths.get());
 	while (loader.hasNext()) {
 		if (!loader.loadNext()) {
 			assets.reset();
+            scripting::close();
 			Window::terminate();
-			throw initialize_error("could not to initialize assets");
+			throw initialize_error("could not to load assets");
 		}
 	}
-
-	Audio::initialize();
 	gui = std::make_unique<gui::GUI>();
     if (settings.ui.language == "auto") {
         settings.ui.language = langs::locale_by_envlocale(platform::detect_locale(), paths->getResources());
     }
+	if (ENGINE_VERSION_INDEV) {
+		menus::create_version_label(this);
+    }
     setLanguage(settings.ui.language);
-	std::cout << "-- initializing finished" << std::endl;
+    addWorldGenerators();
 }
 
 void Engine::updateTimers() {
@@ -98,16 +116,17 @@ void Engine::updateHotkeys() {
 
 void Engine::mainloop() {
     setScreen(std::make_shared<MenuScreen>(this));
-	
-	std::cout << "-- preparing systems" << std::endl;
 
 	Batch2D batch(1024);
 	lastTime = Window::time();
 
+    std::cout << "-- initialized" << std::endl;
 	while (!Window::isShouldClose()){
 		assert(screen != nullptr);
 		updateTimers();
 		updateHotkeys();
+        
+        audio::update(delta);
 
 		gui->act(delta);
 		screen->update(delta);
@@ -129,19 +148,28 @@ void Engine::mainloop() {
 }
 
 Engine::~Engine() {
-	screen = nullptr;
-    scripting::close();
-
-	Audio::finalize();
-
-	std::cout << "-- shutting down" << std::endl;
+    std::cout << "-- shutting down" << std::endl;
+	if (screen) {
+		screen->onEngineShutdown();
+	}
+	screen.reset();
+	content.reset();
     assets.reset();
+	audio::close();
+    scripting::close();
 	Window::terminate();
 	std::cout << "-- engine finished" << std::endl;
 }
 
-inline const std::string checkPacks(const std::unordered_set<std::string>& packs, const std::vector<std::string>& dependencies) {
-    for (const std::string& str : dependencies) if (packs.find(str) == packs.end()) return str;
+inline const std::string checkPacks(
+    const std::unordered_set<std::string>& packs, 
+    const std::vector<std::string>& dependencies
+) {
+    for (const std::string& str : dependencies) { 
+        if (packs.find(str) == packs.end()) {
+            return str;
+        }
+    }
     return "";
 }
 
@@ -157,19 +185,25 @@ void Engine::loadContent() {
 
 	std::string missingDependency;
 	std::unordered_set<std::string> loadedPacks, existingPacks;
-	for (const auto& item : srcPacks) { existingPacks.insert(item.id); }
+	for (const auto& item : srcPacks) {
+         existingPacks.insert(item.id);
+    }
 
-	while(existingPacks.size() > loadedPacks.size()) {
+	while (existingPacks.size() > loadedPacks.size()) {
 		for (auto& pack : srcPacks) {
-			if(loadedPacks.find(pack.id) != loadedPacks.end()) continue;
+			if(loadedPacks.find(pack.id) != loadedPacks.end()) {
+                continue;
+            }
 			missingDependency = checkPacks(existingPacks, pack.dependencies);
-			if(!missingDependency.empty()) throw contentpack_error(pack.id, pack.folder, "missing dependency '"+missingDependency+"'");
-			if(pack.dependencies.empty() || checkPacks(loadedPacks, pack.dependencies).empty()) {
+			if (!missingDependency.empty()) { 
+                throw contentpack_error(pack.id, pack.folder, "missing dependency '"+missingDependency+"'");
+            }
+			if (pack.dependencies.empty() || checkPacks(loadedPacks, pack.dependencies).empty()) {
 				loadedPacks.insert(pack.id);
 				resRoots.push_back(pack.folder);
 				contentPacks.push_back(pack);
 				ContentLoader loader(&pack);
-				loader.load(&contentBuilder);
+				loader.load(contentBuilder);
 			}
 		}
     }
@@ -182,8 +216,7 @@ void Engine::loadContent() {
     std::unique_ptr<Assets> new_assets(new Assets());
 	std::cout << "-- loading assets" << std::endl;
 	AssetsLoader loader(new_assets.get(), resPaths.get());
-    AssetsLoader::createDefaults(loader);
-    AssetsLoader::addDefaults(loader, true);
+    AssetsLoader::addDefaults(loader, content.get());
 	while (loader.hasNext()) {
 		if (!loader.loadNext()) {
 			new_assets.reset();
@@ -196,8 +229,8 @@ void Engine::loadContent() {
 void Engine::loadWorldContent(const fs::path& folder) {
     contentPacks.clear();
     auto packNames = ContentPack::worldPacksList(folder);
-    std::cout << folder << " " << packNames.size() << std::endl;
     ContentPack::readPacks(paths, contentPacks, packNames, folder);
+	paths->setWorldFolder(folder);
     loadContent();
 }
 
@@ -207,7 +240,13 @@ void Engine::loadAllPacks() {
 	ContentPack::scan(paths, contentPacks);
 }
 
+double Engine::getDelta() const {
+    return delta;
+}
+
 void Engine::setScreen(std::shared_ptr<Screen> screen) {
+    audio::reset_channel(audio::get_channel_index("regular"));
+    audio::reset_channel(audio::get_channel_index("ambient"));
 	this->screen = screen;
 }
 
@@ -239,6 +278,10 @@ std::vector<ContentPack>& Engine::getContentPacks() {
 
 EnginePaths* Engine::getPaths() {
 	return paths;
+}
+
+ResPaths* Engine::getResPaths() {
+    return resPaths.get();
 }
 
 std::shared_ptr<Screen> Engine::getScreen() {

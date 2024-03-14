@@ -10,6 +10,7 @@
 #include "../voxels/Chunks.h"
 #include "../voxels/ChunksStorage.h"
 #include "../voxels/WorldGenerator.h"
+#include "../world/WorldGenerators.h"
 #include "../graphics/Mesh.h"
 #include "../lighting/Lighting.h"
 #include "../files/WorldFiles.h"
@@ -23,10 +24,10 @@ const uint MIN_SURROUNDING = 9;
 
 ChunksController::ChunksController(Level* level, uint padding) 
     : level(level), 
-	  chunks(level->chunks), 
-	  lighting(level->lighting), 
+	  chunks(level->chunks.get()), 
+	  lighting(level->lighting.get()), 
 	  padding(padding), 
-	  generator(new WorldGenerator(level->content)) {
+	  generator(WorldGenerators::createGenerator(level->getWorld()->getGenerator(), level->content)) {
 }
 
 ChunksController::~ChunksController(){

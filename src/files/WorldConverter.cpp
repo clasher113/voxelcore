@@ -13,10 +13,12 @@
 
 namespace fs = std::filesystem;
 
-WorldConverter::WorldConverter(fs::path folder, 
-                               const Content* content, 
-                               std::shared_ptr<ContentLUT> lut) 
-    : lut(lut), content(content) {
+WorldConverter::WorldConverter(
+    fs::path folder, 
+    const Content* content, 
+    std::shared_ptr<ContentLUT> lut
+) : lut(lut), content(content) 
+{
     DebugSettings settings;
     wfile = new WorldFiles(folder, settings);
 
@@ -91,4 +93,8 @@ void WorldConverter::convertNext() {
 void WorldConverter::write() {
     std::cout << "writing world" << std::endl;
     wfile->write(nullptr, content);
+}
+
+uint WorldConverter::getTotalTasks() const {
+    return tasks.size();
 }

@@ -1,9 +1,12 @@
 #include "Assets.h"
 
+#include "../audio/audio.h"
 #include "../graphics/Texture.h"
 #include "../graphics/Shader.h"
 #include "../graphics/Atlas.h"
 #include "../graphics/Font.h"
+#include "../frontend/UiDocument.h"
+#include "../logic/scripting/scripting.h"
 
 Assets::~Assets() {
 }
@@ -16,7 +19,7 @@ Texture* Assets::getTexture(std::string name) const {
 }
 
 void Assets::store(Texture* texture, std::string name){
-	textures[name].reset(texture);
+	textures.emplace(name, texture);
 }
 
 
@@ -28,9 +31,8 @@ Shader* Assets::getShader(std::string name) const{
 }
 
 void Assets::store(Shader* shader, std::string name){
-	shaders[name].reset(shader);
+	shaders.emplace(name, shader);
 }
-
 
 Font* Assets::getFont(std::string name) const {
 	auto found = fonts.find(name);
@@ -40,7 +42,7 @@ Font* Assets::getFont(std::string name) const {
 }
 
 void Assets::store(Font* font, std::string name){
-	fonts[name].reset(font);
+	fonts.emplace(name, font);
 }
 
 Atlas* Assets::getAtlas(std::string name) const {
@@ -51,7 +53,18 @@ Atlas* Assets::getAtlas(std::string name) const {
 }
 
 void Assets::store(Atlas* atlas, std::string name){
-	atlases[name].reset(atlas);
+	atlases.emplace(name, atlas);
+}
+
+audio::Sound* Assets::getSound(std::string name) const {
+	auto found = sounds.find(name);
+	if (found == sounds.end())
+		return nullptr;
+	return found->second.get();
+}
+
+void Assets::store(audio::Sound* sound, std::string name) {
+	sounds.emplace(name, sound);
 }
 
 const std::vector<TextureAnimation>& Assets::getAnimations() {
@@ -60,6 +73,17 @@ const std::vector<TextureAnimation>& Assets::getAnimations() {
 
 void Assets::store(const TextureAnimation& animation) {
 	animations.emplace_back(animation);
+}
+
+UiDocument* Assets::getLayout(std::string name) const {
+	auto found = layouts.find(name);
+	if (found == layouts.end())
+		return nullptr;
+	return found->second.get();
+}
+
+void Assets::store(UiDocument* layout, std::string name) {
+	layouts.emplace(name, layout);
 }
 
 void Assets::extend(const Assets& assets) {
@@ -75,6 +99,12 @@ void Assets::extend(const Assets& assets) {
     for (auto entry : assets.atlases) {
         atlases[entry.first] = entry.second;
     }
+	for (auto entry : assets.layouts) {
+		layouts[entry.first] = entry.second;
+	}
+	for (auto entry : assets.sounds) {
+		sounds[entry.first] = entry.second;
+	}
     animations.clear();
 	for (auto entry : assets.animations) {
 		animations.emplace_back(entry);

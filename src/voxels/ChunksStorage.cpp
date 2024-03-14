@@ -12,6 +12,7 @@
 #include "../world/World.h"
 #include "../maths/voxmaths.h"
 #include "../lighting/Lightmap.h"
+#include "../items/Inventories.h"
 #include "../typedefs.h"
 
 ChunksStorage::ChunksStorage(Level* level) : level(level) {
@@ -50,14 +51,19 @@ static void verifyLoadedChunk(ContentIndices* indices, Chunk* chunk) {
 
 std::shared_ptr<Chunk> ChunksStorage::create(int x, int z) {
 	World* world = level->getWorld();
-    WorldFiles* wfile = world->wfile;
+    WorldFiles* wfile = world->wfile.get();
 
     auto chunk = std::make_shared<Chunk>(x, z);
 	store(chunk);
 	std::unique_ptr<ubyte[]> data(wfile->getChunk(chunk->x, chunk->z));
 	if (data) {
 		chunk->decode(data.get());
+		auto invs = wfile->fetchInventories(chunk->x, chunk->z);
+		chunk->setBlockInventories(std::move(invs));
 		chunk->setLoaded(true);
+		for(auto& entry : chunk->inventories) {
+			level->inventories->store(entry.second);
+		}
         verifyLoadedChunk(level->content->getIndices(), chunk.get());
 	}
 

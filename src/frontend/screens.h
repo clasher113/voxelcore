@@ -14,7 +14,7 @@
 class Assets;
 class Level;
 class WorldRenderer;
-class HudRenderer;
+class Hud;
 class Engine;
 class Camera;
 class Batch2D;
@@ -63,6 +63,7 @@ public:
     virtual ~Screen();
     virtual void update(float delta) = 0;
     virtual void draw(float delta) = 0;
+    virtual void onEngineShutdown() {};
 };
 
 class MenuScreen : public Screen {
@@ -76,9 +77,8 @@ public:
 };
 
 class LevelScreen : public Screen {
-    std::unique_ptr<Level> level;
     std::unique_ptr<LevelFrontend> frontend;
-    std::unique_ptr<HudRenderer> hud;
+    std::unique_ptr<Hud> hud;
     std::unique_ptr<WorldRenderer> worldRenderer;
     std::unique_ptr<LevelController> controller;
     std::unique_ptr<TextureAnimator> animator;
@@ -92,7 +92,9 @@ public:
     void update(float delta) override;
     void draw(float delta) override;
 
-    Level* getLevel() const;
+    void onEngineShutdown() override;
+
+    LevelController* getLevelController() const;
 };
 
 class WorkShopScreen : public Screen {
@@ -123,13 +125,11 @@ private:
         std::unique_ptr<LineBatch> lineBatch;
         std::unique_ptr<Camera> camera;
         World* world;
-        Player* player;
         std::unique_ptr<Framebuffer> framebuffer;
         ContentGfxCache* cache;
         Engine* engine;
 
-        AABB blockHitbox;
-        AABB currentAABB;
+        AABB currentAABB, currentHitbox;
         glm::vec3 currentTetragon[4]{};
         glm::vec2 previewRotation{ 225.f, 45.f };
         float viewDistance = 2.f;
@@ -147,11 +147,9 @@ private:
         void draw();
 
         void setBlock(Block* block);
-        void setCurrentAABB(const AABB& aabb) { currentAABB.a = aabb.a + (aabb.b - aabb.a) / 2.f - 0.5f;
-                                                currentAABB.b = aabb.b - aabb.a; };
+        void setCurrentAABB(const AABB& aabb, unsigned int primitiveType);
         void setCurrentTetragon(const glm::vec3* tetragon);
-        void setBlockHitbox(const AABB& aabb) { blockHitbox.a = aabb.a + (aabb.b - aabb.a) / 2.f - 0.5f;
-                                                blockHitbox.b = aabb.b - aabb.a; };
+
         void setResolution(uint width, uint height);
 
         Texture* getTexture();
@@ -181,6 +179,7 @@ public:
         ITEM,
         BOTH
     };
+
 private:
     void initialize();
     void removePanel(unsigned int column);
@@ -192,10 +191,10 @@ private:
     std::shared_ptr<gui::TextBox> createNumTextBox(T& value, const std::wstring& placeholder, T min, T max,
         const std::function<void(T)>& callback = [](T) {});
     std::shared_ptr<gui::FullCheckBox> createFullCheckBox(std::shared_ptr<gui::Panel> panel, const std::wstring& string, bool& checked);
-    std::shared_ptr<gui::Container> createHitboxContainer(AABB& aabb, float width, const std::function<void(float)>& callback);
     std::shared_ptr<gui::RichButton> createTextureButton(const std::string& texture, Atlas* atlas, glm::vec2 size, const wchar_t* side = nullptr);
     std::shared_ptr<gui::Panel> createTexturesPanel(glm::vec2 size, std::string* textures, BlockModel model);
     std::shared_ptr<gui::Panel> createTexturesPanel(glm::vec2 size, std::string& texture, item_icon_type model);
+    std::shared_ptr<gui::UINode> createVectorPanel(glm::vec3& vec, float min, float max, float width, unsigned int inputType, const std::function<void()>& callback);
     void createEmissionPanel(std::shared_ptr<gui::Panel> panel, uint8_t* emission);
 
     void createContentList(DefType type, unsigned int column, bool showAll = false, const std::function<void(const std::string&)>& callback = 0);
@@ -206,8 +205,8 @@ private:
     void createTextureInfoPanel(const std::string& texName, DefType type);
     void createImportPanel(DefType type = DefType::BLOCK);
     void createBlockEditor(const std::string& blockName);
-    void createItemEditor(const std::string& itemName);
     void createCustomModelEditor(Block* block, size_t index, unsigned int primitiveType);
+    void createItemEditor(const std::string& itemName);
     void createPreview(unsigned int column, unsigned int primitiveType);
     void saveBlock(Block* block, const std::string& actualName) const;
     void saveItem(ItemDef* item, const std::string& actualName) const;

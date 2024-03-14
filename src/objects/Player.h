@@ -8,6 +8,7 @@
 #include "../voxels/voxel.h"
 #include "../settings.h"
 #include "../interfaces/Serializable.h"
+#include "../interfaces/Object.h"
 
 class Camera;
 class Hitbox;
@@ -32,7 +33,7 @@ struct PlayerInput {
     bool flight;
 };
 
-class Player : Serializable {
+class Player : public Object, public Serializable {
     float speed;
     int chosenSlot;
     glm::vec3 spawnpoint {};
@@ -48,11 +49,11 @@ public:
 
     glm::vec2 cam = {};
 
-    Player(glm::vec3 position, float speed);
+    Player(glm::vec3 position, float speed, std::shared_ptr<Inventory> inv);
     ~Player();
 
     void teleport(glm::vec3 position);
-    void update(Level* level, PlayerInput& input, float delta);
+    void updateInput(Level* level, PlayerInput& input, float delta);
 
     void attemptToFindSpawnpoint(Level* level);
 
@@ -70,6 +71,10 @@ public:
     void deserialize(dynamic::Map *src) override;
 
     static void convert(dynamic::Map* data, const ContentLUT* lut);
+
+    inline int getId() const {
+        return objectUID;
+    }
 };
 
 #endif /* SRC_OBJECTS_PLAYER_H_ */

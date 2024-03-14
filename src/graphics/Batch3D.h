@@ -1,10 +1,12 @@
 #ifndef GRAPHICS_BATCH3D_H_
 #define GRAPHICS_BATCH3D_H_
 
-#include <stdlib.h>
-#include <glm/glm.hpp>
 #include "UVRegion.h"
 #include "../typedefs.h"
+
+#include <memory>
+#include <stdlib.h>
+#include <glm/glm.hpp>
 
 class Mesh;
 class Texture;
@@ -12,10 +14,10 @@ class Texture;
 class Batch3D {
 	float* buffer;
 	size_t capacity;
-	Mesh* mesh;
+	std::unique_ptr<Mesh> mesh;
+	std::unique_ptr<Texture> blank;
 	size_t index;
-
-	Texture* blank;
+	
 	Texture* _texture;
 
 	void vertex(float x, float y, float z,
@@ -41,7 +43,9 @@ public:
 	void texture(Texture* texture);
 	void sprite(glm::vec3 pos, glm::vec3 up, glm::vec3 right, float w, float h, const UVRegion& uv, glm::vec4 tint);
 	void xSprite(float w, float h, const UVRegion& uv, const glm::vec4 tint, bool shading=true);
+	void cube(const glm::vec3 coords, const glm::vec3 size, const UVRegion(&texfaces)[6], const glm::vec4 tint, bool shading=true);
 	void blockCube(const glm::vec3 size, const UVRegion(&texfaces)[6], const glm::vec4 tint, bool shading=true);
+    void point(glm::vec3 pos, glm::vec2 uv, glm::vec4 tint);
     void point(glm::vec3 pos, glm::vec4 tint);
 	void flush();
     void flushPoints();

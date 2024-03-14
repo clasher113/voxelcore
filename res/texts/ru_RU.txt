@@ -6,9 +6,11 @@ Cancel=Отмена
 Back=Назад
 Continue=Продолжить
 Add=Добавить
+Converting world...=Выполняется конвертация мира...
 
 error.pack-not-found=Не удалось найти пакет
 error.dependency-not-found=Используемая зависимость не найдена
+pack.remove-confirm=Удалить весь поставляемый паком контент из мира (безвозвратно)?
 
 # Меню
 menu.New World=Новый Мир
@@ -23,6 +25,10 @@ menu.Settings=Настройки
 menu.Content=Контент
 world.Seed=Зерно
 world.Name=Название
+
+world.World generator=Генератор мира
+world.generators.default=Обычный
+world.generators.flat=Плоский
 menu.Create World=Создать Мир
 
 world.convert-request=Есть изменения в индексах! Конвертировать мир?
@@ -34,6 +40,7 @@ settings.Load Speed=Скорость Загрузки
 settings.Fog Curve=Кривая Тумана
 settings.Backlight=Подсветка
 settings.V-Sync=Вертикальная Синхронизация
+settings.Camera Shaking=Тряска Камеры
 
 settings.FOV=Поле Зрения
 settings.Mouse Sensitivity=Чувствительность Мыши

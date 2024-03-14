@@ -7,8 +7,10 @@
 #include "../voxels/Block.h"
 #include "../items/ItemDef.h"
 
-ContentBuilder::~ContentBuilder() {
-}
+#include "ContentPack.h"
+#include "../logic/scripting/scripting.h"
+
+ContentBuilder::~ContentBuilder() {}
 
 void ContentBuilder::add(Block* def) {
     checkIdentifier(def->name);
@@ -22,28 +24,36 @@ void ContentBuilder::add(ItemDef* def) {
     itemIds.push_back(def->name);
 }
 
-Block* ContentBuilder::createBlock(std::string id) {
+void ContentBuilder::add(ContentPackRuntime* pack) {
+    packs.emplace(pack->getId(), pack);
+}
+
+void ContentBuilder::add(BlockMaterial material) {
+    blockMaterials.emplace(material.name, material);
+}
+
+Block& ContentBuilder::createBlock(std::string id) {
     auto found = blockDefs.find(id);
     if (found != blockDefs.end()) {
-        //return found->second;
-        throw namereuse_error("name "+id+" is already used", contenttype::item);
+        return *found->second;
+        // throw namereuse_error("name "+id+" is already used", contenttype::item);
     }
     Block* block = new Block(id);
     add(block);
-    return block;
+    return *block;
 }
 
-ItemDef* ContentBuilder::createItem(std::string id) {
+ItemDef& ContentBuilder::createItem(std::string id) {
     auto found = itemDefs.find(id);
     if (found != itemDefs.end()) {
-        if (found->second->generated) {
-            return found->second;
-        }
-        throw namereuse_error("name "+id+" is already used", contenttype::item);
+        // if (found->second->generated) {
+        return *found->second;
+        // }
+        // throw namereuse_error("name "+id+" is already used", contenttype::item);
     }
     ItemDef* item = new ItemDef(id);
     add(item);
-    return item;
+    return *item;
 }
 
 void ContentBuilder::checkIdentifier(std::string id) {
@@ -65,7 +75,7 @@ contenttype ContentBuilder::checkContentType(std::string id) {
 
 Content* ContentBuilder::build() {
     std::vector<Block*> blockDefsIndices;
-    DrawGroups* groups = new DrawGroups;
+    auto groups = std::make_unique<DrawGroups>();
     for (const std::string& name : blockIds) {
         Block* def = blockDefs[name];
         
@@ -75,11 +85,12 @@ Content* ContentBuilder::build() {
         def->rt.solid = def->model == BlockModel::block;
 
         if (def->rotatable) {
-            const AABB& hitbox = def->hitbox;
             for (uint i = 0; i < BlockRotProfile::MAX_COUNT; i++) {
-                AABB aabb = hitbox;
-                def->rotations.variants[i].transform(aabb);
-                def->rt.hitboxes[i] = aabb;
+                def->rt.hitboxes[i].reserve(def->hitboxes.size());
+                for (AABB aabb : def->hitboxes) {
+                    def->rotations.variants[i].transform(aabb);
+                    def->rt.hitboxes[i].push_back(aabb);
+                }
             }
         }
 
@@ -100,15 +111,23 @@ Content* ContentBuilder::build() {
     }
 
     auto indices = new ContentIndices(blockDefsIndices, itemDefsIndices);
-    std::unique_ptr<Content> content (new Content(indices, groups, blockDefs, itemDefs));
 
-    // Now, it's time to solve foreign keys
+    auto content = std::make_unique<Content>(
+        indices, 
+        std::move(groups), 
+        blockDefs, 
+        itemDefs, 
+        std::move(packs), 
+        std::move(blockMaterials)
+    );
+
+    // Now, it's time to resolve foreign keys
     for (Block* def : blockDefsIndices) {
-        def->rt.pickingItem = content->requireItem(def->pickingItem)->rt.id;
+        def->rt.pickingItem = content->requireItem(def->pickingItem).rt.id;
     }
 
     for (ItemDef* def : itemDefsIndices) {
-        def->rt.placingBlock = content->requireBlock(def->placingBlock)->rt.id;
+        def->rt.placingBlock = content->requireBlock(def->placingBlock).rt.id;
     }
 
     return content.release();
@@ -116,23 +135,27 @@ Content* ContentBuilder::build() {
 
 ContentIndices::ContentIndices(
     std::vector<Block*> blockDefs, 
-    std::vector<ItemDef*> itemDefs)
-    : blockDefs(blockDefs), 
-      itemDefs(itemDefs) {
-}
+    std::vector<ItemDef*> itemDefs
+) : blockDefs(blockDefs), 
+    itemDefs(itemDefs) 
+{}
 
-Content::Content(ContentIndices* indices, DrawGroups* drawGroups,
-                 std::unordered_map<std::string, Block*> blockDefs,
-                 std::unordered_map<std::string, ItemDef*> itemDefs)
-        : blockDefs(blockDefs),
-          itemDefs(itemDefs),
-          indices(indices),
-          drawGroups(drawGroups) {
-}
+Content::Content(
+    ContentIndices* indices, 
+    std::unique_ptr<DrawGroups> drawGroups,
+    std::unordered_map<std::string, Block*> blockDefs,
+    std::unordered_map<std::string, ItemDef*> itemDefs,
+    std::unordered_map<std::string, std::unique_ptr<ContentPackRuntime>> packs,
+    std::unordered_map<std::string, BlockMaterial> blockMaterials
+) : blockDefs(blockDefs),
+    itemDefs(itemDefs),
+    indices(indices),
+    packs(std::move(packs)),
+    blockMaterials(std::move(blockMaterials)),
+    drawGroups(std::move(drawGroups)) 
+{}
 
-Content::~Content() {
-    delete drawGroups;
-}
+Content::~Content() {}
 
 Block* Content::findBlock(std::string id) const {
     auto found = blockDefs.find(id);
@@ -142,12 +165,12 @@ Block* Content::findBlock(std::string id) const {
     return found->second;
 }
 
-Block* Content::requireBlock(std::string id) const {
+Block& Content::requireBlock(std::string id) const {
     auto found = blockDefs.find(id);
     if (found == blockDefs.end()) {
         throw std::runtime_error("missing block "+id);
     }
-    return found->second;
+    return *found->second;
 }
 
 ItemDef* Content::findItem(std::string id) const {
@@ -158,10 +181,34 @@ ItemDef* Content::findItem(std::string id) const {
     return found->second;
 }
 
-ItemDef* Content::requireItem(std::string id) const {
+ItemDef& Content::requireItem(std::string id) const {
     auto found = itemDefs.find(id);
     if (found == itemDefs.end()) {
         throw std::runtime_error("missing item "+id);
     }
-    return found->second;
+    return *found->second;
+}
+
+const BlockMaterial* Content::findBlockMaterial(std::string id) const {
+    auto found = blockMaterials.find(id);
+    if (found == blockMaterials.end()) {
+        return nullptr;
+    }
+    return &found->second;
+}
+
+const ContentPackRuntime* Content::getPackRuntime(std::string id) const {
+    auto found = packs.find(id);
+    if (found == packs.end()) {
+        return nullptr;
+    }
+    return found->second.get();
+}
+
+const std::unordered_map<std::string, BlockMaterial>& Content::getBlockMaterials() const {
+    return blockMaterials;
+}
+
+const std::unordered_map<std::string, std::unique_ptr<ContentPackRuntime>>& Content::getPacks() const {
+    return packs;
 }

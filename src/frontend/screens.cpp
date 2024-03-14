@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <stdexcept>
 
+#include "../audio/audio.h"
 #include "../window/Camera.h"
 #include "../window/Events.h"
 #include "../window/input.h"
@@ -19,8 +20,11 @@
 #include "../world/Level.h"
 #include "../world/World.h"
 #include "../objects/Player.h"
+#include "../physics/Hitbox.h"
 #include "../logic/ChunksController.h"
 #include "../logic/LevelController.h"
+#include "../logic/scripting/scripting.h"
+#include "../logic/scripting/scripting_frontend.h"
 #include "../voxels/Chunks.h"
 #include "../voxels/Chunk.h"
 #include "../engine.h"
@@ -31,8 +35,8 @@
 #include "ContentGfxCache.h"
 #include "LevelFrontend.h"
 #include "gui/GUI.h"
-#include "gui/panels.h"
-#include "menu.h"
+#include "gui/containers.h"
+#include "menu/menu.h"
 
 #include "../content/Content.h"
 #include "../voxels/Block.h"
@@ -44,7 +48,7 @@
 #include "../files/files.h"
 #include "../coders/png.h"
 #include "BlocksPreview.h"
-#include "../graphics/BlocksRenderer.h"
+#include "../frontend/graphics/BlocksRenderer.h"
 #include "../graphics/Atlas.h"
 #include "../graphics/Mesh.h"
 #include "../graphics/Texture.h"
@@ -135,35 +139,49 @@ void MenuScreen::draw(float delta) {
 
     batch->begin();
     batch->texture(engine->getAssets()->getTexture("gui/menubg"));
-    batch->rect(0, 0, 
-                width, height, 0, 0, 0, 
-                UVRegion(0, 0, width/64, height/64), 
-                false, false, glm::vec4(1.0f));
-    batch->render();
+    batch->rect(
+        0, 0, 
+        width, height, 0, 0, 0, 
+        UVRegion(0, 0, width/64, height/64), 
+        false, false, glm::vec4(1.0f)
+    );
+    batch->flush();
 }
 
 static bool backlight;
 
-LevelScreen::LevelScreen(Engine* engine, Level* level) 
-    : Screen(engine), 
-      level(level),
-      frontend(std::make_unique<LevelFrontend>(level, engine->getAssets())),
-      hud(std::make_unique<HudRenderer>(engine, frontend.get())),
-      worldRenderer(std::make_unique<WorldRenderer>(engine, frontend.get())),
-      controller(std::make_unique<LevelController>(engine->getSettings(), level)) {
-
+LevelScreen::LevelScreen(Engine* engine, Level* level) : Screen(engine) {
     auto& settings = engine->getSettings();
+    auto assets = engine->getAssets();
+    auto menu = engine->getGUI()->getMenu();
+    menu->reset();
+
+    controller = std::make_unique<LevelController>(settings, level);
+    frontend = std::make_unique<LevelFrontend>(controller.get(), assets);
+
+    worldRenderer = std::make_unique<WorldRenderer>(engine, frontend.get(), controller->getPlayer());
+    hud = std::make_unique<Hud>(engine, frontend.get(), controller->getPlayer());
+    
+
     backlight = settings.graphics.backlight;
 
-    animator.reset(new TextureAnimator());
-    animator->addAnimations(engine->getAssets()->getAnimations());
+    animator = std::make_unique<TextureAnimator>();
+    animator->addAnimations(assets->getAnimations());
+
+    auto content = level->content;
+    for (auto& entry : content->getPacks()) {
+        auto pack = entry.second.get();
+        const ContentPack& info = pack->getInfo();
+        fs::path scriptFile = info.folder/fs::path("scripts/hud.lua");
+        if (fs::is_regular_file(scriptFile)) {
+            scripting::load_hud_script(pack->getEnvironment()->getId(), info.id, scriptFile);
+        }
+    }
+    scripting::on_frontend_init(hud.get());
 }
 
 LevelScreen::~LevelScreen() {
-    std::cout << "-- writing world" << std::endl;
-    controller->onWorldSave();
-    auto world = level->getWorld();
-    world->write(level.get());
+    scripting::on_frontend_close();
     controller->onWorldQuit();
     engine->getPaths()->setWorldFolder(fs::path());
 }
@@ -177,10 +195,10 @@ void LevelScreen::updateHotkeys() {
         hudVisible = !hudVisible;
     }
     if (Events::jpressed(keycode::F3)) {
-        level->player->debug = !level->player->debug;
+        controller->getPlayer()->debug = !controller->getPlayer()->debug;
     }
     if (Events::jpressed(keycode::F5)) {
-        level->chunks->saveAndClear();
+        controller->getLevel()->chunks->saveAndClear();
     }
 }
 
@@ -194,16 +212,25 @@ void LevelScreen::update(float delta) {
         updateHotkeys();
     }
 
+    auto player = controller->getPlayer();
+    auto camera = player->camera;
+    audio::set_listener(
+        camera->position-camera->dir, 
+        player->hitbox->velocity,
+        camera->dir, 
+        camera->up
+    );
+
     // TODO: subscribe for setting change
     EngineSettings& settings = engine->getSettings();
-    level->player->camera->setFov(glm::radians(settings.camera.fov));
+    controller->getPlayer()->camera->setFov(glm::radians(settings.camera.fov));
     if (settings.graphics.backlight != backlight) {
-        level->chunks->saveAndClear();
+        controller->getLevel()->chunks->saveAndClear();
         backlight = settings.graphics.backlight;
     }
 
     if (!hud->isPause()) {
-        level->world->updateTimers(delta);
+        controller->getLevel()->world->updateTimers(delta);
         animator->update(delta);
     }
     controller->update(delta, !inputLocked, hud->isPause());
@@ -211,7 +238,7 @@ void LevelScreen::update(float delta) {
 }
 
 void LevelScreen::draw(float delta) {
-    auto camera = level->player->currentCamera;
+    auto camera = controller->getPlayer()->currentCamera;
 
     Viewport viewport(Window::width, Window::height);
     GfxContext ctx(nullptr, viewport, batch.get());
@@ -220,19 +247,20 @@ void LevelScreen::draw(float delta) {
 
     if (hudVisible) {
         hud->draw(ctx);
-        if (level->player->debug) {
-            hud->drawDebug(1 / delta);
-        }
     }
 }
 
-Level* LevelScreen::getLevel() const {
-    return level.get();
+void LevelScreen::onEngineShutdown() {
+    controller->saveWorld();
+}
+
+LevelController* LevelScreen::getLevelController() const {
+    return controller.get();
 }
 
 const unsigned int PRIMITIVE_AABB = 0;
 const unsigned int PRIMITIVE_TETRAGON = 1;
-const unsigned int PRIMITIVE_COUNT = 2;
+const unsigned int PRIMITIVE_HITBOX = 2;
 
 static std::string getTexName(const std::string& fullName) {
 	return fullName.substr(fullName.find(':') + 1);
@@ -275,7 +303,7 @@ WorkShopScreen::WorkShopScreen(Engine* engine, const ContentPack& pack) :
 
 	auto panel = std::make_shared<gui::Panel>(glm::vec2(250));
 	panels.emplace(0, panel);
-	panel->setCoord(glm::vec2(2.f));
+	panel->setPos(glm::vec2(2.f));
 	panel->add(std::make_shared<gui::Button>(L"Info", glm::vec4(10.f), [this, panel](gui::GUI*) {
 		createInfoPanel();
 	}));
@@ -295,7 +323,7 @@ WorkShopScreen::WorkShopScreen(Engine* engine, const ContentPack& pack) :
 
 	setNodeColor<gui::Button>(panel);
 	gui::Button* button = static_cast<gui::Button*>(panel->getNodes().front().get());
-	button->mouseRelease(gui, (int)button->calcCoord().x, (int)button->calcCoord().y);
+	button->mouseRelease(gui, (int)button->calcPos().x, (int)button->calcPos().y);
 
 	gui->add(panel);
 }
@@ -344,7 +372,7 @@ void WorkShopScreen::draw(float delta) {
 		width, height, 0, 0, 0,
 		UVRegion(0, 0, width / 64, height / 64),
 		false, false, glm::vec4(1.0f));
-	batch->render();
+	batch->flush();
 }
 
 void WorkShopScreen::initialize() {
@@ -392,7 +420,7 @@ void WorkShopScreen::removePanel(unsigned int column) {
 }
 
 void WorkShopScreen::removePanels(unsigned int column) {
-	for (auto& it = panels.begin(); it != panels.end();) {
+	for (auto it = panels.begin(); it != panels.end();) {
 		if (it->first >= column) {
 			gui->remove(it->second);
 			panels.erase(it++);
@@ -420,12 +448,12 @@ void WorkShopScreen::createPanel(std::function<std::shared_ptr<gui::Panel>()> la
 	panels.emplace(column, panel);
 
 	if (posX > 0) {
-		panel->setCoord(glm::vec2(posX, 2.f));
+		panel->setPos(glm::vec2(posX, 2.f));
 	}
 	else {
 		float x = 2.f;
 		for (const auto& elem : panels) {
-			elem.second->setCoord(glm::vec2(x, 2.f));
+			elem.second->setPos(glm::vec2(x, 2.f));
 			x += elem.second->getSize().x;
 		}
 	}
@@ -435,10 +463,10 @@ void WorkShopScreen::createPanel(std::function<std::shared_ptr<gui::Panel>()> la
 std::shared_ptr<gui::TextBox> WorkShopScreen::createTextBox(std::shared_ptr<gui::Panel> panel, std::string& string, const std::wstring& placeholder) {
 	auto textBox = std::make_shared<gui::TextBox>(placeholder);
 	textBox->setText(util::str2wstr_utf8(string));
-	textBox->textConsumer([&string, textBox](std::wstring text) {
+	textBox->setTextConsumer([&string, textBox](std::wstring text) {
 		string = util::wstr2str_utf8(textBox->getInput());
 	});
-	textBox->textSupplier([&string]() {
+	textBox->setTextSupplier([&string]() {
 		return util::str2wstr_utf8(string);
 	});
 	panel->add(textBox);
@@ -450,7 +478,7 @@ std::shared_ptr<gui::TextBox> WorkShopScreen::createNumTextBox(T& value, const s
 	const std::function<void(T)>& callback) {
 	auto textBox = std::make_shared<gui::TextBox>(placeholder);
 	textBox->setText(std::to_wstring(value));
-	textBox->textConsumer([&value, textBox, min, max, callback](std::wstring text) {
+	textBox->setTextConsumer([&value, textBox, min, max, callback](std::wstring text) {
 		const std::wstring& input = textBox->getInput();
 		if (input.empty()) {
 			value = 0;
@@ -465,7 +493,7 @@ std::shared_ptr<gui::TextBox> WorkShopScreen::createNumTextBox(T& value, const s
 			}
 		} catch (const std::exception&) {}
 	});
-	textBox->textSupplier([&value, min]() {
+	textBox->setTextSupplier([&value, min]() {
 		if (value != 0) return util::to_wstring(value, (std::is_floating_point<T>::value ? 2 : 0));
 		return std::wstring(L"");
 	});
@@ -474,39 +502,14 @@ std::shared_ptr<gui::TextBox> WorkShopScreen::createNumTextBox(T& value, const s
 
 std::shared_ptr<gui::FullCheckBox> WorkShopScreen::createFullCheckBox(std::shared_ptr<gui::Panel> panel, const std::wstring& string, bool& isChecked) {
 	auto checkbox = std::make_shared<gui::FullCheckBox>(string, glm::vec2(200, 24));
-	checkbox->supplier([&isChecked]() {
+	checkbox->setSupplier([&isChecked]() {
 		return isChecked;
 	});
-	checkbox->consumer([&isChecked](bool checked) {
+	checkbox->setConsumer([&isChecked](bool checked) {
 		isChecked = checked;
 	});
 	panel->add(checkbox);
 	return checkbox;
-}
-
-std::shared_ptr<gui::Container> WorkShopScreen::createHitboxContainer(AABB& aabb, float width, const std::function<void(float)>& callback) {
-	auto container = std::make_shared<gui::Container>(glm::vec2(), glm::vec2(width, 0));
-	glm::vec2 position(0.f);
-	wchar_t* aabbs[] = { L"Position X", L"Position Y", L"Position Z", L"Width", L"Height", L"Depth" };
-	auto createTextBox = [this, container, &position, callback](const std::wstring& placeholder, float& num) {
-		auto textBox = createNumTextBox(num, placeholder, 0.f, 1.f, callback);
-		textBox->setSize(glm::vec2(container->getSize().x / 2.f - (textBox->getPadding().x - textBox->getMargin().x) * 3, textBox->getSize().y));
-		textBox->setCoord(position);
-		position.y += textBox->getSize().y + textBox->getPadding().y + textBox->getMargin().y;
-		container->add(textBox);
-
-		return textBox;
-	};
-	std::shared_ptr<gui::TextBox> textBox;
-	for (size_t i = 0; i < 3; i++) {
-		textBox = createTextBox(aabbs[i], aabb.a[i]);
-	}
-	position = glm::vec2(container->getSize().x / 2.f - (textBox->getPadding().x - textBox->getMargin().x), 0.f);
-	for (size_t i = 0; i < 3; i++) {
-		textBox = createTextBox(aabbs[3 + i], aabb.b[i]);
-	}
-	container->setSize(glm::vec2(width, position.y));
-	return container;
 }
 
 std::shared_ptr<gui::RichButton> WorkShopScreen::createTextureButton(const std::string& texture, Atlas* atlas, glm::vec2 size, const wchar_t* side) {
@@ -519,12 +522,12 @@ std::shared_ptr<gui::RichButton> WorkShopScreen::createTextureButton(const std::
 	auto label = std::make_shared<gui::Label>(util::str2wstr_utf8(texture));
 	button->add(label);
 	if (side == nullptr) {
-		label->setCoord(glm::vec2(size.y + 10.f, size.y / 2.f - label->getSize().y / 2.f));
+		label->setPos(glm::vec2(size.y + 10.f, size.y / 2.f - label->getSize().y / 2.f));
 	}
 	else {
-		label->setCoord(glm::vec2(size.y + 10.f, size.y / 2.f));
+		label->setPos(glm::vec2(size.y + 10.f, size.y / 2.f));
 		label = std::make_shared<gui::Label>(side);
-		label->setCoord(glm::vec2(size.y + 10.f, size.y / 2.f - label->getSize().y));
+		label->setPos(glm::vec2(size.y + 10.f, size.y / 2.f - label->getSize().y));
 		button->add(label);
 	}
 
@@ -561,7 +564,7 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(glm::vec2 size, 
 		}
 		auto button = createTextureButton(texName, atlas, glm::vec2(texturesPanel->getSize().x, size.y), (buttonsNum == 6 ? faces[i] : nullptr));
 		button->listenAction([this, button, type, model, textures, size, i](gui::GUI*) {
-			createTextureList(35.f, 5, type, button->calcCoord().x + button->getSize().x, true,
+			createTextureList(35.f, 5, type, button->calcPos().x + button->getSize().x, true,
 			[this, button, model, textures, size, i, gui = engine->getGUI()](const std::string& texName) {
 				if (model == BlockModel::custom) currentBlockIco = texName;
 				else textures[i] = getTexName(texName);
@@ -599,7 +602,7 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(glm::vec2 size, 
 	button->listenAction([this, button, &texture, size, type](gui::GUI*) {
 		auto& nodes = button->getNodes();
 		if (type == item_icon_type::sprite) {
-			createTextureList(35.f, 5, DefType::BOTH, button->calcCoord().x + button->getSize().x, true,
+			createTextureList(35.f, 5, DefType::BOTH, button->calcPos().x + button->getSize().x, true,
 				[this, nodes, size, &texture](const std::string& texName) {
 					texture = texName;
 					removePanel(5);
@@ -623,6 +626,44 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(glm::vec2 size, 
 	return texturePanel;
 }
 
+std::shared_ptr<gui::UINode> WorkShopScreen::createVectorPanel(glm::vec3& vec, float min, float max, float width, unsigned int inputType, const std::function<void()>& callback) {
+	if (inputType == 0) {
+		auto panel = std::make_shared<gui::Panel>(glm::vec2(width));
+		panel->setColor(glm::vec4(0.f));
+		auto label = std::make_shared<gui::Label>(L"X:" + util::to_wstring(vec.x, 2) + L" Y:" + util::to_wstring(vec.y, 2) + L" Z:" + util::to_wstring(vec.z, 2));
+		panel->add(label);
+
+		for (size_t i = 0; i < 3; i++) {
+			auto slider = std::make_shared<gui::TrackBar>(min, max, vec[i], 0.01f, 5.f);
+			slider->setConsumer([&vec, i, callback, label](double value) {
+				vec[i] = static_cast<float>(value);
+				label->setText(L"X:" + util::to_wstring(vec.x, 2) + L" Y:" + util::to_wstring(vec.y, 2) + L" Z:" + util::to_wstring(vec.z, 2));
+				callback();
+				});
+			panel->add(slider);
+		}
+		return panel;
+	}
+	auto container = std::make_shared<gui::Container>(glm::vec2(0));
+	const wchar_t* coords[] = { L"X", L"Y", L"Z" };
+
+	for (glm::vec3::length_type i = 0; i < 3; i++) {
+		container->add(createNumTextBox(vec[i], coords[i], min, max, std::function<void(float)>([this, callback](float num) { callback(); })));
+	}
+	float size = width / 3;
+	float height = 0.f;
+	size_t i = 0;
+	for (auto& elem : container->getNodes()) {
+		elem->setSize(glm::vec2(size - elem->getMargin().x - 4, elem->getSize().y));
+		elem->setPos(glm::vec2(size * i++, 0.f));
+		height = elem->getSize().y;
+	}
+	container->setSize(glm::vec2(width, height));
+	container->setScrollable(false);
+
+	return container;
+}
+
 void WorkShopScreen::createEmissionPanel(std::shared_ptr<gui::Panel> panel, uint8_t* emission) {
 	panel->add(std::make_shared<gui::Label>("Emission (0 - 15)"));
 	wchar_t* colors[] = { L"Red", L"Green", L"Blue" };
@@ -641,9 +682,9 @@ void WorkShopScreen::createContentList(DefType type, unsigned int column, bool s
 		panel->setScrollable(true);
 		panel->add(std::make_shared<gui::Button>(L"Create " + getDefName(type), glm::vec4(10.f), [this, type](gui::GUI*) {
 			createDefActionPanel(DefAction::CREATE_NEW, type);
-			}));
+		}));
 
-		auto createContentList = [this, panel, type, showAll, callback](std::string& searchName) {
+		auto createtList = [this, panel, type, showAll, callback](std::string searchName) {
 			Atlas* contentAtlas = (type == DefType::BLOCK ? previewAtlas : itemsAtlas);
 			std::vector<std::pair<std::string, ItemDef*>> sorted;
 			for (size_t i = !showAll; i < indices->countItemDefs(); i++) {
@@ -654,7 +695,7 @@ void WorkShopScreen::createContentList(DefType type, unsigned int column, bool s
 					fullName = item->name;
 				}
 				else if (type == DefType::BLOCK) {
-					if (!item->generated) continue;
+					if (!item->generated && i != 0) continue;
 					fullName = item->placingBlock;
 				}
 				if (!showAll && fullName.find(currentPack.id) == std::string::npos) continue;
@@ -705,17 +746,17 @@ void WorkShopScreen::createContentList(DefType type, unsigned int column, bool s
 			}
 		};
 		auto textBox = std::make_shared<gui::TextBox>(L"Search");
-		textBox->textValidator([=](const std::wstring& text) {
+		textBox->setTextValidator([=](const std::wstring& text) {
 			textBox->setText(textBox->getInput());
 			clearRemoveList(panel);
-			createContentList(util::wstr2str_utf8(textBox->getInput()));
+			createtList(util::wstr2str_utf8(textBox->getInput()));
 			setNodeColor<gui::RichButton>(panel);
 			return true;
 		});
 
 		panel->add(textBox);
 
-		createContentList(util::wstr2str_utf8(textBox->getInput()));
+		createtList(util::wstr2str_utf8(textBox->getInput()));
 
 		setNodeColor<gui::RichButton>(panel);
 
@@ -741,7 +782,7 @@ void WorkShopScreen::createInfoPanel() {
 		auto iconImage = std::make_shared<gui::Image>(icon, glm::vec2(64));
 		iconButton->add(iconImage);
 		auto button = std::make_shared<gui::Button>(L"Change icon", glm::vec4(10.f), gui::onaction());
-		button->setCoord(glm::vec2(iconImage->getSize().x + 10.f, iconImage->getSize().y / 2.f - button->getSize().y / 2.f));
+		button->setPos(glm::vec2(iconImage->getSize().x + 10.f, iconImage->getSize().y / 2.f - button->getSize().y / 2.f));
 		iconButton->add(button);
 		panel->add(iconButton);
 		panel->add(std::make_shared<gui::Label>("Creator"));
@@ -788,7 +829,7 @@ void WorkShopScreen::createTextureList(float icoSize, unsigned int column, DefTy
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
 		panel->setScrollable(true);
 
-		auto createTexturesList = [this, panel, showAll, callback, posX, type](std::string& searchName) {
+		auto createList = [this, panel, showAll, callback, posX, type](std::string searchName) {
 			auto& packs = engine->getContentPacks();
 			std::unordered_map<std::string, fs::path> paths;
 			paths.emplace(currentPack.title, currentPack.folder);
@@ -829,17 +870,17 @@ void WorkShopScreen::createTextureList(float icoSize, unsigned int column, DefTy
 			}));
 		}
 		auto textBox = std::make_shared<gui::TextBox>(L"Search");
-		textBox->textValidator([=](const std::wstring& text) {
+		textBox->setTextValidator([=](const std::wstring& text) {
 			textBox->setText(textBox->getInput());
 			clearRemoveList(panel);
-			createTexturesList(util::wstr2str_utf8(textBox->getInput()));
+			createList(util::wstr2str_utf8(textBox->getInput()));
 			setNodeColor<gui::RichButton>(panel);
 			return true;
 		});
 
 		panel->add(textBox);
 
-		createTexturesList(util::wstr2str_utf8(textBox->getInput()));
+		createList(util::wstr2str_utf8(textBox->getInput()));
 
 		setNodeColor<gui::RichButton>(panel);
 
@@ -853,23 +894,23 @@ void WorkShopScreen::createDefActionPanel(DefAction action, DefType type, const 
 
 		const wchar_t* buttonItem[] = { L"Item name", L"Rename item", L"Delete item" };
 		const wchar_t* buttonBlock[] = { L"Block name", L"Rename block", L"Delete block" };
-		const wchar_t* button2[] = { L"Create", L"Rename", L"Delete" };
-		const wchar_t** button1= (type == DefType::BLOCK ? buttonBlock : buttonItem);
+		const wchar_t* buttonAct[] = { L"Create", L"Rename", L"Delete" };
+		const wchar_t** buttonType = (type == DefType::BLOCK ? buttonBlock : buttonItem);
 
-		panel->add(std::make_shared<gui::Label>(button1[static_cast<int>(action)]));
+		panel->add(std::make_shared<gui::Label>(buttonType[static_cast<int>(action)]));
 		std::shared_ptr<gui::TextBox> nameInput;
 		if (action == DefAction::DELETE) {
 			panel->add(std::make_shared<gui::Label>(name+ "?"));
 		}
 		else {
 			nameInput = std::make_shared<gui::TextBox>((type == DefType::BLOCK ? L"example_block" : L"example_item"));
-			nameInput->textValidator([this, nameInput](const std::wstring& text) {
+			nameInput->setTextValidator([this, nameInput](const std::wstring& text) {
 				std::string input(util::wstr2str_utf8(nameInput->getInput()));
 				return blocksList.find(input) == blocksList.end() && util::is_valid_filename(nameInput->getInput()) && !input.empty();
 			});
 			panel->add(nameInput);
 		}
-		panel->add(std::make_shared<gui::Button>(button2[static_cast<int>(action)], glm::vec4(10.f), [this, nameInput, action, name, type](gui::GUI*) {
+		panel->add(std::make_shared<gui::Button>(buttonAct[static_cast<int>(action)], glm::vec4(10.f), [this, nameInput, action, name, type](gui::GUI*) {
 			if (nameInput && !nameInput->validate()) return;
 			fs::path path(currentPack.folder / (type == DefType::BLOCK ? ContentPack::BLOCKS_FOLDER : ContentPack::ITEMS_FOLDER));
 			if (!fs::is_directory(path)) fs::create_directory(path);
@@ -899,7 +940,7 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, DefType 
 	createPanel([this, texName, type]() {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(350));
 
-		auto imageContainer = std::make_shared<gui::Container>(glm::vec2(0.f), glm::vec2(panel->getSize().x));
+		auto imageContainer = std::make_shared<gui::Container>(glm::vec2(panel->getSize().x));
 		Atlas* atlas = getAtlas(assets, texName);
 		Texture* tex = atlas->getTexture();
 		auto image = std::make_shared<gui::Image>(tex, glm::vec2(0.f));
@@ -907,7 +948,7 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, DefType 
 		imageContainer->add(image);
 		panel->add(imageContainer);
 		const UVRegion& uv = atlas->get(getTexName(texName));
-		glm::ivec2 size((uv.u2 - uv.u1) * tex->width, (uv.v2 - uv.v1) * tex->height);
+		glm::ivec2 size((uv.u2 - uv.u1) * tex->getWidth(), (uv.v2 - uv.v1) * tex->getHeight());
 		panel->add(std::make_shared<gui::Label>(L"Width: " + std::to_wstring(size.x)));
 		panel->add(std::make_shared<gui::Label>(L"Height: " + std::to_wstring(size.y)));
 		panel->add(std::make_shared<gui::Label>(L"Texture type: " + util::str2wstr_utf8(getDefName(type))));
@@ -982,10 +1023,8 @@ void WorkShopScreen::createBlockEditor(const std::string& blockName) {
 				texturePanel->add(elem);
 			}
 			switch (block->model) {
-			case BlockModel::custom: createCustomModelEditor(block, 0, PRIMITIVE_AABB);
-				break;
-			default: createPreview(3, PRIMITIVE_COUNT);
-				break;
+				case BlockModel::custom: createCustomModelEditor(block, 0, PRIMITIVE_AABB); break;
+				default: createCustomModelEditor(block, 0, PRIMITIVE_HITBOX); break;
 			}
 			texturePanel->cropToContent();
 			preview->updateMesh();
@@ -1026,10 +1065,6 @@ void WorkShopScreen::createBlockEditor(const std::string& blockName) {
 		panel->add(std::make_shared<gui::Label>("Draw group"));
 		panel->add(createNumTextBox<ubyte>(block->drawGroup, L"0", 0, 255));
 		createEmissionPanel(panel, block->emission);
-		AABB& hitbox = block->hitbox;
-		preview->setBlockHitbox(hitbox);
-		panel->add(std::make_shared<gui::Label>("Hitbox"));
-		panel->add(createHitboxContainer(hitbox, panel->getSize().x, [this, &hitbox](float){ preview->setBlockHitbox(hitbox); }));
 
 		panel->add(std::make_shared<gui::Button>(L"Save", glm::vec4(10.f), [this, block, blockName](gui::GUI*) {
 			saveBlock(block, blockName);
@@ -1043,6 +1078,166 @@ void WorkShopScreen::createBlockEditor(const std::string& blockName) {
 		
 		return panel;
 	}, 2);
+}
+
+void WorkShopScreen::createCustomModelEditor(Block* block, size_t index, unsigned int primitiveType) {
+	createPanel([this, block, index, primitiveType]() mutable {
+		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
+		createPreview(4, primitiveType);
+
+		std::vector<AABB>& aabbArr = (primitiveType == PRIMITIVE_AABB ? block->modelBoxes : block->hitboxes);
+		const std::wstring primitives[] = { L"AABB", L"Tetragon", L"Hitbox" };
+		const std::wstring editorModes[] = { L"Custom model", L"Custom model", L"Hitbox" };
+		const glm::vec3 tetragonTemplate[] = { glm::vec3(0.f, 0.f, 0.5f), glm::vec3(1.f, 0.f, 0.5f), glm::vec3(1.f, 1.f, 0.5f), glm::vec3(0.f, 1.f, 0.5f) };
+		if (block->model == BlockModel::custom) {
+			panel->add(std::make_shared<gui::Button>(L"Mode: " + editorModes[primitiveType], glm::vec4(10.f), [this, block, primitiveType](gui::GUI*) {
+				if (primitiveType == PRIMITIVE_HITBOX) createCustomModelEditor(block, 0, PRIMITIVE_AABB);
+				else createCustomModelEditor(block, 0, PRIMITIVE_HITBOX);
+			}));
+		}
+		if (primitiveType != PRIMITIVE_HITBOX) {
+			panel->add(std::make_shared<gui::Button>(L"Primitive: " + primitives[primitiveType], glm::vec4(10.f), [this, block, primitiveType](gui::GUI*) {
+				if (primitiveType == PRIMITIVE_AABB) createCustomModelEditor(block, 0, PRIMITIVE_TETRAGON);
+				else if (primitiveType == PRIMITIVE_TETRAGON) createCustomModelEditor(block, 0, PRIMITIVE_AABB);
+
+			}));
+		}
+		size_t size = (primitiveType == PRIMITIVE_TETRAGON ? block->modelExtraPoints.size() / 4 : aabbArr.size());
+		panel->add(std::make_shared<gui::Label>(primitives[primitiveType] + L": " + std::to_wstring(index + 1) + L"/" + std::to_wstring(size)));
+
+		panel->add(std::make_shared<gui::Button>(L"Add new", glm::vec4(10.f), [this, block, primitiveType, &aabbArr, tetragonTemplate](gui::GUI*) {
+			size_t index = 0;
+			if (primitiveType == PRIMITIVE_TETRAGON) {
+				block->modelTextures.emplace_back("notfound");
+				for (size_t i = 0; i < 4; i++) {
+					block->modelExtraPoints.emplace_back(tetragonTemplate[i]);
+				}
+				index = block->modelExtraPoints.size() / 4;
+			}
+			else {
+				if (primitiveType == PRIMITIVE_AABB)
+					block->modelTextures.insert(block->modelTextures.begin() + aabbArr.size() * 6, 6, "notfound");
+				aabbArr.emplace_back(AABB());
+				index = aabbArr.size();
+			}
+			createCustomModelEditor(block, index - 1, primitiveType);
+			if (primitiveType != PRIMITIVE_HITBOX) preview->updateCache();
+		}));
+
+		if (primitiveType == PRIMITIVE_AABB && block->modelBoxes.empty() || 
+			primitiveType == PRIMITIVE_TETRAGON && block->modelExtraPoints.empty() ||
+			primitiveType == PRIMITIVE_HITBOX && block->hitboxes.empty()) return panel;
+		panel->add(std::make_shared<gui::Button>(L"Copy current", glm::vec4(10.f), [this, block, index, primitiveType, &aabbArr](gui::GUI*) {
+			if (primitiveType == PRIMITIVE_TETRAGON) {
+				block->modelTextures.emplace_back(*(block->modelTextures.begin() + block->modelBoxes.size() * 6 + index));
+				for (size_t i = 0; i < 4; i++) {
+					block->modelExtraPoints.emplace_back(*(block->modelExtraPoints.begin() + index * 4 + i));
+				}
+			}
+			else {
+				if (primitiveType == PRIMITIVE_AABB) {
+					for (size_t i = 0; i < 6; i++) {
+						block->modelTextures.emplace(block->modelTextures.begin() + block->modelBoxes.size() * 6 + i, *(block->modelTextures.begin() + index * 6 + i));
+					}
+				}
+				aabbArr.emplace_back(aabbArr[index]);
+			}
+			createCustomModelEditor(block, (primitiveType == PRIMITIVE_TETRAGON ? block->modelExtraPoints.size() / 4 : aabbArr.size() - 1), primitiveType);
+			if (primitiveType != PRIMITIVE_HITBOX) preview->updateCache();
+		}));
+		panel->add(std::make_shared<gui::Button>(L"Remove current", glm::vec4(10.f), [this, block, index, primitiveType, &aabbArr](gui::GUI*) {
+			if (primitiveType == PRIMITIVE_TETRAGON) {
+				auto it = block->modelExtraPoints.begin() + index * 4;
+				block->modelExtraPoints.erase(it, it + 4);
+				block->modelTextures.erase(block->modelTextures.begin() + block->modelBoxes.size() * 6 + index);
+				createCustomModelEditor(block, std::min(block->modelExtraPoints.size() / 4 - 1, index), primitiveType);
+			}
+			else {
+				if (primitiveType == PRIMITIVE_AABB) {
+					auto it = block->modelTextures.begin() + index * 6;
+					block->modelTextures.erase(it, it + 6);
+				}
+				aabbArr.erase(aabbArr.begin() + index);
+				createCustomModelEditor(block, std::min(aabbArr.size() - 1, index), primitiveType);
+			}
+			if (primitiveType != PRIMITIVE_HITBOX) preview->updateCache();
+		}));
+		panel->add(std::make_shared<gui::Button>(L"Previous", glm::vec4(10.f), [this, block, index, primitiveType](gui::GUI*) {
+			if (index != 0) {
+				createCustomModelEditor(block, index - 1, primitiveType);
+			}
+		}));
+		panel->add(std::make_shared<gui::Button>(L"Next", glm::vec4(10.f), [this, block, index, primitiveType, &aabbArr](gui::GUI*) {
+			size_t place = (primitiveType == PRIMITIVE_TETRAGON ? index * 4 + 4 : index + 1);
+			size_t size = (primitiveType == PRIMITIVE_TETRAGON ? block->modelExtraPoints.size() : aabbArr.size());
+			if (place < size) {
+				createCustomModelEditor(block, index + 1, primitiveType);
+			}
+		}));
+
+		auto updateTetragon = [](glm::vec3* p) {
+			glm::vec3 p1 = p[0];
+			glm::vec3 xw = p[1] - p1;
+			glm::vec3 yh = p[3] - p1;
+			p[2] = p1 + xw + yh;
+		};
+
+		static unsigned int inputMode = 0;
+		auto createInputModeButton = [](const std::function<void(unsigned int)>& callback) {
+			std::wstring inputModes[] = { L"Slider", L"InputBox" };
+			auto button = std::make_shared<gui::Button>(L"Input mode: " + inputModes[inputMode], glm::vec4(10.f), gui::onaction());
+			button->listenAction([button, &m = inputMode, inputModes, callback](gui::GUI*) {
+				if (++m >= 2) m = 0;
+				button->setText(L"Input mode: " + inputModes[m]);
+				callback(m);
+			});
+			return button;
+		};
+
+		auto inputPanel = std::make_shared<gui::Panel>(glm::vec2(panel->getSize().x));
+		inputPanel->setColor(glm::vec4(0.f));
+		panel->add(inputPanel);
+
+		std::function<void(unsigned int)> createInput;
+		std::string* textures = nullptr;
+		if (primitiveType == PRIMITIVE_TETRAGON) {
+			preview->setCurrentTetragon(&block->modelExtraPoints[index * 4]);
+
+			createInput = [this, block, index, inputPanel, panel, updateTetragon](unsigned int type) {
+				clearRemoveList(inputPanel);
+				for (size_t i = 0; i < 4; i++) {
+					if (i == 2) continue;
+					glm::vec3* vec = &block->modelExtraPoints[index * 4];
+					inputPanel->add(removeList.emplace_back(createVectorPanel(vec[i], 0.f, 1.f, panel->getSize().x, type,
+						[this, updateTetragon, vec]() {
+						updateTetragon(vec);
+						preview->setCurrentTetragon(vec);
+						preview->updateMesh();
+					})));
+				}
+			};
+			textures = block->modelTextures.data() + block->modelBoxes.size() * 6 + index;
+		}
+		else {
+			AABB& aabb = aabbArr[index];
+			preview->setCurrentAABB(aabb, primitiveType);
+
+			createInput = [this, &aabb, inputPanel, panel, primitiveType](unsigned int type) {
+				clearRemoveList(inputPanel);
+				inputPanel->add(removeList.emplace_back(createVectorPanel(aabb.a, 0.f, 1.f, panel->getSize().x, type, 
+					[this, &aabb, primitiveType]() { preview->setCurrentAABB(aabb, primitiveType); preview->updateMesh(); })));
+				inputPanel->add(removeList.emplace_back(createVectorPanel(aabb.b, 0.f, 1.f, panel->getSize().x, type, 
+					[this, &aabb, primitiveType]() { preview->setCurrentAABB(aabb, primitiveType); preview->updateMesh(); })));
+			};
+			textures = block->modelTextures.data() + index * 6;
+		}
+		createInput(inputMode);
+		panel->add(createInputModeButton(createInput));
+		if (primitiveType != PRIMITIVE_HITBOX)
+			panel->add(createTexturesPanel(glm::vec2(panel->getSize().x, 35.f), textures, (primitiveType == PRIMITIVE_AABB ? BlockModel::aabb : BlockModel::xsprite)));
+
+		return panel;
+	}, 3);
 }
 
 void WorkShopScreen::createItemEditor(const std::string& itemName) {
@@ -1105,230 +1300,30 @@ void WorkShopScreen::createItemEditor(const std::string& itemName) {
 	}, 2);
 }
 
-void WorkShopScreen::createCustomModelEditor(Block* block, size_t index, unsigned int primitiveType) {
-	createPanel([this, block, index, primitiveType]() mutable {
-		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
-		createPreview(4, primitiveType);
-
-		const wchar_t* primitives[] = { L"AABB", L"Tetragon" };
-		const glm::vec3 tetragonTemplate[] = { glm::vec3(0.f, 0.f, 0.5f), glm::vec3(1.f, 0.f, 0.5f), glm::vec3(1.f, 1.f, 0.5f), glm::vec3(0.f, 1.f, 0.5f) };
-		panel->add(std::make_shared<gui::Button>(L"Primitive: " + std::wstring(primitives[primitiveType]), glm::vec4(10.f), [this, block, primitiveType](gui::GUI*) mutable {
-			primitiveType++;
-			if (primitiveType >= PRIMITIVE_COUNT) primitiveType = PRIMITIVE_AABB;
-			createCustomModelEditor(block, 0, primitiveType);
-		}));
-		size_t size = (primitiveType == PRIMITIVE_AABB ? block->modelBoxes.size() : block->modelExtraPoints.size() / 4);
-		panel->add(std::make_shared<gui::Label>(primitives[primitiveType] + std::wstring(L": ") + std::to_wstring(index + 1) + L"/" + std::to_wstring(size)));
-
-		panel->add(std::make_shared<gui::Button>(L"Add new", glm::vec4(10.f), [this, block, primitiveType, tetragonTemplate](gui::GUI*) {
-			size_t index = 0;
-			if (primitiveType == PRIMITIVE_AABB) {
-				block->modelTextures.insert(block->modelTextures.begin() + block->modelBoxes.size() * 6, 6, "notfound");
-				block->modelBoxes.emplace_back(AABB());
-				index = block->modelBoxes.size() - 1;
-			}
-			else if (primitiveType == PRIMITIVE_TETRAGON) {
-				block->modelTextures.emplace_back("notfound");
-				for (size_t i = 0; i < 4; i++) {
-					block->modelExtraPoints.emplace_back(tetragonTemplate[i]);
-				}
-				index = block->modelExtraPoints.size() / 4 - 1;
-			}
-			createCustomModelEditor(block, index, primitiveType);
-			preview->updateCache();
-		}));
-
-		if (primitiveType == PRIMITIVE_AABB && block->modelBoxes.empty() || primitiveType == PRIMITIVE_TETRAGON && block->modelExtraPoints.empty()) return panel;
-		panel->add(std::make_shared<gui::Button>(L"Copy current", glm::vec4(10.f), [this, block, index, primitiveType](gui::GUI*) {
-			size_t index_ = 0;
-			if (primitiveType == PRIMITIVE_AABB) {
-				for (size_t i = 0; i < 6; i++) {
-					block->modelTextures.emplace(block->modelTextures.begin() + block->modelBoxes.size() * 6 + i, *(block->modelTextures.begin() + index * 6 + i));
-				}
-				block->modelBoxes.emplace_back(block->modelBoxes[index]);
-				index_ = block->modelBoxes.size() - 1;
-			}
-			else if (primitiveType == PRIMITIVE_TETRAGON) {
-				block->modelTextures.emplace_back(*(block->modelTextures.begin() + block->modelBoxes.size() * 6 + index));
-				for (size_t i = 0; i < 4; i++) {
-					block->modelExtraPoints.emplace_back(*(block->modelExtraPoints.begin() + index * 4 + i));
-				}
-				index_ = block->modelExtraPoints.size() / 4 - 1;
-			}
-			createCustomModelEditor(block, index_, primitiveType);
-			preview->updateCache();
-		}));
-		panel->add(std::make_shared<gui::Button>(L"Remove current", glm::vec4(10.f), [this, block, index, primitiveType](gui::GUI*) {
-			if (primitiveType == PRIMITIVE_AABB) {
-				block->modelBoxes.erase(block->modelBoxes.begin() + index);
-				block->modelTextures.erase(block->modelTextures.begin() + index * 6, block->modelTextures.begin() + index * 6 + 6);
-				createCustomModelEditor(block, std::min(block->modelBoxes.size() - 1, index), primitiveType);
-			}
-			else if (primitiveType == PRIMITIVE_TETRAGON) {
-				auto it = block->modelExtraPoints.begin() + index * 4;
-				block->modelExtraPoints.erase(it, it + 4);
-				block->modelTextures.erase(block->modelTextures.begin() + block->modelBoxes.size() * 6 + index);
-				createCustomModelEditor(block, std::min(block->modelExtraPoints.size() / 4 - 1, index), primitiveType);
-			}
-			preview->updateCache();
-		}));
-		panel->add(std::make_shared<gui::Button>(L"Previous", glm::vec4(10.f), [this, block, index, primitiveType](gui::GUI*) {
-			if (index != 0) {
-				createCustomModelEditor(block, index - 1, primitiveType);
-			}
-		}));
-		panel->add(std::make_shared<gui::Button>(L"Next", glm::vec4(10.f), [this, block, index, primitiveType](gui::GUI*) mutable {
-			size_t place = (primitiveType == PRIMITIVE_AABB ? index + 1 : index * 4 + 4);
-			size_t size = (primitiveType == PRIMITIVE_AABB ? block->modelBoxes.size() : block->modelExtraPoints.size());
-			if (place < size) {
-				createCustomModelEditor(block, index + 1, primitiveType);
-			}
-		}));
-
-		auto updateTetragon = [](glm::vec3* p) {
-			glm::vec3 p1 = p[0];
-			glm::vec3 xw = p[1] - p1;
-			glm::vec3 yh = p[3] - p1;
-			p[2] = p1 + xw + yh;
-		};
-
-		auto createVectorPanel = [this](float width, glm::vec3& vector, float min, float max, const std::function<void()>& callback) {
-			const wchar_t* coords[] = { L"X", L"Y", L"Z" };
-			auto vectorPanel = std::make_shared<gui::Container>(glm::vec2(0.f), glm::vec2(width));
-			for (glm::vec3::length_type i = 0; i < 3; i++) {
-				std::function<void(float)> test = [this, callback](float num) { callback(); };
-				vectorPanel->add(createNumTextBox(vector[i], coords[i], min, max, test));
-			}
-			float size = width / 3;
-			float height = 0.f;
-			size_t i = 0;
-			for (auto& elem : vectorPanel->getNodes()) {
-				elem->setSize(glm::vec2(size - elem->getMargin().x - 4, elem->getSize().y));
-				elem->setCoord(glm::vec2(size * i++, 0.f));
-				height = elem->getSize().y;
-			}
-			vectorPanel->setSize(glm::vec2(vectorPanel->getSize().x, height));
-			vectorPanel->setScrollable(false);
-			return vectorPanel;
-		};
-
-		auto createSliders = [this](float width, glm::vec3& vector, float min, float max, const std::function<void()>& callback) {
-			auto sliders = std::make_shared<gui::Panel>(glm::vec2(width));
-			sliders->setColor(glm::vec4(0.f));
-			auto label = std::make_shared<gui::Label>(L"");
-			label->setText(L"X:" + util::to_wstring(vector.x, 2) + L" Y:" + util::to_wstring(vector.y, 2) + L" Z:" + util::to_wstring(vector.z, 2));
-			sliders->add(label);
-
-			for (size_t i = 0; i < 3; i++) {
-				auto slider = std::make_shared<gui::TrackBar>(min, max, vector[i], 0.01f, 5.f);
-				slider->consumer([this, &vector, i, callback, label](double value) {
-					vector[i] = static_cast<float>(value);
-					label->setText(L"X:" + util::to_wstring(vector.x, 2) + L" Y:" + util::to_wstring(vector.y, 2) + L" Z:" + util::to_wstring(vector.z, 2));
-					callback();
-				});
-				sliders->add(slider);
-			}
-			return sliders;
-		};
-
-		static unsigned int inputMode = 0;
-		auto createInputModeButton = [this](std::shared_ptr<gui::Panel> panel, const std::function<void(unsigned int)>& callback) {
-			wchar_t* inputModes[] = { L"Slider", L"InputBox" };
-			auto button = std::make_shared<gui::Button>(L"Input mode: " + std::wstring(inputModes[inputMode]), glm::vec4(10.f), gui::onaction());
-			button->listenAction([this, button, &m = inputMode, inputModes, panel, callback](gui::GUI*) {
-				m++;
-				if (m >= 2) m = 0;
-				button->setText(L"Input mode: " + std::wstring(inputModes[m]));
-				clearRemoveList(panel);
-				callback(m);
-			});
-			return button;
-		};
-
-		auto inputPanel = std::make_shared<gui::Panel>(glm::vec2(panel->getSize().x));
-		inputPanel->setColor(glm::vec4(0.f));
-		panel->add(inputPanel);
-		if (primitiveType == PRIMITIVE_TETRAGON) {
-			preview->setCurrentTetragon(&block->modelExtraPoints[index * 4]);
-			auto createInput = [this, block, index, inputPanel, createVectorPanel, panel, createSliders, updateTetragon](unsigned int type) {
-				for (size_t i = 0; i < 4; i++) {
-					if (i == 2) continue;
-					glm::vec3& v = block->modelExtraPoints[index * 4 + i];
-					if (type == 0) {
-						auto p = createSliders(panel->getSize().x, v, -1.f, 1.f, [this, updateTetragon, &vec = block->modelExtraPoints[index * 4]]() {
-							updateTetragon(&vec); 
-							preview->setCurrentTetragon(&vec);
-							preview->updateMesh(); 
-						});
-						inputPanel->add(removeList.emplace_back(p));
-					}
-					else if (type == 1) {
-						auto p = createVectorPanel(panel->getSize().x, v, -1.f, 1.f, [this, updateTetragon, &vec = block->modelExtraPoints[index * 4]]() {
-							updateTetragon(&vec);
-							preview->setCurrentTetragon(&vec);
-							preview->updateMesh();
-						});
-						inputPanel->add(removeList.emplace_back(p));
-					}
-				}
-			};
-			createInput(inputMode);
-			panel->add(createInputModeButton(inputPanel, createInput));
-
-			panel->add(createTexturesPanel(glm::vec2(panel->getSize().x, 35.f), block->modelTextures.data() + block->modelBoxes.size() * 6 + index, BlockModel::xsprite));
-		}
-		else if (primitiveType == PRIMITIVE_AABB) {
-			AABB& aabb = block->modelBoxes[index];
-			preview->setCurrentAABB(aabb);
-
-			auto createInput = [this, &aabb, inputPanel, createVectorPanel, panel, createSliders](unsigned int type) {
-				if (type == 0) {
-					auto p = createSliders(panel->getSize().x, aabb.a, 0.f, 1.f, [this, &aabb]() { preview->setCurrentAABB(aabb); preview->updateMesh(); });
-					inputPanel->add(removeList.emplace_back(p));
-					p = createSliders(panel->getSize().x, aabb.b, 0.f, 1.f, [this, &aabb]() { preview->setCurrentAABB(aabb); preview->updateMesh(); });
-					inputPanel->add(removeList.emplace_back(p));
-				}
-				else if (type == 1) {
-					auto p = createVectorPanel(panel->getSize().x, aabb.a, 0.f, 1.f, [this, &aabb]() { preview->setCurrentAABB(aabb); preview->updateMesh(); });
-					inputPanel->add(removeList.emplace_back(p));
-					p = createVectorPanel(panel->getSize().x, aabb.b, 0.f, 1.f, [this, &aabb]() { preview->setCurrentAABB(aabb); preview->updateMesh(); });
-					inputPanel->add(removeList.emplace_back(p));
-				}
-			};
-			createInput(inputMode);
-			panel->add(createInputModeButton(inputPanel, createInput));
-
-			panel->add(createTexturesPanel(glm::vec2(panel->getSize().x, 35.f), block->modelTextures.data() + index * 6, BlockModel::aabb));
-		}
-
-		return panel;
-	}, 3);
-}
-
 void WorkShopScreen::createPreview(unsigned int column, unsigned int primitiveType) {
 	createPanel([this, primitiveType]() {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(300));
 		auto image = std::make_shared<gui::Image>(preview->getTexture(), glm::vec2(panel->getSize().x));
 		panel->add(image);
 		panel->listenInterval(0.01f, [this, panel, image]() {
-			if (panel->isHover()) {
+			if (panel->isHover() && image->isInside(Events::cursor)) {
 				if (Events::jclicked(mousecode::BUTTON_1)) preview->mouseLocked = true;
-				if (Events::scroll) preview->scale(Events::scroll / 10.f);
+				if (Events::scroll) preview->scale(-Events::scroll / 10.f);
 			}
-			panel->setSize(glm::vec2(Window::width - panel->calcCoord().x - 2.f, Window::height));
+			panel->setSize(glm::vec2(Window::width - panel->calcPos().x - 2.f, Window::height));
 			image->setSize(glm::vec2(image->getSize().x, Window::height / 2.f));
 			preview->setResolution(image->getSize().x, image->getSize().y);
 			image->setTexture(preview->getTexture());
 		});
+		preview->drawBlockHitbox = false;
 		createFullCheckBox(panel, L"Draw grid", preview->drawGrid);
 		createFullCheckBox(panel, L"Draw block bounds", preview->drawBlockBounds);
-		createFullCheckBox(panel, L"Draw block hitbox", preview->drawBlockHitbox);
-		if (primitiveType == PRIMITIVE_AABB) {
+		if (primitiveType == PRIMITIVE_HITBOX)
+			createFullCheckBox(panel, L"Draw current hitbox", preview->drawBlockHitbox = true);
+		else if (primitiveType == PRIMITIVE_AABB)
 			createFullCheckBox(panel, L"Highlight current AABB", preview->drawCurrentAABB);
-		}
-		else if (primitiveType == PRIMITIVE_TETRAGON) {
+		else if (primitiveType == PRIMITIVE_TETRAGON)
 			createFullCheckBox(panel, L"Highlight current Tetragon", preview->drawCurrentTetragon);
-		}
 		return panel;
 	}, column);
 }
@@ -1376,11 +1371,13 @@ void WorkShopScreen::saveBlock(Block* block, const std::string& actualName) cons
 		aabb.b -= aabb.a;
 		putVec3(list, aabb.a); putVec3(list, aabb.b);
 	};
-	if (temp.hitbox.a != block->hitbox.a || temp.hitbox.b != block->hitbox.b) {
-		auto& boxarr = root.putList("hitbox");
-		boxarr.multiline = false;
-		putAABB(boxarr, block->hitbox);
+	auto& hitboxesArr = root.putList("hitboxes");
+	for (const auto& hitbox : block->hitboxes) {
+		auto& hitboxArr = hitboxesArr.putList();
+		hitboxArr.multiline = false;
+		putAABB(hitboxArr, hitbox);
 	}
+
 	auto isElementsEqual = [](const std::vector<std::string>& arr, size_t offset, size_t numElements) {
 		return std::all_of(std::cbegin(arr) + offset, std::cbegin(arr) + offset + numElements, [&r = arr[offset]](const std::string& value) {return value == r; });
 	};
@@ -1456,10 +1453,10 @@ void WorkShopScreen::saveItem(ItemDef* item, const std::string& actualName) cons
 
 void WorkShopScreen::formatTextureImage(gui::Image* image, Atlas* atlas, float height, const std::string& texName) {
 	const UVRegion& region = atlas->get(texName);
-	glm::vec2 textureSize((region.u2 - region.u1) * atlas->getTexture()->width, (region.v2 - region.v1) * atlas->getTexture()->height);
+	glm::vec2 textureSize((region.u2 - region.u1) * atlas->getTexture()->getWidth(), (region.v2 - region.v1) * atlas->getTexture()->getHeight());
 	glm::vec2 multiplier(height / textureSize);
 	image->setSize(textureSize * std::min(multiplier.x, multiplier.y));
-	image->setCoord(glm::vec2(height / 2.f - image->getSize().x / 2.f, height / 2.f - image->getSize().y / 2.f));
+	image->setPos(glm::vec2(height / 2.f - image->getSize().x / 2.f, height / 2.f - image->getSize().y / 2.f));
 	image->setTexture(atlas->getTexture());
 	image->setUVRegion(region);
 }
@@ -1468,9 +1465,8 @@ WorkShopScreen::Preview::Preview(Engine* engine, ContentGfxCache* cache) : engin
 	auto content = engine->getContent();
 	blockRenderer.reset(new BlocksRenderer(8192, content, cache, engine->getSettings()));
 	chunk.reset(new Chunk(0, 0));
-	world = new World("temp", "", 0, engine->getSettings(), content, engine->getContentPacks());
-	player = new Player(glm::vec3(), 0.f);
-	level.reset(new Level(world, content, player, engine->getSettings()));
+	world = new World("temp", "", "", 0, engine->getSettings(), content, engine->getContentPacks());
+	level.reset(new Level(world, content, engine->getSettings()));
 	level->chunksStorage->store(chunk);
 	camera.reset(new Camera(glm::vec3(0.f), glm::radians(60.f)));
 	memset(chunk->voxels, 0, sizeof(chunk->voxels));
@@ -1493,7 +1489,7 @@ void WorkShopScreen::Preview::update(float delta) {
 }
 
 void WorkShopScreen::Preview::updateMesh() {
-	mesh.reset(blockRenderer->render(chunk.get(), level->chunksStorage));
+	mesh.reset(blockRenderer->render(chunk.get(), level->chunksStorage.get()));
 }
 
 void WorkShopScreen::Preview::updateCache() {
@@ -1511,6 +1507,12 @@ void WorkShopScreen::Preview::setBlock(Block* block) {
 	block->rotatable = rotatable;
 }
 
+void WorkShopScreen::Preview::setCurrentAABB(const AABB& aabb, unsigned int primitiveType) {
+	AABB& aabb_ = (primitiveType == PRIMITIVE_AABB ? currentAABB : currentHitbox);
+	aabb_.a = aabb.a + (aabb.b - aabb.a) / 2.f - 0.5f;
+	aabb_.b = aabb.b - aabb.a;
+}
+
 void WorkShopScreen::Preview::setCurrentTetragon(const glm::vec3* tetragon) {
 	for (size_t i = 0; i < 4; i++) {
 		currentTetragon[i] = tetragon[i] - 0.5f;
@@ -1518,13 +1520,13 @@ void WorkShopScreen::Preview::setCurrentTetragon(const glm::vec3* tetragon) {
 }
 
 void WorkShopScreen::Preview::setResolution(uint width, uint height) {
-	if (framebuffer->width == width && framebuffer->height == height) return;
+	if (framebuffer->getWidth() == width && framebuffer->getHeight() == height) return;
 	framebuffer.reset(new Framebuffer(width, height, true));
 	camera->aspect = (float)width / height;
 }
 
 Texture* WorkShopScreen::Preview::getTexture() {
-	return framebuffer->texture;
+	return framebuffer->getTexture();
 }
 
 void WorkShopScreen::Preview::rotate(float x, float y) {
@@ -1538,7 +1540,7 @@ void WorkShopScreen::Preview::scale(float value) {
 
 void WorkShopScreen::Preview::draw() {
 	if (mesh == nullptr) return;
-	Window::viewport(0, 0, framebuffer->width, framebuffer->height);
+	Window::viewport(0, 0, framebuffer->getWidth(), framebuffer->getHeight());
 	framebuffer->bind();
 	Window::setBgColor(glm::vec4(0.f));
 	Window::clear();
@@ -1565,7 +1567,7 @@ void WorkShopScreen::Preview::draw() {
 		}
 	}
 	if (drawBlockBounds) lineBatch->box(glm::vec3(0.f), glm::vec3(1.f), glm::vec4(1.f));
-	if (drawBlockHitbox) lineBatch->box(blockHitbox.a, blockHitbox.b, glm::vec4(1.f, 1.f, 0.f, 1.f));
+	if (drawBlockHitbox) lineBatch->box(currentHitbox.a, currentHitbox.b, glm::vec4(1.f, 1.f, 0.f, 1.f));
 	if (drawCurrentAABB) lineBatch->box(currentAABB.a, currentAABB.b, glm::vec4(1.f, 0.f, 1.f, 1.f));
 
 	if (drawCurrentTetragon) {

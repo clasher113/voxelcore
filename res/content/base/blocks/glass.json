@@ -1,5 +1,7 @@
 {
     "texture": "glass",
+    "material": "base:glass",
     "draw-group": 2,
-    "light-passing": true
+    "light-passing": true,
+    "sky-light-passing": true
 }
