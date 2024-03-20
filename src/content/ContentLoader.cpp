@@ -13,6 +13,7 @@
 #include "../files/files.h"
 #include "../coders/json.h"
 #include "../typedefs.h"
+#include "../core_defs.h"
 #include "../data/dynamic.h"
 
 #include "ContentPack.h"
@@ -104,9 +105,10 @@ void ContentLoader::fixPackIndices() {
     }
 }
 
-// TODO: add basic validation and logging
 void ContentLoader::loadBlock(Block& def, std::string name, fs::path file) {
     auto root = files::read_json(file);
+
+    root->str("caption", def.caption);
 
     // block texturing
     if (root->has("texture")) {
@@ -206,6 +208,10 @@ void ContentLoader::loadBlock(Block& def, std::string name, fs::path file) {
     root->str("script-name", def.scriptName);
     root->str("ui-layout", def.uiLayout);
     root->num("inventory-size", def.inventorySize);
+
+    if (def.hidden && def.pickingItem == def.name+BLOCK_ITEM_SUFFIX) {
+        def.pickingItem = CORE_EMPTY;
+    }
 }
 
 void ContentLoader::loadCustomBlockModel(Block& def, dynamic::Map* primitives) {
@@ -254,6 +260,8 @@ void ContentLoader::loadCustomBlockModel(Block& def, dynamic::Map* primitives) {
 
 void ContentLoader::loadItem(ItemDef& def, std::string name, fs::path file) {
     auto root = files::read_json(file);
+    root->str("caption", def.caption);
+
     std::string iconTypeStr = "";
     root->str("icon-type", iconTypeStr);
     if (iconTypeStr == "none") {
@@ -347,6 +355,7 @@ void ContentLoader::load(ContentBuilder& builder) {
             if (!def.hidden) {
                 auto& item = builder.createItem(full+BLOCK_ITEM_SUFFIX);
                 item.generated = true;
+                item.caption = def.caption;
                 item.iconType = item_icon_type::block;
                 item.icon = full;
                 item.placingBlock = full;

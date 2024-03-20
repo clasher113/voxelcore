@@ -1,3 +1,6 @@
+#define _USE_MATH_DEFINES
+#include <cmath>
+
 #include "PlayerController.h"
 
 #include "../objects/Player.h"
@@ -19,9 +22,6 @@
 #include "BlocksController.h"
 
 #include "../core_defs.h"
-
-#define _USE_MATH_DEFINES
-#include <cmath>
 
 const float CAM_SHAKE_OFFSET = 0.025f;
 const float CAM_SHAKE_OFFSET_Y = 0.031f;
@@ -331,6 +331,7 @@ static void pick_block(ContentIndices* indices, Chunks* chunks, Player* player, 
     }
 }
 
+// TODO: refactor this nesting nest
 void PlayerController::updateInteraction(){
     auto indices = level->content->getIndices();
     Chunks* chunks = level->chunks.get();
@@ -374,7 +375,6 @@ void PlayerController::updateInteraction(){
         uint8_t states = determine_rotation(def, norm, camera->dir);
         
         if (lclick && !input.shift && item->rt.funcsset.on_block_break_by) {
-            // TODO: move scripting to interaction callbacks
             if (scripting::on_item_break_block(player.get(), item, x, y, z))
                 return;
         }
@@ -415,7 +415,7 @@ void PlayerController::updateInteraction(){
             vox = chunks->get(x, y, z);
             blockid_t chosenBlock = def->rt.id;
             if (vox && (target = indices->getBlockDef(vox->id))->replaceable) {
-                if (!level->physics->isBlockInside(x,y,z, player->hitbox.get()) 
+                if (!level->physics->isBlockInside(x,y,z,def,states, player->hitbox.get()) 
                     || !def->obstacle){
                     if (def->grounded && !chunks->isSolidBlock(x, y-1, z)) {
                         chosenBlock = 0;
@@ -428,7 +428,6 @@ void PlayerController::updateInteraction(){
                         chunks->set(x, y, z, chosenBlock, states);
                         lighting->onBlockSet(x,y,z, chosenBlock);
                         if (def->rt.funcsset.onplaced) {
-                            // TODO: move scripting to interaction callbacks
                             scripting::on_block_placed(player.get(), def, x, y, z);
                         }
                         blocksController->updateSides(x, y, z);
