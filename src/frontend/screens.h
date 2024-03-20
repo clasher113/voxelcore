@@ -45,6 +45,7 @@ namespace gui {
     class UINode;
     class FullCheckBox;
     class Container;
+    class Button;
     class RichButton;
     class Image;
 }
@@ -107,7 +108,6 @@ private:
     std::unique_ptr<Camera> uicamera;
 
     ContentPack currentPack;
-    std::string currentBlockIco{ "blocks:notfound" };
     std::unique_ptr<ContentGfxCache> cache;
     const Content* content;
     ContentIndices* indices;
@@ -192,21 +192,21 @@ private:
         const std::function<void(T)>& callback = [](T) {});
     std::shared_ptr<gui::FullCheckBox> createFullCheckBox(std::shared_ptr<gui::Panel> panel, const std::wstring& string, bool& checked);
     std::shared_ptr<gui::RichButton> createTextureButton(const std::string& texture, Atlas* atlas, glm::vec2 size, const wchar_t* side = nullptr);
-    std::shared_ptr<gui::Panel> createTexturesPanel(glm::vec2 size, std::string* textures, BlockModel model);
-    std::shared_ptr<gui::Panel> createTexturesPanel(glm::vec2 size, std::string& texture, item_icon_type model);
+    std::shared_ptr<gui::Panel> createTexturesPanel(std::shared_ptr<gui::Panel> panel, float iconSize, std::string* textures, BlockModel model);
+    std::shared_ptr<gui::Panel> createTexturesPanel(std::shared_ptr<gui::Panel> panel, float iconSize, std::string& texture, item_icon_type iconType);
     std::shared_ptr<gui::UINode> createVectorPanel(glm::vec3& vec, float min, float max, float width, unsigned int inputType, const std::function<void()>& callback);
     void createEmissionPanel(std::shared_ptr<gui::Panel> panel, uint8_t* emission);
 
-    void createContentList(DefType type, unsigned int column, bool showAll = false, const std::function<void(const std::string&)>& callback = 0);
+    void createContentList(DefType type, unsigned int column, bool showAll = false, const std::function<void(const std::string&)>& callback = 0, float posX = -1.f);
     void createInfoPanel();
     void createTextureList(float icoSize, unsigned int column, DefType type = DefType::BOTH, float posX = -1.f, bool showAll = false,
         const std::function<void(const std::string&)>& callback = 0);
-    void createDefActionPanel(DefAction action, DefType type, const std::string& name = std::string());
+    void createDefActionPanel(DefAction action, DefType type, const std::string& name = std::string(), bool reInitialize = true);
     void createTextureInfoPanel(const std::string& texName, DefType type);
-    void createImportPanel(DefType type = DefType::BLOCK);
-    void createBlockEditor(const std::string& blockName);
+    void createImportPanel(DefType type = DefType::BLOCK, std::string mode = "copy");
+    void createBlockEditor(Block* block);
     void createCustomModelEditor(Block* block, size_t index, unsigned int primitiveType);
-    void createItemEditor(const std::string& itemName);
+    void createItemEditor(ItemDef* item);
     void createPreview(unsigned int column, unsigned int primitiveType);
     void saveBlock(Block* block, const std::string& actualName) const;
     void saveItem(ItemDef* item, const std::string& actualName) const;

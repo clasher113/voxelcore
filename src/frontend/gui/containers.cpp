@@ -121,11 +121,6 @@ void Container::add(std::shared_ptr<UINode> node, glm::vec2 pos) {
 
 void Container::remove(std::shared_ptr<UINode> selected) {
     selected->setParent(nullptr);
-    //nodes.erase(std::remove_if(nodes.begin(), nodes.end(), 
-    //    [selected](const std::shared_ptr<UINode> node) {
-    //        return node == selected;
-    //    }
-    //), nodes.end());
     nodes.erase(std::remove(nodes.begin(), nodes.end(), selected), nodes.end());
     refresh();
 }
