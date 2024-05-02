@@ -361,6 +361,7 @@ std::string util::id_to_caption(const std::string& id) {
 /// @return vector of string parts, containing at least one string
 std::vector<std::string> util::split(const std::string& str, char delimiter) {
     std::vector<std::string> result;
+    if (str.empty()) return result;
     std::stringstream ss(str);
     std::string tmp;
     while (std::getline(ss, tmp, delimiter)) {

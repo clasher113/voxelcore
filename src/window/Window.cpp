@@ -16,7 +16,7 @@ int Window::posX = 0;
 int Window::posY = 0;
 
 void cursor_position_callback(GLFWwindow*, double xpos, double ypos) {
-    Events::setPosition(xpos, ypos);
+	Events::setPosition(xpos, ypos);
 }
 
 void mouse_button_callback(GLFWwindow*, int button, int action, int) {

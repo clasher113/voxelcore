@@ -37,7 +37,7 @@ void menus::create_workshop_panel(Engine* engine) {
             ContentPack pack;
             pack.folder = path / nameInput->getInput();
             pack.id = pack.title = util::wstr2str_utf8(nameInput->getInput());
-            pack.version = std::to_string(ENGINE_VERSION_MAJOR) + "." + std::to_string(ENGINE_VERSION_MINOR);
+            pack.version = "1.0";
             fs::create_directory(pack.folder);
             fs::create_directory(pack.folder / ContentPack::BLOCKS_FOLDER);
             fs::create_directory(pack.folder / ContentPack::ITEMS_FOLDER);

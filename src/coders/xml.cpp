@@ -110,6 +110,10 @@ void Node::add(xmlelement element) {
     elements.push_back(element);
 }
 
+void xml::Node::remove(xmlelement element) {
+    elements.erase(std::remove(elements.begin(), elements.end(), element), elements.end());
+}
+
 void Node::set(std::string name, std::string text) {
     attrs[name] = Attribute(name, text);
 }
@@ -137,6 +141,10 @@ const xmlattribute Node::attr(const std::string& name, const std::string& def) c
 bool Node::has(const std::string& name) const {
     auto found = attrs.find(name);
     return found != attrs.end();
+}
+
+void xml::Node::removeAttr(const std::string& name) {
+    attrs.erase(name);
 }
 
 xmlelement Node::sub(size_t index) {
