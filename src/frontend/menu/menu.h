@@ -41,8 +41,6 @@ namespace menus {
         packconsumer remover
     );
 
-    extern void create_workshop_panel(Engine* engine);
-
     extern std::shared_ptr<gui::Panel> create_packs_panel(
         const std::vector<ContentPack>& packs,
         Engine* engine,

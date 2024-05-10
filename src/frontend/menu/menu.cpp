@@ -31,6 +31,7 @@
 #include "../gui/gui_util.h"
 #include "../locale/langs.h"
 
+#include "../workshop/menu_workshop.hpp"
 #include "menu_commons.h"
 
 namespace fs = std::filesystem;
