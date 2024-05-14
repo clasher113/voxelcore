@@ -1,7 +1,7 @@
 #include "../WorkshopScreen.hpp"
 
-#include "../../../assets/Assets.h"
-#include "../../../graphics/Atlas.h"
+#include "../../../assets/Assets.hpp"
+#include "../../../graphics/core/Atlas.hpp"
 #include "../IncludeCommons.hpp"
 
 void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int column, DefType type, float posX, bool showAll,
@@ -36,16 +36,16 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 							if (file.find(searchName) == std::string::npos) continue;
 						}
 						if (!atlas->has(file)) continue;
-						auto button = createTextureButton(file, atlas, glm::vec2(panel->getSize().x, 50.f));
+						auto button = std::make_shared<gui::IconButton>(glm::vec2(panel->getSize().x, 50.f), file, atlas, file);
 						button->listenAction([this, panel, file, defPath, callback, posX](gui::GUI*) {
 							if (callback) callback(getDefFolder(defPath.second) + ':' + file);
 							else createTextureInfoPanel(getDefFolder(defPath.second) + ':' + file, defPath.second);
-							});
+						});
 						panel->add(removeList.emplace_back(button));
 					}
 				}
 			}
-			setSelectable<gui::RichButton>(panel);
+			setSelectable<gui::IconButton>(panel);
 			};
 		if (!showAll) {
 			panel->add(std::make_shared<gui::Button>(L"Import", glm::vec4(10.f), [this](gui::GUI*) {

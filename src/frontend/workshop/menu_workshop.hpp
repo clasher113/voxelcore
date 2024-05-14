@@ -3,8 +3,8 @@
 
 class Engine;
 
-namespace menus {
-	extern void create_workshop_panel(Engine* engine);
+namespace workshop {
+	extern void create_workshop_button(Engine* engine);
 }
 
 #endif // !FRONTEND_MENU_MENU_WORKSHOP_H_

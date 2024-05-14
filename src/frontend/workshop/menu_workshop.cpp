@@ -1,38 +1,62 @@
 #include "menu_workshop.hpp"
 
-#include "../../engine.h"
-#include "../../util/stringutil.h"
-#include "../gui/gui_util.h"
-#include "../menu/menu.h"
-#include "../menu/menu_commons.h"
-#include "../screens.h"
+#include "../../engine.hpp"
+#include "../../graphics/ui/elements/Button.hpp"
+#include "../../graphics/ui/elements/commons.hpp"
+#include "../../graphics/ui/elements/Label.hpp"
+#include "../../graphics/ui/elements/Menu.hpp"
+#include "../../graphics/ui/elements/Panel.hpp"
+#include "../../graphics/ui/elements/Textbox.hpp"
+#include "../../graphics/ui/GUI.hpp"
+#include "../../graphics/ui/gui_util.hpp"
+#include "../../util/stringutil.hpp"
 #include "WorkshopScreen.hpp"
+#include "WorkshopSerializer.hpp"
 
-void menus::create_workshop_panel(Engine* engine) {
+void workshop::create_workshop_button(Engine* engine) {
 	auto menu = engine->getGUI()->getMenu();
-	auto panel = menus::create_page(engine, "workshop", 400, 0.0f, 1);
+	auto button = std::make_shared<gui::Button>(L"Workshop", glm::vec4(10.f), [menu](gui::GUI*) {
+		menu->setPage("workshop");
+	});
+
+	auto panel = std::dynamic_pointer_cast<gui::Panel>(menu->getNodes().front());
+	if (!panel) return;
+	std::vector<std::shared_ptr<gui::UINode>> nodes = panel->getNodes();
+	panel->clear();
+	for (size_t i = 0; i < nodes.size(); i++) {
+		if (i == nodes.size() - 1) panel->add(button);
+		panel->add(nodes[i]);
+	}
+	menu->setSize(panel->getSize());
+
+	panel = std::make_shared<gui::Panel>(glm::vec2(400));
+	menu->addPage("workshop", panel);
 
 	std::vector<ContentPack> scanned;
-	ContentPack::scan(engine->getPaths(), scanned);
-	panel->add(menus::create_packs_panel(scanned, engine, false, [engine](const ContentPack& pack) {
-		engine->setScreen(std::make_shared<workshop::WorkShopScreen>(engine, pack));
-	}, packconsumer()));
-	panel->add(menus::create_button(L"Create new", glm::vec4(10.f), glm::vec4(1.f), [engine](gui::GUI*) {
-		auto newContent = menus::create_page(engine, "new-content", 400, 0.f, 1);
-		auto menu = engine->getGUI()->getMenu();
+	ContentPack::scanFolder(engine->getPaths()->getResources()/"content", scanned);
+
+	for (const auto& pack : scanned) {
+		panel->add(std::make_shared<gui::Button>(util::str2wstr_utf8(pack.id), glm::vec4(10.f), [engine, pack](gui::GUI*) {
+			engine->setScreen(std::make_shared<workshop::WorkShopScreen>(engine, pack));
+		}));
+	}
+
+	panel->add(std::make_shared<gui::Button>(L"Create new", glm::vec4(10.f), [engine, menu](gui::GUI*) {
+		auto panel = std::make_shared<gui::Panel>(glm::vec2(400, 200));
+		menu->addPage("new-content", panel);
 		menu->setPage("new-content");
 		fs::path path = engine->getPaths()->getResources() / "content";
 
-		newContent->add(std::make_shared<gui::Label>(L"Name"));
+		panel->add(std::make_shared<gui::Label>(L"Name"));
 		auto nameInput = std::make_shared<gui::TextBox>(L"example_pack", glm::vec4(6.0f));
 		nameInput->setTextValidator([=](const std::wstring& text) {
 			std::string textutf8 = util::wstr2str_utf8(text);
 			return util::is_valid_filename(text) &&
 				!fs::exists(path / text) && !nameInput->getInput().empty();
 		});
-		newContent->add(nameInput);
+		panel->add(nameInput);
 
-		newContent->add(menus::create_button(L"Create", glm::vec4(10.f), glm::vec4(1.f), [=](gui::GUI*) {
+		panel->add(std::make_shared<gui::Button>(L"Create", glm::vec4(10.f), [=](gui::GUI*) {
 			if (!nameInput->validate()) return;
 			ContentPack pack;
 			pack.folder = path / nameInput->getInput();
@@ -41,12 +65,16 @@ void menus::create_workshop_panel(Engine* engine) {
 			fs::create_directories(pack.folder / ContentPack::BLOCKS_FOLDER);
 			fs::create_directories(pack.folder / ContentPack::ITEMS_FOLDER);
 			fs::create_directories(pack.folder / TEXTURES_FOLDER);
-			ContentPack::write(pack);
-			menu->remove(newContent);
+			saveContentPack(pack);
+			menu->remove(panel);
 
 			engine->setScreen(std::make_shared<workshop::WorkShopScreen>(engine, pack));
 		}));
-		newContent->add(guiutil::backButton(menu));
+		panel->add(std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [menu](gui::GUI*) {
+			menu->back();
+		}));
 	}));
-	panel->add(guiutil::backButton(menu));
+	panel->add(std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [menu](gui::GUI*) {
+		menu->back();
+	}));
 }

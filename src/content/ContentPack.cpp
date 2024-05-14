@@ -1,13 +1,12 @@
-#include "ContentPack.h"
+#include "ContentPack.hpp"
 
 #include <iostream>
 #include <algorithm>
 
-#include "../coders/json.h"
-#include "../files/files.h"
-#include "../files/engine_paths.h"
-#include "../data/dynamic.h"
-#include "../logic/scripting/scripting.h"
+#include "../coders/json.hpp"
+#include "../files/files.hpp"
+#include "../files/engine_paths.hpp"
+#include "../data/dynamic.hpp"
 
 namespace fs = std::filesystem;
 
@@ -75,7 +74,9 @@ ContentPack ContentPack::read(fs::path folder) {
     auto dependencies = root->list("dependencies");
     if (dependencies) {
         for (size_t i = 0; i < dependencies->size(); i++) {
-            pack.dependencies.push_back(dependencies->str(i));
+            pack.dependencies.push_back(
+                {DependencyLevel::required, dependencies->str(i)}
+            );
         }
     }
 
@@ -85,23 +86,6 @@ ContentPack ContentPack::read(fs::path folder) {
     checkContentPackId(pack.id, folder);
 
     return pack;
-}
-
-void ContentPack::write(const ContentPack& pack) {
-    dynamic::Map root;
-    root.put("id", pack.id);
-    root.put("title", pack.title);
-    root.put("version", pack.version);
-    root.put("creator", pack.creator);
-    root.put("description", pack.description);
-
-    if (!pack.dependencies.empty()) {
-        auto& dependencies = root.putList("dependencies");
-        for (const auto& elem : pack.dependencies) {
-            if (!elem.empty()) dependencies.put(elem);
-        }
-    }
-    files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, &root);
 }
 
 void ContentPack::scanFolder(
@@ -126,21 +110,6 @@ void ContentPack::scanFolder(
             std::cerr << err.what() << std::endl;
         }
     }
-}
-
-void ContentPack::scan(
-    fs::path rootfolder,
-    EnginePaths* paths,
-    std::vector<ContentPack>& packs
-) {
-    scanFolder(paths->getResources()/fs::path("content"), packs);
-    scanFolder(paths->getUserfiles()/fs::path("content"), packs);
-    scanFolder(rootfolder, packs);
-}
-
-void ContentPack::scan(EnginePaths* paths,
-                       std::vector<ContentPack>& packs) {
-    scan(paths->getWorldFolder()/fs::path("content"), paths, packs);
 }
 
 std::vector<std::string> ContentPack::worldPacksList(fs::path folder) {
@@ -169,23 +138,12 @@ fs::path ContentPack::findPack(const EnginePaths* paths, fs::path worldDir, std:
     return folder;
 }
 
-void ContentPack::readPacks(const EnginePaths* paths,
-                            std::vector<ContentPack>& packs, 
-                            const std::vector<std::string>& packnames,
-                            fs::path worldDir) {
-    for (const auto& name : packnames) {
-        fs::path packfolder = ContentPack::findPack(paths, worldDir, name);
-        if (!fs::is_directory(packfolder)) {
-            throw contentpack_error(name, packfolder, 
-                                    "could not to find pack '"+name+"'");
-        }
-        packs.push_back(ContentPack::read(packfolder));
-    }
-}
-
 ContentPackRuntime::ContentPackRuntime(
     ContentPack info,
-    std::unique_ptr<scripting::Environment> env
+    scriptenv env
 ) : info(info), env(std::move(env))
 {
+}
+
+ContentPackRuntime::~ContentPackRuntime() {
 }

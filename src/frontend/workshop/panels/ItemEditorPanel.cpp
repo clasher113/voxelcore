@@ -1,7 +1,7 @@
 #include "../WorkshopScreen.hpp"
 
+#include "../../../items/ItemDef.hpp"
 #include "../IncludeCommons.hpp"
-#include "../../../items/ItemDef.h"
 #include "../WorkshopSerializer.hpp"
 
 void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {

@@ -1,18 +1,18 @@
 #ifndef FRONTEND_MENU_WORKSHOP_PREVIEW_HPP
 #define FRONTEND_MENU_WORKSHOP_PREVIEW_HPP
 
-#include "../../graphics/Batch2D.h"
-#include "../../graphics/Batch3D.h"
-#include "../../graphics/Framebuffer.h"
-#include "../../graphics/LineBatch.h"
-#include "../../graphics/Mesh.h"
-#include "../../items/Inventory.h"
-#include "../../logic/LevelController.h"
-#include "../../maths/aabb.h"
-#include "../../window/Camera.h"
-#include "../graphics/BlocksRenderer.h"
-#include "../InventoryView.h"
-#include "../LevelFrontend.h"
+#include "../../graphics/core/Batch2D.hpp"
+#include "../../graphics/core/Batch3D.hpp"
+#include "../../graphics/core/Framebuffer.hpp"
+#include "../../graphics/core/LineBatch.hpp"
+#include "../../graphics/core/Mesh.hpp"
+#include "../../graphics/render/BlocksRenderer.hpp"
+#include "../../graphics/ui/elements/InventoryView.hpp"
+#include "../../items/Inventory.hpp"
+#include "../../logic/LevelController.hpp"
+#include "../../maths/aabb.hpp"
+#include "../../window/Camera.hpp"
+#include "../LevelFrontend.hpp"
 
 #include <glm\fwd.hpp>
 
@@ -26,9 +26,6 @@ namespace gui {
 }
 namespace xml {
 	class Document;
-}
-namespace scripting {
-	class Environment;
 }
 
 namespace workshop {
@@ -53,7 +50,7 @@ namespace workshop {
 		void setCurrentAABB(const AABB& aabb, PrimitiveType type);
 		void setCurrentTetragon(const glm::vec3* tetragon);
 
-		void setUiDocument(const std::shared_ptr<xml::Document> document, scripting::Environment* env, bool forseUpdate = false);
+		void setUiDocument(const std::shared_ptr<xml::Document> document, std::shared_ptr<int> enviroment, bool forseUpdate = false);
 
 		void setResolution(uint width, uint height);
 
@@ -88,9 +85,9 @@ namespace workshop {
 		LevelController controller;
 		LevelFrontend frontend;
 		std::shared_ptr<Inventory> inventory;
-		InventoryInteraction interaction;
 		std::shared_ptr<gui::UINode> currentUI;
 		std::shared_ptr<xml::Document> currentDocument;
+		Block* currentBlock = nullptr;
 
 		Batch2D batch2d;
 		Batch3D batch3d;

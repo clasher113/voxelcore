@@ -1,9 +1,9 @@
 #include "../WorkshopScreen.hpp"
 
-#include "../../../assets/Assets.h"
-#include "../../../content/Content.h"
-#include "../../../graphics/Atlas.h"
-#include "../../../items/ItemDef.h"
+#include "../../../assets/Assets.hpp"
+#include "../../../content/Content.hpp"
+#include "../../../graphics/core/Atlas.hpp"
+#include "../../../items/ItemDef.hpp"
 #include "../IncludeCommons.hpp"
 #include "../WorkshopPreview.hpp"
 
@@ -35,7 +35,7 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 				if (type == DefType::ITEM) {
 					auto hasFile = [this](const std::string& name) {
 						return fs::is_regular_file(currentPack.folder / ContentPack::ITEMS_FOLDER / std::string(name + ".json"));
-						};
+					};
 					return hasFile(a.second) > hasFile(b.second) || (hasFile(a.second) == hasFile(b.second) &&
 						(showAll ? a.first : a.second) < (showAll ? b.first : b.second));
 				}
@@ -46,36 +46,31 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 			float width = panel->getSize().x;
 			for (const auto& elem : sorted) {
 				Atlas* contentAtlas = previewAtlas;
-				UVRegion uv(0.f, 0.f, 0.f, 0.f);
+				std::string textureName("core:air");
 				ItemDef& item = *content->findItem(elem.first);
 				Block& block = *content->findBlock(elem.first);
 				if (type == DefType::BLOCK) {
-					uv = contentAtlas->get(elem.first);
+					textureName = elem.first;
 				}
 				else if (type == DefType::ITEM) {
 					validateItem(assets, item);
 					if (item.iconType == item_icon_type::block) {
-						uv = contentAtlas->get(item.icon);
+						textureName = item.icon;
 					}
 					else if (item.iconType == item_icon_type::sprite) {
-						contentAtlas = assets->getAtlas(item.icon.substr(0, item.icon.find(':')));
-						uv = contentAtlas->get(item.icon.substr(item.icon.find(':') + 1));
+						contentAtlas = getAtlas(assets, item.icon); 
+						textureName = getTexName(item.icon);
 					}
 				}
-				auto label = std::make_shared<gui::Label>(showAll ? elem.first : elem.second);
-				auto image = std::make_shared<gui::Image>(contentAtlas->getTexture(), glm::vec2(32, 32));
-				auto button = std::make_shared<gui::RichButton>(glm::vec2(width, label->getSize().y * 2));
-				button->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
-				button->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
-				button->add(image, glm::vec2(0.f));
-				button->add(label, glm::vec2(image->getSize().x + 8.f, button->getSize().y / 2.f - label->getSize().y / 2.f));
-				image->setUVRegion(uv);
+				auto button = std::make_shared<gui::IconButton>(glm::vec2(width, 32), showAll ? elem.first : elem.second,
+					contentAtlas, textureName);
+
 				if (type == DefType::BLOCK) {
 					button->listenAction([this, elem, &block, callback](gui::GUI*) {
 						if (callback) callback(elem.first);
 						else {
-							createBlockEditor(block);
 							preview->setBlock(content->findBlock(elem.first));
+							createBlockEditor(block);
 						}
 					});
 				}
@@ -87,7 +82,7 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 				}
 				panel->add(removeList.emplace_back(button));
 			}
-			setSelectable<gui::RichButton>(panel);
+			setSelectable<gui::IconButton>(panel);
 		};
 		auto textBox = std::make_shared<gui::TextBox>(L"Search");
 		textBox->setTextValidator([this, panel, createList, textBox](const std::wstring&) {

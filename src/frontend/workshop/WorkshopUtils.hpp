@@ -45,7 +45,7 @@ namespace workshop {
 
 	enum UIElementsArgs : unsigned long long {
 		INVENTORY = 0x1ULL, CONTAINER = 0x2ULL, PANEL = 0x4ULL, IMAGE = 0x8ULL, LABEL = 0x10ULL, BUTTON = 0x20ULL, TEXTBOX = 0x40ULL, CHECKBOX = 0x80ULL,
-		TRACKBAR = 0x100ULL, SLOTS_GRID = 0x200ULL, SLOT = 0x400ULL, /* 11 bits used, 6 bits reserved */
+		TRACKBAR = 0x100ULL, SLOTS_GRID = 0x200ULL, SLOT = 0x400ULL, BINDBOX = 0x800ULL, /* 12 bits used, 5 bits reserved */
 		HAS_ElEMENT_TEXT = 0x10000ULL, HAS_CONSUMER = 0x20000ULL, HAS_SUPPLIER = 0x40000ULL, HAS_HOVER_COLOR = 0x80000ULL,
 	};
 
@@ -67,7 +67,7 @@ namespace workshop {
 	extern std::string getDefFolder(DefType type);
 	extern std::string getDefFileFormat(DefType type);
 
-	extern void formatTextureImage(gui::Image* image, Atlas* atlas, float height, const std::string& texName);
+	extern void formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName);
 	template<typename T>
 	extern void setSelectable(std::shared_ptr<gui::Panel> panel);
 
@@ -77,5 +77,6 @@ namespace workshop {
 	extern bool hasFocusedTextbox(const std::shared_ptr<gui::Container> container);
 
 	extern std::set<std::filesystem::path> getFiles(const std::filesystem::path& folder, bool recursive);
+	extern void openPath(const std::filesystem::path& path);
 }
 #endif // !FRONTEND_MENU_WORKSHOP_UTILS_HPP

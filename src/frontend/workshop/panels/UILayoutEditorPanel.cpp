@@ -1,9 +1,9 @@
-#include "../WorkshopScreen.hpp"
-
-#include "../../../coders/xml.h"
-#include "../../../files/files.h"
+#include "../../../coders/xml.hpp"
+#include "../../../files/files.hpp"
+#include "../../../window/Events.hpp"
 #include "../IncludeCommons.hpp"
 #include "../WorkshopPreview.hpp"
+#include "../WorkshopScreen.hpp"
 #include "../WorkshopSerializer.hpp"
 
 void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const std::string& fullName, const std::string& actualName,
@@ -41,12 +41,18 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 		panel->add(std::make_shared<gui::Label>(pathString));
 
 		xml::xmlelement currentElement = getElement(docPath);
+		xml::xmlelement previousElement;
 		bool root = docPath.empty();
+
+		if (!root) {
+			previousElement = getElement(std::vector<size_t>(docPath.begin(), docPath.end() - 1));
+		}
 
 		const unsigned long long currentTag = uiElementsArgs.at(currentElement->getTag()).args;
 		const unsigned long long previousTag = (root ? 0 : uiElementsArgs.at(getElement(std::vector<size_t>(docPath.begin(), docPath.end() - 1))->getTag()).args);
 		std::vector<std::string> listOfHorizontalAlignments{ "left", "center", "right" };
 		std::vector<std::string> listOfVerticalAlignments{ "top", "center", "bottom" };
+		std::vector<std::string> listOfOrientations{ "horizontal" };
 		std::vector<std::string> listOfGravity{ "top-left", "top-center", "top-right", "center-left", "center-center", "center-right", "bottom-left",
 			"bottom-center", "bottom-right" 
 		};
@@ -144,12 +150,14 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 				panel->add(button);
 		};
 
-		auto createTextbox = [currentElement, panel, updatePreview](const std::wstring& placeholder, const std::string& attrName) {
+		auto createTextbox = [currentElement, panel, updatePreview](const std::wstring& placeholder, const std::string& attrName,
+			const std::function<bool(void)>& checker = 0) 
+		{
 			auto textBox = std::make_shared<gui::TextBox>(placeholder);
 			if (currentElement->has(attrName)) textBox->setText(util::str2wstr_utf8(currentElement->attr(attrName).getText()));
-			textBox->setTextValidator([currentElement, textBox, updatePreview, attrName](const std::wstring&) {
+			textBox->setTextValidator([currentElement, textBox, updatePreview, attrName, checker](const std::wstring&) {
 				const std::wstring input = textBox->getInput();
-				if (input.empty()) currentElement->removeAttr(attrName);
+				if (input.empty() || (checker && checker())) currentElement->removeAttr(attrName);
 				else currentElement->set(attrName, util::wstr2str_utf8(input));
 				updatePreview();
 				return true;
@@ -258,7 +266,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			return "";
 		};
 
-		// ---------------  Common attributes --------------- //
+		// -----------------------------------------------------------------------------------------------
 
 		if (!(currentTag & LABEL) && !(currentTag & IMAGE)) createFullCheckbox(L"Interactive", "interactive");
 		if (currentTag & PANEL || currentTag & CONTAINER) createFullCheckbox(L"Scrollable", "scrollable");
@@ -268,6 +276,12 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			createFullCheckbox(L"Multiline", "multiline", false);
 			createFullCheckbox(L"Editable", "editable");
 		}
+		if (currentTag & LABEL) {
+			createFullCheckbox(L"Multiline", "multiline", false);
+			createFullCheckbox(L"Text wrap", "text-wrap");
+		}
+		if ((currentTag & SLOT) && (currentTag & SLOTS_GRID))
+			createFullCheckbox(L"Enabled", "enabled");
 
 		panel->add(std::make_shared<gui::Label>(L"Element Id"));
 		createTextbox(L"example_id", "id");
@@ -323,15 +337,16 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			createVector(panel, 4, "padding", { L"Left", L"Top", L"Bight", L"Bottom" });
 		}
 
-		if (!(previousTag & PANEL))
+		if (!root && !(previousTag & PANEL) && !(currentTag & SLOTS_GRID))
 			createStatesButton(L"Element gravity", "gravity", listOfGravity);
 
-		// --------------- Unique attributes --------------- //
+		// -----------------------------------------------------------------------------------------------
 		if (currentTag & LABEL) {
 			createStatesButton(L"Horizontal align", "align", listOfHorizontalAlignments);
 			createStatesButton(L"Vertical align", "valign", listOfVerticalAlignments);
 		}
 		if (currentTag & PANEL) {
+			createStatesButton(L"Orientation", "orientation", listOfOrientations);
 			panel->add(std::make_shared<gui::Label>("Interval"));
 			createVector(panel, 1, "interval", { L"2" }, 0);
 			panel->add(std::make_shared<gui::Label>("Max length"));
@@ -428,8 +443,23 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			panel->add(std::make_shared<gui::Label>("Placeholder"));
 			createTextbox(L"Placeholder", "placeholder");
 		}
+		if (currentTag & BINDBOX) {
+			panel->add(std::make_shared<gui::Label>("Bind box"));
+			auto textBox = std::make_shared<gui::TextBox>(L"Binding");
+			textBox->setText(util::str2wstr_utf8(currentElement->attr("binding").getText()));
+			textBox->setTextValidator([textBox, currentElement, updatePreview](const std::wstring&) {
+				std::string input = util::wstr2str_utf8(textBox->getInput());
+				if (Events::bindings.find(input) != Events::bindings.end()) {
+					currentElement->set("binding", input);
+					updatePreview();
+					return true;
+				}
+				return false;
+			});
+			panel->add(textBox);
+		}
 
-		// --------------- Color attributes --------------- //
+		// -----------------------------------------------------------------------------------------------
 
 		if (!(currentTag & IMAGE) && !(currentTag & SLOT) && !(currentTag & SLOTS_GRID)) {
 			createColorBox("Color", L"FFFFFFFF", "color");
@@ -448,7 +478,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			createColorBox("Pressed color", L"000000F2", "pressed-color");
 		}
 
-		// --------------- Function attributes --------------- //
+		// -----------------------------------------------------------------------------------------------
 
 		if (currentTag & HAS_CONSUMER) {
 			panel->add(std::make_shared<gui::Label>("Consumer function"));
@@ -476,6 +506,25 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 		}
 
 		createUIPreview();
+
+		if (previousTag & PANEL || previousTag & CONTAINER || previousTag & INVENTORY) {
+			auto moveElement = [previousElement, goTo, updatePreview, docPath](int offset) mutable {
+				std::vector<xml::xmlelement>& elements = const_cast<std::vector<xml::xmlelement>&>(previousElement->getElements());
+				size_t& index = docPath.back();
+				if (static_cast<int>(index) + offset < 0 || index + offset >= elements.size()) return;
+				auto it = elements.begin() + index;
+				std::swap(elements[index], elements[(index + offset)]);
+				index += offset;
+				updatePreview();
+				goTo(docPath);
+			};
+			panel->add(std::make_shared<gui::Button>(L"Move up", glm::vec4(10.f), [moveElement](gui::GUI*) mutable {
+				moveElement(-1);
+			}));
+			panel->add(std::make_shared<gui::Button>(L"Move down", glm::vec4(10.f), [moveElement](gui::GUI*) mutable {
+				moveElement(1);
+			}));
+		}
 
 		if (!root) {
 			panel->add(std::make_shared<gui::Button>(L"Remove current", glm::vec4(10.f), [goTo, getElement, docPath, currentElement, updatePreview](gui::GUI*) mutable {

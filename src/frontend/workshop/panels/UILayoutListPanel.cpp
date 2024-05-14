@@ -42,7 +42,7 @@ void workshop::WorkShopScreen::createUILayoutList(bool showAll, unsigned int col
 				}
 			}
 			setSelectable<gui::Button>(panel);
-			};
+		};
 
 		auto textBox = std::make_shared<gui::TextBox>(L"Search");
 		textBox->setTextValidator([this, panel, createList, textBox](const std::wstring&) {

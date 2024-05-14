@@ -1,14 +1,31 @@
 #include "WorkshopSerializer.hpp"
 
-#include "../../coders/json.h"
-#include "../../coders/xml.h"
-#include "../../content/ContentPack.h"
-#include "../../data/dynamic.h"
-#include "../../files/files.h"
-#include "../../items/ItemDef.h"
-#include "../../voxels/Block.h"
+#include "../../coders/json.hpp"
+#include "../../coders/xml.hpp"
+#include "../../content/ContentPack.hpp"
+#include "../../data/dynamic.hpp"
+#include "../../files/files.hpp"
+#include "../../items/ItemDef.hpp"
+#include "../../voxels/Block.hpp"
 
 #include <algorithm>
+
+void workshop::saveContentPack(const ContentPack& pack) {
+	dynamic::Map root;
+	root.put("id", pack.id);
+	root.put("title", pack.title);
+	root.put("version", pack.version);
+	root.put("creator", pack.creator);
+	root.put("description", pack.description);
+
+	if (!pack.dependencies.empty()) {
+		auto& dependencies = root.putList("dependencies");
+		for (const auto& elem : pack.dependencies) {
+			if (!elem.id.empty()) dependencies.put(elem.id);
+		}
+	}
+	files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, &root);
+}
 
 void workshop::saveBlock(const Block& block, const std::filesystem::path& packFolder, const std::string& actualName) {
 	Block temp("");
@@ -33,7 +50,7 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 	if (temp.replaceable != block.replaceable) root.put("replaceable", block.replaceable);
 	if (temp.breakable != block.breakable) root.put("breakable", block.breakable);
 	if (temp.grounded != block.grounded) root.put("grounded", block.grounded);
-	if (temp.drawGroup != block.drawGroup) root.put("draw-group", block.drawGroup);
+	if (temp.drawGroup != block.drawGroup) root.put("draw-group", static_cast<int64_t>(block.drawGroup));
 	if (temp.hidden != block.hidden) root.put("hidden", block.hidden);
 
 	if (block.pickingItem != block.name + BLOCK_ITEM_SUFFIX) {
@@ -46,7 +63,7 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 		auto& emissionarr = root.putList("emission");
 		emissionarr.multiline = false;
 		for (size_t i = 0; i < 3; i++) {
-			emissionarr.put(block.emission[i]);
+			emissionarr.put(static_cast<int64_t>(block.emission[i]));
 		}
 	}
 	if (block.rotatable) {
@@ -110,7 +127,7 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 	}
 	if (block.scriptName != actualName) root.put("script-name", block.scriptName);
 	if (block.material != DEFAULT_MATERIAL) root.put("material", block.material);
-	if (block.inventorySize != 0) root.put("inventory-size", block.inventorySize);
+	if (block.inventorySize != 0) root.put("inventory-size", static_cast<int64_t>(block.inventorySize));
 	if (block.uiLayout != block.name) root.put("ui-layout", block.uiLayout);
 
 	json::precision = 3;
@@ -123,12 +140,12 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 void workshop::saveItem(const ItemDef& item, const std::filesystem::path& packFolder, const std::string& actualName) {
 	ItemDef temp("");
 	dynamic::Map root;
-	if (temp.stackSize != item.stackSize) root.put("stack-size", item.stackSize);
+	if (temp.stackSize != item.stackSize) root.put("stack-size", static_cast<int64_t>(item.stackSize));
 	if (item.emission[0] || item.emission[1] || item.emission[2]) {
 		auto& emissionarr = root.putList("emission");
 		emissionarr.multiline = false;
 		for (size_t i = 0; i < 3; i++) {
-			emissionarr.put(item.emission[i]);
+			emissionarr.put(static_cast<int64_t>(item.emission[i]));
 		}
 	}
 	std::string iconStr("");

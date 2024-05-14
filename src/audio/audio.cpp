@@ -1,13 +1,13 @@
-#include "audio.h"
+#include "audio.hpp"
+
+#include "NoAudio.hpp"
+#include "AL/ALAudio.hpp"
+
+#include "../coders/wav.hpp"
+#include "../coders/ogg.hpp"
 
 #include <iostream>
 #include <stdexcept>
-
-#include "NoAudio.h"
-#include "AL/ALAudio.h"
-
-#include "../coders/wav.h"
-#include "../coders/ogg.h"
 
 namespace audio {
     static speakerid_t nextId = 1;
@@ -72,9 +72,6 @@ size_t PCMStream::readFully(char* buffer, size_t bufferSize, bool loop) {
         if (loop) {
             seek(0);
         }
-        if (bufferSize == 0) {
-            return size;
-        }
     } while (loop);
     return size;
 }
@@ -94,7 +91,7 @@ public:
       seekable(seekable) 
     {}
 
-    size_t read(char* buffer, size_t bufferSize) override {
+    size_t read(char*, size_t bufferSize) override {
         if (closed) {
             return 0;
         }
@@ -383,13 +380,12 @@ void audio::update(double delta) {
         entry.second->update(delta);
     }
 
-    float masterVolume = channels.at(0)->getVolume();
     for (auto it = speakers.begin(); it != speakers.end();) {
         auto speaker = it->second.get();
         int speakerChannel = speaker->getChannel();
         auto channel = get_channel(speakerChannel);
         if (channel != nullptr) {
-            speaker->update(channel, speakerChannel == 0 ? 1.0f : masterVolume);
+            speaker->update(channel);
         }
         if (speaker->isStopped()) {
             streams.erase(it->first);

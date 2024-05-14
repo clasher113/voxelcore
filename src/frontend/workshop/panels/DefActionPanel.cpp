@@ -1,7 +1,7 @@
 #include "../WorkshopScreen.hpp"
 
-#include "../../../coders/xml.h"
-#include "../../../items/ItemDef.h"
+#include "../../../coders/xml.hpp"
+#include "../../../items/ItemDef.hpp"
 #include "../IncludeCommons.hpp"
 #include "../WorkshopSerializer.hpp"
 

@@ -1,9 +1,9 @@
 #ifndef FRONTEND_MENU_WORKSHOP_SCREEN_HPP
 #define FRONTEND_MENU_WORKSHOP_SCREEN_HPP
 
-#include "../screens.h"
+#include "../screens/Screen.hpp"
 
-#include "../../content/ContentPack.h"
+#include "../../content/ContentPack.hpp"
 #include "WorkshopUtils.hpp"
 
 #include <filesystem>
@@ -15,6 +15,7 @@
 
 class Atlas;
 class Block;
+class Camera;
 class Content;
 class ContentIndices;
 class ContentGfxCache;

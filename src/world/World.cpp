@@ -1,20 +1,20 @@
-#include "World.h"
+#include "World.hpp"
+
+#include "Level.hpp"
+#include "../content/Content.hpp"
+#include "../content/ContentLUT.hpp"
+#include "../files/WorldFiles.hpp"
+#include "../items/Inventories.hpp"
+#include "../objects/Player.hpp"
+#include "../voxels/Chunk.hpp"
+#include "../voxels/Chunks.hpp"
+#include "../voxels/ChunksStorage.hpp"
+#include "../window/Camera.hpp"
+#include "../world/WorldGenerators.hpp"
 
 #include <memory>
 #include <iostream>
 #include <glm/glm.hpp>
-
-#include "Level.h"
-#include "../files/WorldFiles.h"
-#include "../content/Content.h"
-#include "../world/WorldGenerators.h"
-#include "../content/ContentLUT.h"
-#include "../voxels/Chunk.h"
-#include "../voxels/Chunks.h"
-#include "../voxels/ChunksStorage.h"
-#include "../objects/Player.h"
-#include "../window/Camera.h"
-#include "../items/Inventories.h"
 
 world_load_error::world_load_error(std::string message) 
     : std::runtime_error(message) {
@@ -49,18 +49,18 @@ void World::updateTimers(float delta) {
 
 void World::write(Level* level) {
     const Content* content = level->content;
-
     Chunks* chunks = level->chunks.get();
+    auto& regions = wfile->getRegions();
 
     for (size_t i = 0; i < chunks->volume; i++) {
         auto chunk = chunks->chunks[i];
         if (chunk == nullptr || !chunk->isLighted())
             continue;
         bool lightsUnsaved = !chunk->isLoadedLights() && 
-                              settings.debug.doWriteLights;
+                              settings.debug.doWriteLights.get();
         if (!chunk->isUnsaved() && !lightsUnsaved)
             continue;
-        wfile->put(chunk.get());
+        regions.put(chunk.get());
     }
 
     wfile->write(this, content);
@@ -69,7 +69,7 @@ void World::write(Level* level) {
         auto& players = playerFile.putList("players");
         for (auto object : level->objects) {
             if (std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(object)) {
-                players.put(player->serialize().release());
+                players.put(player->serialize());
             }
         }
     }
@@ -174,9 +174,9 @@ const std::vector<ContentPack>& World::getPacks() const {
 }
 
 void World::deserialize(dynamic::Map* root) {
-    name = root->getStr("name", name);
-    generator = root->getStr("generator", generator);
-    seed = root->getInt("seed", seed);
+    name = root->get("name", name);
+    generator = root->get("generator", generator);
+    seed = root->get("seed", seed);
 
     if(generator == "") {
         generator = WorldGenerators::getDefaultGeneratorID();
@@ -197,19 +197,19 @@ void World::deserialize(dynamic::Map* root) {
         timeobj->num("total-time", totalTime);
     }
     
-    nextInventoryId = root->getNum("next-inventory-id", 2);
+    nextInventoryId = root->get("next-inventory-id", 2);
 }
 
 std::unique_ptr<dynamic::Map> World::serialize() const {
     auto root = std::make_unique<dynamic::Map>();
 
     auto& versionobj = root->putMap("version");
-    versionobj.put("major", ENGINE_VERSION_MAJOR);
-    versionobj.put("minor", ENGINE_VERSION_MINOR);
+    versionobj.put("major", std::to_string(ENGINE_VERSION_MAJOR));
+    versionobj.put("minor", std::to_string(ENGINE_VERSION_MINOR));
 
     root->put("name", name);
     root->put("generator", generator);
-    root->put("seed", seed);
+    root->put("seed", static_cast<integer_t>(seed));
     
     auto& timeobj = root->putMap("time");
     timeobj.put("day-time", daytime);

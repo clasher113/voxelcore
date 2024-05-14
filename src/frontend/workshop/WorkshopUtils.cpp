@@ -1,31 +1,37 @@
 #include "WorkshopUtils.hpp"
 
-#include "../../assets/Assets.h"
-#include "../../constants.h"
-#include "../../content\ContentPack.h"
-#include "../../core_defs.h"
-#include "../../graphics/Atlas.h"
-#include "../../graphics/Texture.h"
-#include "../../graphics/UVRegion.h"
-#include "../../items/ItemDef.h"
-#include "../../voxels/Block.h"
-#include "../gui/controls.h"
+#include "../../assets/Assets.hpp"
+#include "../../constants.hpp"
+#include "../../content\ContentPack.hpp"
+#include "../../core_defs.hpp"
+#include "../../graphics/core/Atlas.hpp"
+#include "../../graphics/core/Texture.hpp"
+#include "../../items/ItemDef.hpp"
+#include "../../maths/UVRegion.hpp"
+#include "../../voxels/Block.hpp"
+#include "IncludeCommons.hpp"
 
 #include <iostream>
 
+#ifdef _WIN32
+#define NOMINMAX
+#include "Windows.h"
+#endif // _WIN32
+
 namespace workshop {
-const std::unordered_map<std::string, UIElementInfo> uiElementsArgs{
-	{ "inventory", { INVENTORY | CONTAINER } },
+const std::unordered_map<std::string, UIElementInfo> uiElementsArgs {
+	{ "inventory", { INVENTORY | CONTAINER, { {"size", "200, 200"} } } },
 	{ "container", { CONTAINER, { {"size", "200, 200" } } } },
 	{ "panel", { PANEL, { {"size", "200, 200" } } } },
 	{ "image", { IMAGE, { {"src", "gui/error"} } } },
 	{ "label", { LABEL | HAS_ElEMENT_TEXT | HAS_SUPPLIER, { }, { {"#", {"#", "The label"} } } } },
-	{ "button", { BUTTON | HAS_ElEMENT_TEXT | HAS_HOVER_COLOR, { {"size", "100,20"} }, { {"#", {"#", "The button"} } } } },
-	{ "textbox", { TEXTBOX | HAS_ElEMENT_TEXT | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { {"size", "150,40"} }, { {"#", {"#", "The textbox"} } } } },
-	{ "chackbox", { CHECKBOX | HAS_ElEMENT_TEXT | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { {"size", "150,30"} }, { {"#", {"#", "The checkbox"} } } } },
+	{ "button", { BUTTON /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_HOVER_COLOR, {{"size", "100,20"}}, {{"#", {"#", "The button"}}}}},
+	{ "textbox", { TEXTBOX /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { {"size", "150,40"} }, { {"#", {"#", "The textbox"} } } } },
+	{ "checkbox", { CHECKBOX /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { {"size", "150,30"} }, { {"#", {"#", "The checkbox"} } } } },
 	{ "trackbar", { TRACKBAR | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR,  {{"size", "150,20"}, {"max", "100"}, {"track-width", "5"}}}},
 	{ "slots-grid", { SLOTS_GRID, { {"rows", "1"}, {"count", "1"} } } },
-	{ "slot", { SLOT } }
+	{ "slot", { SLOT } },
+	{ "bindbox", { BINDBOX /*| PANEL*/, { {"binding", "movement.left" } } } }
 };
 }
 
@@ -74,17 +80,17 @@ std::string workshop::getDefFileFormat(DefType type) {
 	return "";
 }
 
-void workshop::formatTextureImage(gui::Image* image, Atlas* atlas, float height, const std::string& texName) {
+void workshop::formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName) {
 	const UVRegion& region = atlas->get(texName);
 	glm::vec2 textureSize((region.u2 - region.u1) * atlas->getTexture()->getWidth(), (region.v2 - region.v1) * atlas->getTexture()->getHeight());
 	glm::vec2 multiplier(height / textureSize);
-	image->setSize(textureSize * std::min(multiplier.x, multiplier.y));
-	image->setPos(glm::vec2(height / 2.f - image->getSize().x / 2.f, height / 2.f - image->getSize().y / 2.f));
-	image->setTexture(atlas->getTexture());
-	image->setUVRegion(region);
+	image.setSize(textureSize * std::min(multiplier.x, multiplier.y));
+	image.setPos(glm::vec2(height / 2.f - image.getSize().x / 2.f, height / 2.f - image.getSize().y / 2.f));
+	image.setTexture(atlas->getTexture());
+	image.setUVRegion(region);
 }
 
-template void workshop::setSelectable<gui::RichButton>(std::shared_ptr<gui::Panel>);
+template void workshop::setSelectable<gui::IconButton>(std::shared_ptr<gui::Panel>);
 template void workshop::setSelectable<gui::Button>(std::shared_ptr<gui::Panel>);
 
 template<typename T>
@@ -152,6 +158,14 @@ std::set<std::filesystem::path> workshop::getFiles(const std::filesystem::path& 
 		}
 	}
 	return files;
+}
+
+void workshop::openPath(const std::filesystem::path& path) {
+#ifdef _WIN32
+	ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+#elif __linux__
+	system(("nautilus " + path.string()).c_str());
+#endif // WIN32
 }
 
 std::string workshop::getScriptName(const ContentPack& pack, const std::string& scriptName) {

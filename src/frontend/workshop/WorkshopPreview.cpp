@@ -1,20 +1,21 @@
 #include "WorkshopPreview.hpp"
 
-#include "../../assets/AssetsLoader.h"
-#include "../../engine.h"
-#include "../../graphics/Atlas.h"
-#include "../../graphics/GfxContext.h"
-#include "../../graphics/Shader.h"
-#include "../../graphics/Texture.h"
-#include "../../graphics/Viewport.h"
-#include "../../items/ItemDef.h"
-#include "../../voxels/Chunk.h"
-#include "../../voxels/ChunksStorage.h"
-#include "../../window/Events.h"
-#include "../../world/Level.h"
-#include "../../world/World.h"
-#include "../ContentGfxCache.h"
-#include "../gui/gui_xml.h"
+#include "../../assets/AssetsLoader.hpp"
+#include "../../engine.hpp"
+#include "../../graphics/core/Atlas.hpp"
+#include "../../graphics/core/DrawContext.hpp"
+#include "../../graphics/core/Shader.hpp"
+#include "../../graphics/core/Texture.hpp"
+#include "../../graphics/core/Viewport.hpp"
+#include "../../graphics/ui/gui_xml.hpp"
+#include "../../items/ItemDef.hpp"
+#include "../../voxels/Chunk.hpp"
+#include "../../voxels/ChunksStorage.hpp"
+#include "../../window/Events.hpp"
+#include "../../window/Window.hpp"
+#include "../../world/Level.hpp"
+#include "../../world/World.hpp"
+#include "../ContentGfxCache.hpp"
 #include "WorkshopUtils.hpp"
 
 #include <GL/glew.h>
@@ -24,15 +25,14 @@ using namespace workshop;
 vattr attr[] = { 0 };
 
 Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache(cache),
-	blockRenderer(8192, engine->getContent(), cache, engine->getSettings()),
+	blockRenderer(8192, engine->getContent(), cache, &engine->getSettings()),
 	chunk(new Chunk(0, 0)),
-	world(new World("", "", "", 0, engine->getSettings(), engine->getContent(), engine->getContentPacks())),
+	world(new World("", "core:default", "", 0, engine->getSettings(), engine->getContent(), engine->getContentPacks())),
 	level(new Level(world, engine->getContent(), engine->getSettings())),
 	camera(glm::vec3(0.f), glm::radians(60.f)),
 	framebuffer(0, 0, true),
 	controller(engine->getSettings(), level),
 	frontend(&controller, engine->getAssets()),
-	interaction(),
 	lineBatch(1024),
 	batch2d(1024),
 	batch3d(1024),
@@ -64,7 +64,10 @@ void Preview::update(float delta) {
 }
 
 void Preview::updateMesh() {
+	bool rotatable = currentBlock->rotatable;
+	currentBlock->rotatable = false;
 	mesh = *blockRenderer.render(chunk, level->chunksStorage.get());
+	currentBlock->rotatable = rotatable;
 }
 
 void Preview::updateCache() {
@@ -73,11 +76,9 @@ void Preview::updateCache() {
 }
 
 void Preview::setBlock(Block* block) {
+	currentBlock = block;
 	chunk->voxels[CHUNK_D * CHUNK_W + CHUNK_D + 1].id = block->rt.id;
-	bool rotatable = block->rotatable;
-	block->rotatable = false;
 	updateMesh();
-	block->rotatable = rotatable;
 }
 
 void Preview::setCurrentAABB(const AABB& aabb, PrimitiveType type) {
@@ -92,16 +93,15 @@ void Preview::setCurrentTetragon(const glm::vec3* tetragon) {
 	}
 }
 
-void Preview::setUiDocument(const std::shared_ptr<xml::Document> document, scripting::Environment* env, bool forceUpdate) {
+void Preview::setUiDocument(const std::shared_ptr<xml::Document> document, std::shared_ptr<int> enviroment, bool forceUpdate) {
 	if (document == currentDocument && !forceUpdate) return;
 	currentDocument = document;
 	AssetsLoader loader(engine->getAssets(), engine->getResPaths());
-	gui::UiXmlReader reader(*env, loader);
-	InventoryView::createReaders(reader);
+	gui::UiXmlReader reader(enviroment);
 	xml::xmlelement root = document->getRoot();
 	currentUI = reader.readXML("", root);
 
-	std::shared_ptr<InventoryView> inventoryView = std::dynamic_pointer_cast<InventoryView>(currentUI);
+	std::shared_ptr<gui::InventoryView> inventoryView = std::dynamic_pointer_cast<gui::InventoryView>(currentUI);
 	if (inventoryView) {
 		size_t slotsTotal = inventoryView->getSlotsCount();
 		for (const auto& elem : root->getElements()) {
@@ -122,7 +122,7 @@ void Preview::setUiDocument(const std::shared_ptr<xml::Document> document, scrip
 			inventory = std::make_shared<Inventory>(0, slotsTotal);
 			refillInventory();
 		}
-		inventoryView->bind(inventory, &frontend, &interaction);
+		inventoryView->bind(inventory, engine->getContent());
 	}
 }
 
@@ -239,7 +239,7 @@ void Preview::drawUI() {
 	Window::clear();
 
 	Viewport viewport(Window::width, Window::height);
-	GfxContext ctx(nullptr, viewport, &batch2d);
+	DrawContext ctx(nullptr, viewport, &batch2d);
 
 	batch2d.begin();
 

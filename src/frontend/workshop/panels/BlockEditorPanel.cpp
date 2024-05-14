@@ -1,6 +1,6 @@
 #include "../WorkshopScreen.hpp"
 
-#include "../../../items/ItemDef.h"
+#include "../../../items/ItemDef.hpp"
 #include "../IncludeCommons.hpp"
 #include "../WorkshopPreview.hpp"
 #include "../WorkshopSerializer.hpp"
@@ -41,17 +41,16 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 			if (item->iconType == item_icon_type::block) return item->icon;
 			return getTexName(item->icon);
 		};
-		auto rbutton = createTextureButton(texName(item(block.pickingItem)), atlas(block.pickingItem), glm::vec2(panel->getSize().x, 35.f));
+		auto rbutton = std::make_shared<gui::IconButton>(glm::vec2(panel->getSize().x, 35.f), texName(item(block.pickingItem)), atlas(block.pickingItem),
+			texName(item(block.pickingItem)));
 		rbutton->listenAction([this, rbutton, panel, texName, item, atlas, &block](gui::GUI*) {
 			createContentList(DefType::ITEM, 5, true, [this, rbutton, texName, item, atlas, &block](std::string name) {
 				block.pickingItem = name;
-				auto& nodes = rbutton->getNodes();
-				formatTextureImage(static_cast<gui::Image*>(nodes[0].get()), atlas(block.pickingItem), 35.f, texName(item(block.pickingItem)));
-				static_cast<gui::Label*>(nodes[1].get())->setText(util::str2wstr_utf8(item(block.pickingItem)->name));
+				rbutton->setIcon(atlas(block.pickingItem), texName(item(block.pickingItem)));
+				rbutton->setText(item(block.pickingItem)->name);
 				removePanels(5);
 			}, panel->calcPos().x + panel->getSize().x);
 		});
-		static_cast<gui::Label*>(rbutton->getNodes()[1].get())->setText(util::str2wstr_utf8(item(block.pickingItem)->name));
 		panel->add(rbutton);
 
 		auto texturePanel = std::make_shared<gui::Panel>(glm::vec2(panel->getSize().x, 35.f));
