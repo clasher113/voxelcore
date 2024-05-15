@@ -20,19 +20,20 @@
 #include "../../world/World.hpp"
 #include "../../window/Camera.hpp"
 #include "../../window/Events.hpp"
+#include "../../window/Window.hpp"
 #include "../../engine.hpp"
 
 static debug::Logger logger("level-screen");
 
-LevelScreen::LevelScreen(Engine* engine, Level* level) : Screen(engine) {
-    postProcessing = std::make_unique<PostProcessing>();
-
+LevelScreen::LevelScreen(Engine* engine, std::unique_ptr<Level> level)
+ : Screen(engine), postProcessing(std::make_unique<PostProcessing>()) 
+{
     auto& settings = engine->getSettings();
     auto assets = engine->getAssets();
     auto menu = engine->getGUI()->getMenu();
     menu->reset();
 
-    controller = std::make_unique<LevelController>(settings, level);
+    controller = std::make_unique<LevelController>(settings, std::move(level));
     frontend = std::make_unique<LevelFrontend>(controller.get(), assets);
 
     worldRenderer = std::make_unique<WorldRenderer>(engine, frontend.get(), controller->getPlayer());
@@ -48,7 +49,11 @@ LevelScreen::LevelScreen(Engine* engine, Level* level) : Screen(engine) {
     animator = std::make_unique<TextureAnimator>();
     animator->addAnimations(assets->getAnimations());
 
-    auto content = level->content;
+    initializeContent();
+}
+
+void LevelScreen::initializeContent() {
+    auto content = controller->getLevel()->content;
     for (auto& entry : content->getPacks()) {
         auto pack = entry.second.get();
         const ContentPack& info = pack->getInfo();

@@ -121,6 +121,19 @@ void workshop::validateBlock(Assets* assets, Block& block) {
 	};
 	checkTextures(std::begin(block.textureFaces), std::end(block.textureFaces));
 	checkTextures(block.modelTextures.data(), block.modelTextures.data() + block.modelTextures.size());
+	if (block.modelBoxes.size() == block.hitboxes.size()) {
+		bool removeHitboxes = true;
+		for (size_t i = 0; i < block.hitboxes.size(); i++) {
+			if (block.hitboxes[i].a == block.modelBoxes[i].a &&
+				block.hitboxes[i].b == block.modelBoxes[i].b) continue;
+			removeHitboxes = false;
+			break;
+		}
+		if (removeHitboxes) {
+			block.hitboxes.clear();
+			std::cout << "removed generated hitboxes in block \"" << block.name << "\"" << std::endl;
+		}
+	}
 }
 
 void workshop::validateItem(Assets* assets, ItemDef& item) {

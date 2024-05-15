@@ -70,6 +70,7 @@ namespace workshop {
 		float viewDistance = 2.f;
 		glm::vec2 previewRotation{ 225.f, 45.f };
 		glm::vec3 currentTetragon[4]{};
+		PrimitiveType primitiveType;
 
 		Engine* engine;
 		ContentGfxCache* cache;

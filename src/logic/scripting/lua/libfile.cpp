@@ -4,19 +4,15 @@
 #include "../../../engine.hpp"
 #include "../../../files/files.hpp"
 #include "../../../files/engine_paths.hpp"
+#include "../../../util/stringutil.hpp"
 
 #include <string>
 #include <filesystem>
 
 namespace fs = std::filesystem;
 
-static fs::path resolve_path(lua_State* L, const std::string& path) {
-    try {
-        return scripting::engine->getPaths()->resolve(path);
-    } catch (const files_access_error& err) {
-        luaL_error(L, err.what());
-        abort(); // unreachable
-    }
+static fs::path resolve_path(lua_State*, const std::string& path) {
+    return scripting::engine->getPaths()->resolve(path);
 }
 
 static int l_file_find(lua_State* L) {
@@ -37,7 +33,7 @@ static int l_file_read(lua_State* L) {
         lua_pushstring(L, files::read_string(path).c_str());
         return 1;
     }
-    return luaL_error(L, "file does not exists '%s'", path.u8string().c_str());
+    throw std::runtime_error("file does not exists "+util::quote(path.u8string()));
 }
 
 static int l_file_write(lua_State* L) {
@@ -103,27 +99,22 @@ static int l_file_read_bytes(lua_State* L) {
         }
         return 1;
     }
-    return luaL_error(L, "file does not exists '%s'", path.u8string().c_str());   
+    throw std::runtime_error("file does not exists "+util::quote(path.u8string()));   
 }
 
 static int read_bytes_from_table(lua_State* L, int tableIndex, std::vector<ubyte>& bytes) {
     if(!lua_istable(L, tableIndex)) {
-        return luaL_error(L, "table expected");
+        throw std::runtime_error("table expected");
     } else {
         lua_pushnil(L);
-
         while(lua_next(L, tableIndex - 1) != 0) {
             const int byte = lua_tointeger(L, -1);
-
             if(byte < 0 || byte > 255) {
-                return luaL_error(L, "invalid byte '%i'", byte);
+                throw std::runtime_error("invalid byte '"+std::to_string(byte)+"'");
             }
-
-            bytes.push_back(byte);
-                
+            bytes.push_back(byte);  
             lua_pop(L, 1);
         }
-
         return 1;
     }
 }
@@ -132,7 +123,7 @@ static int l_file_write_bytes(lua_State* L) {
     int pathIndex = 1;
 
     if(!lua_isstring(L, pathIndex)) {
-        return luaL_error(L, "string expected");
+        throw std::runtime_error("string expected");
     }
 
     fs::path path = resolve_path(L, lua_tostring(L, pathIndex));
@@ -149,6 +140,37 @@ static int l_file_write_bytes(lua_State* L) {
     }
 }
 
+static int l_file_list_all_res(lua_State* L, const std::string& path) {
+    auto files = scripting::engine->getResPaths()->listdirRaw(path);
+    lua_createtable(L, files.size(), 0);
+    for (size_t i = 0; i < files.size(); i++) {
+        lua_pushstring(L, files[i].c_str());
+        lua_rawseti(L, -2, i+1);
+    }
+    return 1;
+}
+
+static int l_file_list(lua_State* L) {
+    std::string dirname = lua_tostring(L, 1);
+    if (dirname.find(':') == std::string::npos) {
+        return l_file_list_all_res(L, dirname);
+    }
+    fs::path path = resolve_path(L, dirname);
+    if (!fs::is_directory(path)) {
+        throw std::runtime_error(util::quote(path.u8string())+" is not a directory");
+    }
+    lua_createtable(L, 0, 0);
+    size_t index = 1;
+    for (auto& entry : fs::directory_iterator(path)) {
+        auto name = entry.path().filename().u8string();
+        auto file = dirname + "/" + name;
+        lua_pushstring(L, file.c_str());
+        lua_rawseti(L, -2, index);
+        index++;
+    }
+    return 1;
+}
+
 const luaL_Reg filelib [] = {
     {"resolve", lua_wrap_errors<l_file_resolve>},
     {"find", lua_wrap_errors<l_file_find>},
@@ -162,5 +184,6 @@ const luaL_Reg filelib [] = {
     {"mkdirs", lua_wrap_errors<l_file_mkdirs>},
     {"read_bytes", lua_wrap_errors<l_file_read_bytes>},
     {"write_bytes", lua_wrap_errors<l_file_write_bytes>},
+    {"list", lua_wrap_errors<l_file_list>},
     {NULL, NULL}
 };

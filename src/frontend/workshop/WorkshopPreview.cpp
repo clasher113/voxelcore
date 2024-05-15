@@ -19,7 +19,6 @@
 #include "WorkshopUtils.hpp"
 
 #include <cstring>
-#include <GL/glew.h>
 
 using namespace workshop;
 
@@ -29,10 +28,10 @@ Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache
 	blockRenderer(8192, engine->getContent(), cache, &engine->getSettings()),
 	chunk(new Chunk(0, 0)),
 	world(new World("", "core:default", "", 0, engine->getSettings(), engine->getContent(), engine->getContentPacks())),
-	level(new Level(world, engine->getContent(), engine->getSettings())),
+	level(new Level(std::unique_ptr<World>(world), engine->getContent(), engine->getSettings())),
 	camera(glm::vec3(0.f), glm::radians(60.f)),
 	framebuffer(0, 0, true),
-	controller(engine->getSettings(), level),
+	controller(engine->getSettings(), std::unique_ptr<Level>(level)),
 	frontend(&controller, engine->getAssets()),
 	lineBatch(1024),
 	batch2d(1024),
@@ -83,12 +82,14 @@ void Preview::setBlock(Block* block) {
 }
 
 void Preview::setCurrentAABB(const AABB& aabb, PrimitiveType type) {
+	primitiveType = type;
 	AABB& aabb_ = (type == PrimitiveType::AABB ? currentAABB : currentHitbox);
 	aabb_.a = aabb.a + (aabb.b - aabb.a) / 2.f - 0.5f;
 	aabb_.b = aabb.b - aabb.a;
 }
 
 void Preview::setCurrentTetragon(const glm::vec3* tetragon) {
+	primitiveType = PrimitiveType::TETRAGON;
 	for (size_t i = 0; i < 4; i++) {
 		currentTetragon[i] = tetragon[i] - 0.5f;
 	}
@@ -161,8 +162,12 @@ void Preview::drawBlock() {
 	framebuffer.bind();
 	Window::setBgColor(glm::vec4(0.f));
 	Window::clear();
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
+
+	Viewport viewport(Window::width, Window::height);
+	DrawContext ctx(nullptr, viewport, &batch2d);
+
+	ctx.setDepthTest(true);
+	ctx.setCullFace(true);
 
 	Assets* assets = engine->getAssets();
 	Shader* lineShader = assets->getShader("lines");
@@ -185,10 +190,10 @@ void Preview::drawBlock() {
 		}
 	}
 	if (drawBlockBounds) lineBatch.box(glm::vec3(0.f), glm::vec3(1.f), glm::vec4(1.f));
-	if (drawBlockHitbox) lineBatch.box(currentHitbox.a, currentHitbox.b, glm::vec4(1.f, 1.f, 0.f, 1.f));
-	if (drawCurrentAABB) lineBatch.box(currentAABB.a, currentAABB.b, glm::vec4(1.f, 0.f, 1.f, 1.f));
+	if (drawBlockHitbox && primitiveType == PrimitiveType::HITBOX) lineBatch.box(currentHitbox.a, currentHitbox.b, glm::vec4(1.f, 1.f, 0.f, 1.f));
+	if (drawCurrentAABB && primitiveType == PrimitiveType::AABB) lineBatch.box(currentAABB.a, currentAABB.b, glm::vec4(1.f, 0.f, 1.f, 1.f));
 
-	if (drawCurrentTetragon) {
+	if (drawCurrentTetragon && primitiveType == PrimitiveType::TETRAGON) {
 		for (size_t i = 0; i < 4; i++) {
 			size_t next = (i + 1 < 4 ? i + 1 : 0);
 			lineBatch.line(currentTetragon[i], currentTetragon[next], glm::vec4(1.f, 0.f, 1.f, 1.f));
@@ -228,8 +233,8 @@ void Preview::drawBlock() {
 	texture->bind();
 	mesh.draw();
 	Window::viewport(0, 0, Window::width, Window::height);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
+	ctx.setDepthTest(false);
+	ctx.setCullFace(false);
 	framebuffer.unbind();
 }
 
@@ -241,7 +246,7 @@ void Preview::drawUI() {
 
 	Viewport viewport(Window::width, Window::height);
 	DrawContext ctx(nullptr, viewport, &batch2d);
-
+	
 	batch2d.begin();
 
 	currentUI->draw(&ctx, engine->getAssets());

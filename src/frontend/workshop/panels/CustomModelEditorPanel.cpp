@@ -12,9 +12,10 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 		const std::wstring primitives[] = { L"AABB", L"Tetragon", L"Hitbox" };
 		const std::wstring editorModes[] = { L"Custom model", L"Custom model", L"Hitbox" };
 		const glm::vec3 tetragonTemplate[] = { glm::vec3(0.f, 0.f, 0.5f), glm::vec3(1.f, 0.f, 0.5f), glm::vec3(1.f, 1.f, 0.5f), glm::vec3(0.f, 1.f, 0.5f) };
-		const std::wstring currentPrimitiveName(primitives[static_cast<unsigned int>(type)]);
+		const unsigned int primitiveTypeNum = static_cast<unsigned int>(type);
+		const std::wstring currentPrimitiveName(primitives[primitiveTypeNum]);
 		if (block.model == BlockModel::custom) {
-			panel->add(std::make_shared<gui::Button>(L"Mode: " + currentPrimitiveName, glm::vec4(10.f), [this, &block, type](gui::GUI*) {
+			panel->add(std::make_shared<gui::Button>(L"Mode: " + editorModes[primitiveTypeNum], glm::vec4(10.f), [this, &block, type](gui::GUI*) {
 				if (type == PrimitiveType::HITBOX) createCustomModelEditor(block, 0, PrimitiveType::AABB);
 				else createCustomModelEditor(block, 0, PrimitiveType::HITBOX);
 			}));
@@ -45,7 +46,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 				index = aabbArr.size();
 			}
 			createCustomModelEditor(block, index - 1, type);
-			if (type != PrimitiveType::HITBOX) preview->updateCache();
+			preview->updateCache();
 		}));
 
 		if ((type == PrimitiveType::AABB &&block.modelBoxes.empty()) ||
@@ -67,7 +68,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 				aabbArr.emplace_back(aabbArr[index]);
 			}
 			createCustomModelEditor(block, (type == PrimitiveType::TETRAGON ?block.modelExtraPoints.size() / 4 - 1 : aabbArr.size() - 1), type);
-			if (type != PrimitiveType::HITBOX) preview->updateCache();
+			preview->updateCache();
 		}));
 		panel->add(std::make_shared<gui::Button>(L"Remove current", glm::vec4(10.f), [this, &block, index, type, &aabbArr](gui::GUI*) {
 			if (type == PrimitiveType::TETRAGON) {
@@ -84,7 +85,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 				aabbArr.erase(aabbArr.begin() + index);
 				createCustomModelEditor(block, std::min(aabbArr.size() - 1, index), type);
 			}
-			if (type != PrimitiveType::HITBOX) preview->updateCache();
+			preview->updateCache();
 		}));
 		panel->add(std::make_shared<gui::Button>(L"Previous", glm::vec4(10.f), [this, &block, index, type](gui::GUI*) {
 			if (index != 0) {
@@ -114,7 +115,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 				if (++m >= 2) m = 0;
 				button->setText(L"Input mode: " + inputModes[m]);
 				callback(m);
-				});
+			});
 			return button;
 		};
 
@@ -153,7 +154,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 				inputPanel->add(removeList.emplace_back(createVectorPanel(aabb.b, 0.f, 1.f, panel->getSize().x, inputType,
 					[this, &aabb, type]() { preview->setCurrentAABB(aabb, type); preview->updateMesh(); })));
 			};
-			textures =block.modelTextures.data() + index * 6;
+			textures = block.modelTextures.data() + index * 6;
 		}
 		createInput(inputMode);
 		panel->add(createInputModeButton(createInput));

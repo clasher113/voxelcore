@@ -34,14 +34,14 @@ struct DocumentNode {
 
 using namespace scripting;
 
-static DocumentNode getDocumentNode(lua_State* L, const std::string& name, const std::string& nodeName) {
+static DocumentNode getDocumentNode(lua_State*, const std::string& name, const std::string& nodeName) {
     auto doc = engine->getAssets()->getLayout(name);
     if (doc == nullptr) {
-        luaL_error(L, "document '%s' not found", name.c_str());
+        throw std::runtime_error("document '"+name+"' not found");
     }
     auto node = doc->get(nodeName);
     if (node == nullptr) {
-        luaL_error(L, "document '%s' has no element with id '%s'", name.c_str(), nodeName.c_str());
+        throw std::runtime_error("document '"+name+"' has no element with id '"+nodeName+"'");
     }
     return {doc, node};
 }
@@ -79,7 +79,7 @@ static int l_container_add(lua_State* L) {
         node->add(subnode);
         UINode::getIndices(subnode, docnode.document->getMapWriteable());
     } catch (const std::exception& err) {
-        luaL_error(L, err.what());
+        throw std::runtime_error(err.what());
     }
     return 0;
 }
@@ -204,6 +204,13 @@ static int p_get_text(UINode* node) {
     return 0;
 }
 
+static int p_get_editable(UINode* node) {
+    if (auto box = dynamic_cast<TextBox*>(node)) {
+        return state->pushboolean(box->isEditable());
+    }
+    return 0;
+}
+
 static int p_get_add(UINode* node) {
     if (dynamic_cast<Container*>(node)) {
         return state->pushcfunction(l_container_add);
@@ -245,6 +252,9 @@ static int p_is_enabled(UINode* node) {
 static int p_move_into(UINode*) {
     return state->pushcfunction(l_uinode_move_into);
 }
+static int p_get_focused(UINode* node) {
+    return state->pushboolean(node->isFocused());
+}
 
 static int l_gui_getattr(lua_State* L) {
     auto docname = lua_tostring(L, 1);
@@ -268,6 +278,7 @@ static int l_gui_getattr(lua_State* L) {
         {"placeholder", p_get_placeholder},
         {"valid", p_is_valid},
         {"text", p_get_text},
+        {"editable", p_get_editable},
         {"value", p_get_value},
         {"min", p_get_min},
         {"max", p_get_max},
@@ -279,6 +290,7 @@ static int l_gui_getattr(lua_State* L) {
         {"back", p_get_back},
         {"reset", p_get_reset},
         {"inventory", p_get_inventory},
+        {"focused", p_get_focused},
     };
     auto func = getters.find(attr);
     if (func != getters.end()) {
@@ -323,6 +335,11 @@ static void p_set_text(UINode* node, int idx) {
         button->setText(util::str2wstr_utf8(state->tostring(idx)));
     } else if (auto box = dynamic_cast<TextBox*>(node)) {
         box->setText(util::str2wstr_utf8(state->tostring(idx)));
+    }
+}
+static void p_set_editable(UINode* node, int idx) {
+    if (auto box = dynamic_cast<TextBox*>(node)) {
+        box->setEditable(state->toboolean(idx));
     }
 }
 static void p_set_value(UINode* node, int idx) {
@@ -377,6 +394,13 @@ static void p_set_inventory(UINode* node, int idx) {
         }
     }
 }
+static void p_set_focused(std::shared_ptr<UINode> node, int idx) {
+    if (state->toboolean(idx) && !node->isFocused()) {
+        scripting::engine->getGUI()->setFocus(node);
+    } else if (node->isFocused()){
+        node->defocus();
+    }
+}
 
 static int l_gui_setattr(lua_State* L) {
     auto docname = lua_tostring(L, 1);
@@ -397,6 +421,7 @@ static int l_gui_setattr(lua_State* L) {
         {"enabled", p_set_enabled},
         {"placeholder", p_set_placeholder},
         {"text", p_set_text},
+        {"editable", p_set_editable},
         {"value", p_set_value},
         {"min", p_set_min},
         {"max", p_set_max},
@@ -411,6 +436,13 @@ static int l_gui_setattr(lua_State* L) {
     if (func != setters.end()) {
         func->second(node.get(), 4);
     }
+    static const std::unordered_map<std::string_view, std::function<void(std::shared_ptr<UINode>,int)>> setters2 {
+        {"focused", p_set_focused},
+    };
+    auto func2 = setters2.find(attr);
+    if (func2 != setters2.end()) {
+        func2->second(node, 4);
+    }
     return 0;
 }
 
@@ -418,7 +450,7 @@ static int l_gui_get_env(lua_State* L) {
     auto name = lua_tostring(L, 1);
     auto doc = scripting::engine->getAssets()->getLayout(name);
     if (doc == nullptr) {
-        luaL_error(L, "document '%s' not found", name);
+        throw std::runtime_error("document '"+std::string(name)+"' not found");
     }
     lua_getglobal(L, lua::LuaState::envName(*doc->getEnvironment()).c_str());
     return 1;
@@ -439,7 +471,7 @@ static int l_gui_reindex(lua_State* L) {
     auto name = lua_tostring(L, 1);
     auto doc = scripting::engine->getAssets()->getLayout(name);
     if (doc == nullptr) {
-        luaL_error(L, "document '%s' not found", name);
+        throw std::runtime_error("document '"+std::string(name)+"' not found");
     }
     doc->rebuildIndices();
     return 0;
@@ -459,8 +491,7 @@ static int l_gui_get_locales_info(lua_State* L) {
 }
 
 static int l_gui_getviewport(lua_State* L) {
-    lua::pushvec2_arr(L, scripting::engine->getGUI()->getContainer()->getSize());
-    return 1;
+    return lua::pushvec2_arr(L, scripting::engine->getGUI()->getContainer()->getSize());
 }
 
 const luaL_Reg guilib [] = {

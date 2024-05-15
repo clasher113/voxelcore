@@ -57,7 +57,7 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 		root.put("picking-item", block.pickingItem);
 	}
 
-	const char* models[] = { "none", "block", "X", "aabb", "custom" };
+	const std::string models[] = { "none", "block", "X", "aabb", "custom" };
 	if (temp.model != block.model) root.put("model", models[static_cast<size_t>(block.model)]);
 	if (block.emission[0] || block.emission[1] || block.emission[2]) {
 		auto& emissionarr = root.putList("emission");
@@ -79,7 +79,7 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 	if (block.hitboxes.size() == 1) {
 		const AABB& hitbox = block.hitboxes.front();
 		AABB aabb;
-		if (aabb.a != hitbox.a || aabb.b != hitbox.b) {
+		if (block.model == BlockModel::custom || (aabb.a != hitbox.a || aabb.b != hitbox.b)) {
 			auto& boxarr = root.putList("hitbox");
 			boxarr.multiline = false;
 			putAABB(boxarr, hitbox);

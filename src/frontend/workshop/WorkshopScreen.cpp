@@ -588,7 +588,7 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type)
 			image->setTexture(preview->getTexture());
 		});
 		createFullCheckBox(panel, L"Draw grid", preview->drawGrid);
-		createFullCheckBox(panel, L"Show direction", preview->drawDirection);
+		createFullCheckBox(panel, L"Show front direction", preview->drawDirection);
 		createFullCheckBox(panel, L"Draw block bounds", preview->drawBlockBounds);
 		if (type == PrimitiveType::HITBOX)
 			createFullCheckBox(panel, L"Draw current hitbox", preview->drawBlockHitbox);
@@ -596,6 +596,10 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type)
 			createFullCheckBox(panel, L"Highlight current AABB", preview->drawCurrentAABB);
 		else if (type == PrimitiveType::TETRAGON)
 			createFullCheckBox(panel, L"Highlight current Tetragon", preview->drawCurrentTetragon);
+		panel->add(std::make_shared<gui::Label>(""));
+		panel->add(std::make_shared<gui::Label>("Rotate: W,S,A,D or mouse"));
+		panel->add(std::make_shared<gui::Label>("Zoom: Left Shift/Space or Scroll Wheel"));
+
 		return panel;
 	}, column);
 }

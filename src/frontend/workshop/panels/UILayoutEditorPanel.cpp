@@ -104,7 +104,8 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 				elementPanel->add(std::make_shared<gui::Button>(L"[empty]", glm::vec4(10.f), gui::onaction()));
 			for (size_t i = 0; i < currentElement->getElements().size(); i++) {
 				const xml::xmlelement& elem = currentElement->getElements()[i];
-				const std::string& tag = elem->getTag();
+				std::string tag = elem->getTag();
+				if (elem->has("id")) tag.append(" id: " + elem->attr("id").getText());
 				elementPanel->add(std::make_shared<gui::Button>(util::str2wstr_utf8(tag), glm::vec4(10.f), [i, dp = docPath, goTo](gui::GUI*) mutable {
 					dp.push_back(i);
 					goTo(dp);
@@ -281,7 +282,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			createFullCheckbox(L"Multiline", "multiline", false);
 			createFullCheckbox(L"Text wrap", "text-wrap");
 		}
-		if ((currentTag & SLOT) && (currentTag & SLOTS_GRID))
+		if (!(currentTag & SLOT) && !(currentTag & SLOTS_GRID))
 			createFullCheckbox(L"Enabled", "enabled");
 
 		panel->add(std::make_shared<gui::Label>(L"Element Id"));
@@ -361,6 +362,8 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 		if (currentTag & SLOTS_GRID) {
 			panel->add(std::make_shared<gui::Label>("Start index"));
 			createVector(panel, 1, "start-index", { L"Index" }, 0);
+
+			panel->add(std::make_shared<gui::Label>("Slots"));
 
 			const char* modes[] = { "rows" , "cols" , "count" };
 
