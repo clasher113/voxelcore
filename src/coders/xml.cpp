@@ -5,6 +5,7 @@
 #include <charconv>
 #include <stdexcept>
 #include <sstream>
+#include <algorithm>
 
 using namespace xml;
 
