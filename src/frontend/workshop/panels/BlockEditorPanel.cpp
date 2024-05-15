@@ -57,7 +57,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		texturePanel->setColor(glm::vec4(0.f));
 		panel->add(texturePanel);
 
-		char* models[] = { "none", "block", "X", "aabb", "custom" };
+		const char* models[] = { "none", "block", "X", "aabb", "custom" };
 		auto processModelChange = [this, texturePanel](Block& block) {
 			clearRemoveList(texturePanel);
 			if (block.model == BlockModel::custom) {

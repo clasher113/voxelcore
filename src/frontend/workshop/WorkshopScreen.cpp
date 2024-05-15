@@ -28,11 +28,10 @@
 
 using namespace workshop;
 
-WorkShopScreen::WorkShopScreen(Engine* engine, const ContentPack& pack) :
-	Screen(engine),
-	currentPack(pack),
+WorkShopScreen::WorkShopScreen(Engine* engine, const ContentPack& pack) : Screen(engine),
+	swapInterval(engine->getSettings().display.vsync.get()),
 	gui(engine->getGUI()),
-	swapInterval(engine->getSettings().display.vsync.get())
+	currentPack(pack)
 {
 	gui->getMenu()->reset();
 	uicamera.reset(new Camera(glm::vec3(), static_cast<float>(Window::height)));
@@ -316,7 +315,6 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(std::shared_ptr<
 					removePanel(5);
 					button->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
 					button->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
-					auto& nodes = button->getNodes();
 					button->setIcon(getAtlas(assets, texName), getTexName(texName));
 					button->setText(getTexName(texName));
 					preview->updateCache();

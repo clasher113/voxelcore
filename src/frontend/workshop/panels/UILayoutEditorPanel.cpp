@@ -62,17 +62,17 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 		};
 
 		if (!root) {
-			panel->add(std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [docPath, goTo](gui::GUI*) mutable {
-				docPath.pop_back();
-				goTo(docPath);
+			panel->add(std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [dp = docPath, goTo](gui::GUI*) mutable {
+				dp.pop_back();
+				goTo(dp);
 			}));
 		}
 		panel->add(std::make_shared<gui::Label>("Current element: " + currentElement->getTag()));
 		if (currentTag & INVENTORY || currentTag & CONTAINER || currentTag & PANEL) {
 			panel->add(std::make_shared<gui::Button>(L"Add element", glm::vec4(10.f), 
-				[this, panel, docPath, currentTag, currentElement, goTo, updatePreview](gui::GUI*) {
+				[this, panel, dp = docPath, currentTag, currentElement, goTo, updatePreview](gui::GUI*) {
 					createAddingUIElementPanel(panel->calcPos().x + panel->getSize().x, 
-						[currentElement, docPath, goTo, updatePreview](const std::string& name) mutable {
+						[currentElement, _dp = dp, goTo, updatePreview](const std::string& name) mutable {
 							auto node = std::make_shared<xml::Node>(name);
 							for (const auto& elem : uiElementsArgs.at(name).attrTemplate) {
 								node->set(elem.first, elem.second);
@@ -83,9 +83,9 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 								node->add(tempNode);
 							}
 							currentElement->add(node);
-							docPath.push_back(currentElement->getElements().size() - 1);
+							_dp.push_back(currentElement->getElements().size() - 1);
 							updatePreview();
-							goTo(docPath);
+							goTo(_dp);
 						}, (currentTag & INVENTORY ? 0 : SLOT | SLOTS_GRID));
 				}));
 
@@ -105,19 +105,19 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			for (size_t i = 0; i < currentElement->getElements().size(); i++) {
 				const xml::xmlelement& elem = currentElement->getElements()[i];
 				const std::string& tag = elem->getTag();
-				elementPanel->add(std::make_shared<gui::Button>(util::str2wstr_utf8(tag), glm::vec4(10.f), [i, docPath, goTo](gui::GUI*) mutable {
-					docPath.push_back(i);
-					goTo(docPath);
+				elementPanel->add(std::make_shared<gui::Button>(util::str2wstr_utf8(tag), glm::vec4(10.f), [i, dp = docPath, goTo](gui::GUI*) mutable {
+					dp.push_back(i);
+					goTo(dp);
 				}));
 			}
 			panel->add(elementPanel);
 		}
 
-		auto createFullCheckbox = [currentElement, panel, updatePreview](const std::wstring& string, const std::string& attrName, bool default = true) {
+		auto createFullCheckbox = [currentElement, panel, updatePreview](const std::wstring& string, const std::string& attrName, bool def = true) {
 			auto checkBox = std::make_shared<gui::FullCheckBox>(string, glm::vec2(panel->getSize().x, 24), currentElement->attr(attrName, 
-				std::to_string(default)).asBool());
-			checkBox->setConsumer([currentElement, updatePreview, attrName, default](bool checked) {
-				if (checked == default) currentElement->removeAttr(attrName);
+				std::to_string(def)).asBool());
+			checkBox->setConsumer([currentElement, updatePreview, attrName, def](bool checked) {
+				if (checked == def) currentElement->removeAttr(attrName);
 				else currentElement->set(attrName, std::to_string(checked));
 				updatePreview();
 			});
@@ -198,7 +198,6 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 				auto container = std::make_shared<gui::Container>(glm::vec2());
 
 				std::vector<std::shared_ptr<gui::TextBox>> boxes;
-				size_t offset = 0;
 				float size = panel->getSize().x / vectorSize;
 				float height = 0.f;
 				for (size_t i = 0; i < vectorSize; i++) {
@@ -241,7 +240,9 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 								boxes[i]->setValid(true);
 							}
 						}
-						if (success) currentElement->set(attrName, util::wstr2str_utf8(attrStr.substr(0, attrStr.length() - 1)));
+						if (success) {
+							currentElement->set(attrName, util::wstr2str_utf8(attrStr.substr(0, attrStr.length() - 1)));
+						}
 						else if (!leaveFilled) currentElement->removeAttr(attrName);
 						updatePreview();
 						return true;
@@ -362,9 +363,6 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			createVector(panel, 1, "start-index", { L"Index" }, 0);
 
 			const char* modes[] = { "rows" , "cols" , "count" };
-
-			unsigned int mode = 0;
-			if (currentElement->has(modes[1])) mode = 1;
 
 			auto getMode = [currentElement, modes]() {
 				unsigned int mode = 0;
@@ -508,15 +506,14 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 		createUIPreview();
 
 		if (previousTag & PANEL || previousTag & CONTAINER || previousTag & INVENTORY) {
-			auto moveElement = [previousElement, goTo, updatePreview, docPath](int offset) mutable {
+			auto moveElement = [previousElement, goTo, updatePreview, dp = docPath](int offset) mutable {
 				std::vector<xml::xmlelement>& elements = const_cast<std::vector<xml::xmlelement>&>(previousElement->getElements());
-				size_t& index = docPath.back();
+				size_t& index = dp.back();
 				if (static_cast<int>(index) + offset < 0 || index + offset >= elements.size()) return;
-				auto it = elements.begin() + index;
 				std::swap(elements[index], elements[(index + offset)]);
 				index += offset;
 				updatePreview();
-				goTo(docPath);
+				goTo(dp);
 			};
 			panel->add(std::make_shared<gui::Button>(L"Move up", glm::vec4(10.f), [moveElement](gui::GUI*) mutable {
 				moveElement(-1);
@@ -527,12 +524,12 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 		}
 
 		if (!root) {
-			panel->add(std::make_shared<gui::Button>(L"Remove current", glm::vec4(10.f), [goTo, getElement, docPath, currentElement, updatePreview](gui::GUI*) mutable {
-				docPath.pop_back();
-				xml::xmlelement elem = getElement(docPath);
+			panel->add(std::make_shared<gui::Button>(L"Remove current", glm::vec4(10.f), [goTo, getElement, dp = docPath, currentElement, updatePreview](gui::GUI*) mutable {
+				dp.pop_back();
+				xml::xmlelement elem = getElement(dp);
 				elem->remove(currentElement);
 				updatePreview();
-				goTo(docPath);
+				goTo(dp);
 			}));
 		}
 

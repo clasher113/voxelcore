@@ -1,15 +1,13 @@
 #include "menu_workshop.hpp"
 
+#include "../../coders/png.hpp"
 #include "../../engine.hpp"
-#include "../../graphics/ui/elements/Button.hpp"
-#include "../../graphics/ui/elements/commons.hpp"
-#include "../../graphics/ui/elements/Label.hpp"
+#include "../../graphics/core/Texture.hpp"
 #include "../../graphics/ui/elements/Menu.hpp"
-#include "../../graphics/ui/elements/Panel.hpp"
-#include "../../graphics/ui/elements/Textbox.hpp"
 #include "../../graphics/ui/GUI.hpp"
 #include "../../graphics/ui/gui_util.hpp"
 #include "../../util/stringutil.hpp"
+#include "IncludeCommons.hpp"
 #include "WorkshopScreen.hpp"
 #include "WorkshopSerializer.hpp"
 
@@ -31,14 +29,43 @@ void workshop::create_workshop_button(Engine* engine) {
 
 	panel = std::make_shared<gui::Panel>(glm::vec2(400));
 	menu->addPage("workshop", panel);
+	auto packsPanel = std::make_shared<gui::Panel>(panel->getSize());
+	packsPanel->setColor(glm::vec4(0.f));
+	packsPanel->setMaxLength(500);
+	panel->add(packsPanel);
 
 	std::vector<ContentPack> scanned;
 	ContentPack::scanFolder(engine->getPaths()->getResources()/"content", scanned);
 
 	for (const auto& pack : scanned) {
-		panel->add(std::make_shared<gui::Button>(util::str2wstr_utf8(pack.id), glm::vec4(10.f), [engine, pack](gui::GUI*) {
+		auto container = std::make_shared<gui::Container>(glm::vec2(panel->getSize().x, 80.f));
+		container->setColor(glm::vec4(0.f, 0.f, 0.f, 0.25f));
+		container->setHoverColor(glm::vec4(0.f, 0.f, 0.f, 0.5f));
+		container->listenAction([engine, pack](gui::GUI*) {
 			engine->setScreen(std::make_shared<workshop::WorkShopScreen>(engine, pack));
-		}));
+		});
+
+		auto getIcon = [engine, pack]()->std::string {
+			std::string icon = pack.id + ".icon";
+			Assets* assets = engine->getAssets();
+			Texture* iconTex = assets->getTexture(icon);
+			if (iconTex == nullptr) {
+				auto iconfile = pack.folder / fs::path("icon.png");
+				if (fs::is_regular_file(iconfile)) {
+					assets->store(png::load_texture(iconfile.string()).release(), icon);
+				}
+				else return "gui/no_icon";
+			}
+			return icon;
+		};
+
+		container->add(std::make_shared<gui::Image>(getIcon(), glm::vec2(64.f)), glm::vec2(8.f));
+		container->add(std::make_shared<gui::Label>(pack.title), glm::vec2(78.f, 6.f));
+		auto label = std::make_shared<gui::Label>(pack.description);
+		label->setColor(glm::vec4(1.f, 1.f, 1.f, 0.7f));
+		container->add(label, glm::vec2(80.f, 28.f));
+
+		packsPanel->add(container);
 	}
 
 	panel->add(std::make_shared<gui::Button>(L"Create new", glm::vec4(10.f), [engine, menu](gui::GUI*) {

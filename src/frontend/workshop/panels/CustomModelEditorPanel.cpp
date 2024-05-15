@@ -48,9 +48,9 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 			if (type != PrimitiveType::HITBOX) preview->updateCache();
 		}));
 
-		if (type == PrimitiveType::AABB &&block.modelBoxes.empty() ||
-			type == PrimitiveType::TETRAGON &&block.modelExtraPoints.empty() ||
-			type == PrimitiveType::HITBOX &&block.hitboxes.empty()) return panel;
+		if ((type == PrimitiveType::AABB &&block.modelBoxes.empty()) ||
+			(type == PrimitiveType::TETRAGON &&block.modelExtraPoints.empty()) ||
+			(type == PrimitiveType::HITBOX &&block.hitboxes.empty())) return panel;
 		panel->add(std::make_shared<gui::Button>(L"Copy current", glm::vec4(10.f), [this, &block, index, type, &aabbArr](gui::GUI*) {
 			if (type == PrimitiveType::TETRAGON) {
 				block.modelTextures.emplace_back(*(block.modelTextures.begin() +block.modelBoxes.size() * 6 + index));

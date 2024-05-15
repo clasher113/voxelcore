@@ -19,8 +19,8 @@ namespace gui {
 
 	private:
 
-		std::shared_ptr<Image> image;
 		std::shared_ptr<Label> label;
+		std::shared_ptr<Image> image;
 	};
 }
 

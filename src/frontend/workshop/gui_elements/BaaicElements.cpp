@@ -78,7 +78,7 @@ std::shared_ptr<gui::UINode> workshop::createVectorPanel(glm::vec3& vec, float m
 
 void workshop::createEmissionPanel(std::shared_ptr<gui::Container> container, uint8_t* emission) {
 	container->add(std::make_shared<gui::Label>("Emission (0 - 15)"));
-	wchar_t* colors[] = { L"Red", L"Green", L"Blue" };
+	const wchar_t* colors[] = { L"Red", L"Green", L"Blue" };
 	for (size_t i = 0; i < 3; i++) {
 		container->add(createNumTextBox<uint8_t>(emission[i], colors[i], 0, 15));
 	}

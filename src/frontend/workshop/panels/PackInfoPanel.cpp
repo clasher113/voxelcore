@@ -148,10 +148,9 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 
 		auto dependencyList = std::make_shared<gui::Panel>(glm::vec2(0.f));
 		dependencyList->setColor(glm::vec4(0.f));
+		panel->add(dependencyList);
 
 		createDependencyList(dependencyList, currentPack, engine);
-
-		panel->add(dependencyList);
 
 		panel->add(std::make_shared<gui::Button>(L"Add dependency", glm::vec4(10.f), [this, dependencyList](gui::GUI*) {
 			currentPack.dependencies.emplace_back();

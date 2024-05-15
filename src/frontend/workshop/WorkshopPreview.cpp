@@ -18,6 +18,7 @@
 #include "../ContentGfxCache.hpp"
 #include "WorkshopUtils.hpp"
 
+#include <cstring>
 #include <GL/glew.h>
 
 using namespace workshop;

@@ -30,7 +30,7 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 		createTexturesPanel(textureIco, 35.f, item.icon, item.iconType);
 		panel->add(textureIco);
 
-		wchar_t* iconTypes[] = { L"none", L"sprite", L"block" };
+		const wchar_t* iconTypes[] = { L"none", L"sprite", L"block" };
 		auto button = std::make_shared<gui::Button>(L"Icon type: " + std::wstring(iconTypes[static_cast<unsigned int>(item.iconType)]), glm::vec4(10.f), gui::onaction());
 		button->listenAction([this, button, iconTypes, &item, textureIco, panel](gui::GUI*) {
 			switch (item.iconType) {

@@ -14,7 +14,7 @@
 #include "../../window/Camera.hpp"
 #include "../LevelFrontend.hpp"
 
-#include <glm\fwd.hpp>
+#include <glm/fwd.hpp>
 
 class Engine;
 class ContentGfxCache;
@@ -80,7 +80,6 @@ namespace workshop {
 		Level* level;
 		Camera camera;
 		Framebuffer framebuffer;
-		Mesh mesh;
 
 		LevelController controller;
 		LevelFrontend frontend;
@@ -89,9 +88,10 @@ namespace workshop {
 		std::shared_ptr<xml::Document> currentDocument;
 		Block* currentBlock = nullptr;
 
+		LineBatch lineBatch;
 		Batch2D batch2d;
 		Batch3D batch3d;
-		LineBatch lineBatch;
+		Mesh mesh;
 
 		AABB currentAABB, currentHitbox;
 
