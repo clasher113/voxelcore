@@ -36,11 +36,13 @@ void workshop::WorkShopScreen::createDefActionPanel(DefAction action, DefType ty
 		else {
 			nameInput = std::make_shared<gui::TextBox>(L"example_" + defName);
 			nameInput->setTextValidator([this, nameInput, type](const std::wstring& text) {
-				std::string input(util::wstr2str_utf8(nameInput->getInput()));
+				std::wstring winput(nameInput->getInput());
+				std::string input(util::wstr2str_utf8(winput));
 				bool found = (type == DefType::BLOCK || type == DefType::ITEM ?
 					(blocksList.find(input) == blocksList.end() && itemsList.find(input) == itemsList.end()) :
 					!fs::is_regular_file(currentPack.folder / getDefFolder(type) / (input + ".xml")));
-				return found && util::is_valid_filename(nameInput->getInput()) && !input.empty();
+				return found && !winput.empty() &&
+					std::all_of(winput.begin(), winput.end(), [](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); });
 			});
 			panel->add(nameInput);
 		}

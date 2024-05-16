@@ -68,7 +68,7 @@ void workshop::create_workshop_button(Engine* engine) {
 		packsPanel->add(container);
 	}
 
-	panel->add(std::make_shared<gui::Button>(L"Create new", glm::vec4(10.f), [engine, menu](gui::GUI*) {
+	panel->add(std::make_shared<gui::Button>(L"Create new", glm::vec4(10.f), [engine, menu, scanned](gui::GUI*) {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(400, 200));
 		menu->addPage("new-content", panel);
 		menu->setPage("new-content");
@@ -76,10 +76,8 @@ void workshop::create_workshop_button(Engine* engine) {
 
 		panel->add(std::make_shared<gui::Label>(L"Name"));
 		auto nameInput = std::make_shared<gui::TextBox>(L"example_pack", glm::vec4(6.0f));
-		nameInput->setTextValidator([=](const std::wstring& text) {
-			std::string textutf8 = util::wstr2str_utf8(text);
-			return util::is_valid_filename(text) &&
-				!fs::exists(path / text) && !nameInput->getInput().empty();
+		nameInput->setTextValidator([scanned](const std::wstring& text) {
+			return checkPackId(text, scanned);
 		});
 		panel->add(nameInput);
 

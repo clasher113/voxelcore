@@ -113,7 +113,7 @@ std::shared_ptr<gui::TextBox> workshop::createNumTextBox(T& value, const std::ws
 		catch (const std::exception&) {}
 	});
 	textBox->setTextSupplier([&value, min]() {
-		if (value != min) return util::to_wstring(value, (std::is_floating_point<T>::value ? 2 : 0));
+		if (value != min) return util::to_wstring(value, (std::is_floating_point<T>::value ? 3 : 0));
 		return std::wstring(L"");
 	});
 	return textBox;

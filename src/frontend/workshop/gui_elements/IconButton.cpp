@@ -32,7 +32,7 @@ gui::IconButton::~IconButton() {
 
 void gui::IconButton::setIcon(Atlas* atlas, const std::string& textureName) {
 	image->setTexture(atlas->getTexture());
-	workshop::formatTextureImage(*image, atlas, image->getSize().y, textureName);
+	workshop::formatTextureImage(*image, atlas, size.y, textureName);
 }
 
 void gui::IconButton::setText(const std::string& text) {

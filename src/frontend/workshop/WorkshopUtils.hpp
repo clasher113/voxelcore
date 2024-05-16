@@ -74,6 +74,7 @@ namespace workshop {
 
 	extern void validateBlock(Assets* assets, Block& block);
 	extern void validateItem(Assets* assets, ItemDef& item);
+	extern bool checkPackId(const std::wstring& id, const std::vector<ContentPack>& scanned);
 
 	extern bool hasFocusedTextbox(const std::shared_ptr<gui::Container> container);
 

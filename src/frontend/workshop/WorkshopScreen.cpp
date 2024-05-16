@@ -472,6 +472,7 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, DefType 
 	createPanel([this, texName, type]() {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(350));
 
+		panel->add(std::make_shared<gui::Label>(texName));
 		auto imageContainer = std::make_shared<gui::Container>(glm::vec2(panel->getSize().x));
 		Atlas* atlas = getAtlas(assets, texName);
 		Texture* tex = atlas->getTexture();

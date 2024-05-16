@@ -132,14 +132,7 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 		ContentPack::scanFolder(engine->getPaths()->getResources() / "content", scanned);
 		auto id = createTextBox(panel, currentPack.id, L"example_pack");
 		id->setTextValidator([this, id, scanned](const std::wstring&) {
-			std::wstring input(id->getInput());
-			return !(input.length() < 2 || input.length() > 24 || isdigit(input[0]) ||
-				!std::all_of(input.begin(), input.end(), [](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); }) ||
-				std::find(ContentPack::RESERVED_NAMES.begin(), ContentPack::RESERVED_NAMES.end(), util::wstr2str_utf8(input)) != ContentPack::RESERVED_NAMES.end() ||
-				std::find_if(scanned.begin(), scanned.end(), [this, input](const ContentPack& pack) { 
-					return util::wstr2str_utf8(input) == pack.id && pack.id != currentPack.id; }
-				) != scanned.end()
-			);
+			return checkPackId(id->getInput(), scanned) || util::wstr2str_utf8(id->getInput()) == currentPack.id;
 		});
 
 		panel->add(std::make_shared<gui::Label>("Description"));
