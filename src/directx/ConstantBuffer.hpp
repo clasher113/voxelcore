@@ -43,7 +43,7 @@ private:
 	UINT m_size;
 	unsigned char* m_p_data;
 	unsigned int m_shaderType;
-	
+
 	ID3D11Buffer* m_p_buffer;
 	std::unordered_map<std::string, ConstantBufferVariable> m_bufferVars;
 

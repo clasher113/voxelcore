@@ -11,7 +11,7 @@
 class DXError {
 public:
 	static void checkError(HRESULT errorCode, const std::string& file, const std::string& function, int line,
-						   const std::wstring& message = L"", bool fatal = true);
+		const std::wstring& message = L"", bool fatal = true);
 	static void throwWarn(const std::wstring& message);
 };
 

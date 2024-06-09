@@ -38,7 +38,7 @@ BlocksRenderer::BlocksRenderer(size_t capacity,
 	cache(cache),
 	settings(settings) {
 	vertexBuffer = new float[capacity];
-	indexBuffer = new INDEX_TYPE[capacity];
+	indexBuffer = new index_t[capacity];
 	voxelsBuffer = new VoxelsVolume(CHUNK_W + 2, CHUNK_H, CHUNK_D + 2);
 	blockDefsCache = content->indices->getBlockDefs();
 }

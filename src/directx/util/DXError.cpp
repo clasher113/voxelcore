@@ -11,7 +11,7 @@ static const std::wstring feautureWarn(L"Some features may not work.");
 void DXError::checkError(HRESULT errorCode, const std::string& file, const std::string& function, int line, const std::wstring& message, bool fatal) {
 	_com_error error(errorCode);
 	std::wstring errorMessage;
-	if (!message.empty()) errorMessage +=  message + L"\n";
+	if (!message.empty()) errorMessage += message + L"\n";
 	errorMessage += error.ErrorMessage() + std::wstring(L"\n");
 	errorMessage += L"\nFile: " + util::str2wstr_utf8(file);
 	errorMessage += L"\nFunction: " + util::str2wstr_utf8(function);

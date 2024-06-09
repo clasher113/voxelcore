@@ -45,8 +45,8 @@ SamplerState my_samplerLinear : register(s1);
 
 PSInput VShader(VSInput input) {
 	PSInput output;
+    float3 pos3d = mul(float4(input.position, 1.0), u_model).xyz - u_cameraPos.xyz;
     float4 modelpos = mul(float4(input.position, 1.f), u_model);
-	float2 pos2d = modelpos.xz - u_cameraPos.xz;
     float4 viewmodelpos = mul(modelpos, u_view);
 	float4 decomp_light = decompress_light(input.light);
 	float3 light = decomp_light.rgb;
@@ -62,7 +62,7 @@ PSInput VShader(VSInput input) {
     skyLightColor = min(float3(1.f, 1.f, 1.f), skyLightColor * SKY_LIGHT_MUL);
 	
 	output.color.rgb = max(output.color.rgb, skyLightColor.rgb * decomp_light.a);
-    output.distance = length(viewmodelpos);
+    output.distance = length(mul(float4(pos3d.x, pos3d.y * 0.2, pos3d.z, 0.0), mul(u_model, u_view)));
     output.position = mul(viewmodelpos, u_proj);
 	return output;
 }

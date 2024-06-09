@@ -29,23 +29,23 @@ public:
 	static Microsoft::WRL::ComPtr<ID3D11Texture2D> getSurface();
 	static DXGI_ADAPTER_DESC getAdapterDesc();
 private:
-	static UINT s_m_swapInterval;
-	static HWND s_m_windowHandle;
-	static UINT s_m_windowWidth, s_m_windowHeight;
+	static inline UINT s_m_swapInterval = 1;
+	static inline HWND s_m_windowHandle = 0;
+	static inline UINT s_m_windowWidth = 0, s_m_windowHeight = 0;
 
-	static D3D_FEATURE_LEVEL                               s_m_featureLevel;
-	static DXGI_ADAPTER_DESC							   s_m_adapterDesc;
-	static D3D11_RASTERIZER_DESC						   s_m_rasterizerStateDesc;
-	static Microsoft::WRL::ComPtr<ID3D11Device1>           s_m_device;
-	static Microsoft::WRL::ComPtr<ID3D11DeviceContext1>    s_m_context;
-	static Microsoft::WRL::ComPtr<IDXGISwapChain1>         s_m_swapChain;
-	static Microsoft::WRL::ComPtr<ID3D11RenderTargetView>  s_m_renderTargetView;
-	static Microsoft::WRL::ComPtr<ID3D11DepthStencilView>  s_m_depthStencilView;
-	static Microsoft::WRL::ComPtr<ID3D11DepthStencilState> s_m_depthStencilState;
-	static Microsoft::WRL::ComPtr<ID3D11RasterizerState>   s_m_rasterizerState;
-	static Microsoft::WRL::ComPtr<ID3D11BlendState1>	   s_m_blendState;
-	static Microsoft::WRL::ComPtr<ID3D11SamplerState>	   s_m_samplerState;
-	static Microsoft::WRL::ComPtr<ID3D11SamplerState>	   s_m_samplerStateLinear;
+	static inline D3D_FEATURE_LEVEL									s_m_featureLevel = D3D_FEATURE_LEVEL_9_1;
+	static inline DXGI_ADAPTER_DESC									s_m_adapterDesc;
+	static inline D3D11_RASTERIZER_DESC								s_m_rasterizerStateDesc;
+	static inline Microsoft::WRL::ComPtr<ID3D11Device1>				s_m_device = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11DeviceContext1>		s_m_context = nullptr;
+	static inline Microsoft::WRL::ComPtr<IDXGISwapChain1>			s_m_swapChain = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11RenderTargetView>	s_m_renderTargetView = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11DepthStencilView>	s_m_depthStencilView = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11DepthStencilState>	s_m_depthStencilState = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11RasterizerState>		s_m_rasterizerState = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11BlendState1>			s_m_blendState = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11SamplerState>		s_m_samplerState = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11SamplerState>		s_m_samplerStateLinear = nullptr;
 
 	static void createDevice();
 	static void createResources();

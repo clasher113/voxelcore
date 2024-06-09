@@ -330,26 +330,26 @@ void Batch2D::sprite(float x, float y, float w, float h, int atlasRes, int index
 	rect(x, y, w, h, u, v, scale, scale, tint.r, tint.g, tint.b, tint.a);
 }
 #ifdef USE_DIRECTX
-	void Batch2D::render(D3D_PRIMITIVE_TOPOLOGY primitive) {
-		if (index == 0)
-			return;
-		mesh->reload(buffer, index / B2D_VERTEX_SIZE);
-		if (primitive == D3D11_PRIMITIVE_TOPOLOGY_LINELIST) {
-			DXLine::draw(mesh);
-		}
-		else {
-			mesh->draw(primitive);
-		}
-		index = 0;
+void Batch2D::render(D3D_PRIMITIVE_TOPOLOGY primitive) {
+	if (index == 0)
+		return;
+	mesh->reload(buffer, index / B2D_VERTEX_SIZE);
+	if (primitive == D3D11_PRIMITIVE_TOPOLOGY_LINELIST) {
+		DXLine::draw(mesh);
 	}
+	else {
+		mesh->draw(primitive);
+	}
+	index = 0;
+}
 
-	void Batch2D::render() {
-		render(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	}
+void Batch2D::render() {
+	render(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
 
-	void Batch2D::lineWidth(float width) {
-		DXLine::setWidth(width);
-	}
+void Batch2D::lineWidth(float width) {
+	DXLine::setWidth(width);
+}
 #elif USE_OPENGL
 void Batch2D::render(unsigned int gl_primitive) {
     if (index == 0)

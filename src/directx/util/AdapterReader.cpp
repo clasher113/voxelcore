@@ -2,8 +2,6 @@
 #include "AdapterReader.hpp"
 #include "DXError.hpp"
 
-std::vector<AdapterData> AdapterReader::adapters;
-
 std::vector<AdapterData> AdapterReader::GetAdapters() {
 	if (!adapters.empty()) //If already initialized
 		return adapters;

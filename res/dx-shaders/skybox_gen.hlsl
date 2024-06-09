@@ -276,7 +276,7 @@ float4 PShader(PSInput input) : SV_TARGET {
     float fog = 1.0f / (c_fog * 0.5 + 1.0);
     // hide darkness at horizon
     camera_vector.y = max(0.01, camera_vector.y) * (1.0 - c_mie * 0.08) + 0.08 * c_mie;
-    camera_vector = normalize(camera_vector);
+    //camera_vector = normalize(camera_vector);
 
     // the color of this pixel
     float3 col = 0.f; //scene.xyz;
@@ -285,9 +285,9 @@ float4 PShader(PSInput input) : SV_TARGET {
     	camera_position,            // the position of the camera
         camera_vector,              // the camera vector (ray direction of this pixel)
         1e12f,                      // max dist, essentially the scene depth
-        float3(0.0f, 0.0f, 0.0f), // scene color, the color of the current pixel being rendered
+        0.f,                        // scene color, the color of the current pixel being rendered
         c_lightDir,                 // light direction
-        float3(40.0 * fog, 40.0 * fog, 40.0 * fog), // light intensity, 40 looks nice
+        40.0 * fog,                 // light intensity, 40 looks nice
         PLANET_POS,                 // position of the planet
         PLANET_RADIUS,              // radius of the planet in meters
         ATMOS_RADIUS,               // radius of the atmosphere in meters
@@ -307,7 +307,7 @@ float4 PShader(PSInput input) : SV_TARGET {
     // apply exposure, removing this makes the brighter colors look ugly
     // you can play around with removing this
     col = 1.0 - exp(-col);
-    
+    col = min(col, float3(1.f, 1.f, 1.f));
     // Output to screen
     return float4(col, 1.0);
 }

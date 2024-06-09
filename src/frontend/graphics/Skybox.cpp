@@ -1,4 +1,4 @@
-#ifndef USE_DIRECTX
+#ifdef USE_OPENGL
 #include "Skybox.h"
 #include <GL/glew.h>
 #include <iostream>
@@ -114,4 +114,4 @@ void Skybox::unbind() const {
     glActiveTexture(GL_TEXTURE0);
 }
 
-#endif // !USE_DIRECTX
+#endif // USE_OPENGL

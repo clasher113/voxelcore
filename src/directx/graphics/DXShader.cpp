@@ -36,8 +36,7 @@ void Shader::use() {
 	context->IASetInputLayout(m_p_inputLayout);
 }
 
-Shader* Shader::loadShader(const std::wstring_view& shaderFile) {
-	ID3D10Blob* VS, * PS;
+void Shader::compileShader(const std::wstring_view& shaderFile, ID3D10Blob** shader, ShaderType shaderType) {
 	ID3D10Blob* errorMsg = nullptr;
 	HRESULT errorCode = S_OK;
 	UINT flag1 = 0, flag2 = 0;
@@ -45,24 +44,40 @@ Shader* Shader::loadShader(const std::wstring_view& shaderFile) {
 	flag1 = D3DCOMPILE_DEBUG;
 	flag2 = D3DCOMPILE_SKIP_OPTIMIZATION;
 #endif // _DEBUG
-	errorCode = D3DCompileFromFile(shaderFile.data(), 0, 0, "VShader", "vs_4_0", flag1, flag2, &VS, &errorMsg);
+	LPCSTR entryPoint = NULL, target = NULL;
+	std::wstring name;
+	switch (shaderType) {
+	case VERTEX: entryPoint = "VShader";
+		target = "vs_4_0";
+		name = L"vertex";
+		break;
+	case PIXEL: entryPoint = "PShader";
+		target = "ps_4_0";
+		name = L"pixel";
+		break;
+	case GEOMETRY: entryPoint = "GShader";
+		target = "gs_4_0";
+		name = L"geometry";
+		break;
+	default: break;
+	}
 
-	CHECK_ERROR2(errorCode, L"Failed to compile vertex shader:\n" +
-		util::str2wstr_utf8((char*)errorMsg->GetBufferPointer()));
+	errorCode = D3DCompileFromFile(shaderFile.data(), 0, 0, entryPoint, target, flag1, flag2, shader, &errorMsg);
+
+	//if (shader == nullptr) errorCode = S_FALSE;
+	CHECK_ERROR2(errorCode, L"Failed to compile " + name + L" shader:\n" + util::str2wstr_utf8((char*)errorMsg->GetBufferPointer()));
+
 	if (errorMsg != nullptr) {
 		DXError::throwWarn(util::str2wstr_utf8((char*)errorMsg->GetBufferPointer()));
 		errorMsg->Release();
-		errorMsg = nullptr;
 	}
-	errorCode = D3DCompileFromFile(shaderFile.data(), 0, 0, "PShader", "ps_4_0", flag1, flag2, &PS, &errorMsg);
-	
-	CHECK_ERROR2(errorCode, L"Failed to compile pixel shader:\n" +
-		util::str2wstr_utf8((char*)errorMsg->GetBufferPointer()));
+}
 
-	if (errorMsg != nullptr) {
-		DXError::throwWarn(util::str2wstr_utf8((char*)errorMsg->GetBufferPointer()));
-		errorMsg->Release();
-	}
+Shader* Shader::loadShader(const std::wstring_view& shaderFile) {
+	ID3D10Blob* VS, * PS;
+
+	compileShader(shaderFile, &VS, ShaderType::VERTEX);
+	compileShader(shaderFile, &PS, ShaderType::PIXEL);
 
 	auto device = DXDevice::getDevice();
 

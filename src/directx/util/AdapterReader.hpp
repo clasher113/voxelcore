@@ -16,7 +16,7 @@ class AdapterReader {
 public:
 	static std::vector<AdapterData> GetAdapters();
 private:
-	static std::vector<AdapterData> adapters;
+	static inline std::vector<AdapterData> adapters;
 };
 
 #endif // !ADAPTER_READER_HPPw

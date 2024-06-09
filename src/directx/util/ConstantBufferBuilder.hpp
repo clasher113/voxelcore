@@ -12,9 +12,9 @@ public:
 	static ConstantBuffer* create();
 
 private:
-	static size_t s_m_size;
-	static unsigned int s_m_shaderType;
-	static std::unordered_map<std::string, ConstantBufferVariable> s_m_bufferVars;
+	static inline size_t s_m_size = 0;
+	static inline unsigned int s_m_shaderType;
+	static inline std::unordered_map<std::string, ConstantBufferVariable> s_m_bufferVars;
 };
 
 #endif // CONSTANT_BUFFER_BUILDER_HPP

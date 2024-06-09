@@ -9,7 +9,7 @@
 
 #include <glm/glm.hpp>
 
-class GLFWwindow;
+struct GLFWwindow;
 class ImageData;
 struct DisplaySettings;
 struct GLFWmonitor;

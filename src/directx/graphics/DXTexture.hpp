@@ -7,7 +7,6 @@
 #define NOMINMAX
 #include <d3d11_1.h>
 
-
 typedef unsigned int UINT;
 
 struct ID3D11Texture2D;

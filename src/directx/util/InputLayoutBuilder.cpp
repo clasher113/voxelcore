@@ -21,30 +21,30 @@ HRESULT InputLayoutBuilder::create(ID3D11Device1* device, ID3D10Blob* shader, ID
 		elemDesc.SemanticIndex = paramDesc.SemanticIndex;
 		if (paramDesc.Mask == 1) {
 			switch (paramDesc.ComponentType) {
-				case D3D_REGISTER_COMPONENT_UINT32: elemDesc.Format = DXGI_FORMAT_R32_UINT; break;
-				case D3D_REGISTER_COMPONENT_SINT32: elemDesc.Format = DXGI_FORMAT_R32_SINT; break;
-				case D3D_REGISTER_COMPONENT_FLOAT32: elemDesc.Format = DXGI_FORMAT_R32_FLOAT; break;
+			case D3D_REGISTER_COMPONENT_UINT32: elemDesc.Format = DXGI_FORMAT_R32_UINT; break;
+			case D3D_REGISTER_COMPONENT_SINT32: elemDesc.Format = DXGI_FORMAT_R32_SINT; break;
+			case D3D_REGISTER_COMPONENT_FLOAT32: elemDesc.Format = DXGI_FORMAT_R32_FLOAT; break;
 			}
 		}
 		else if (paramDesc.Mask <= 3) {
 			switch (paramDesc.ComponentType) {
-				case D3D_REGISTER_COMPONENT_UINT32: elemDesc.Format = DXGI_FORMAT_R32G32_UINT; break;
-				case D3D_REGISTER_COMPONENT_SINT32: elemDesc.Format = DXGI_FORMAT_R32G32_SINT; break;
-				case D3D_REGISTER_COMPONENT_FLOAT32: elemDesc.Format = DXGI_FORMAT_R32G32_FLOAT; break;
+			case D3D_REGISTER_COMPONENT_UINT32: elemDesc.Format = DXGI_FORMAT_R32G32_UINT; break;
+			case D3D_REGISTER_COMPONENT_SINT32: elemDesc.Format = DXGI_FORMAT_R32G32_SINT; break;
+			case D3D_REGISTER_COMPONENT_FLOAT32: elemDesc.Format = DXGI_FORMAT_R32G32_FLOAT; break;
 			}
 		}
 		else if (paramDesc.Mask <= 7) {
 			switch (paramDesc.ComponentType) {
-				case D3D_REGISTER_COMPONENT_UINT32: elemDesc.Format = DXGI_FORMAT_R32G32B32_UINT; break;
-				case D3D_REGISTER_COMPONENT_SINT32: elemDesc.Format = DXGI_FORMAT_R32G32B32_SINT; break;
-				case D3D_REGISTER_COMPONENT_FLOAT32: elemDesc.Format = DXGI_FORMAT_R32G32B32_FLOAT; break;
+			case D3D_REGISTER_COMPONENT_UINT32: elemDesc.Format = DXGI_FORMAT_R32G32B32_UINT; break;
+			case D3D_REGISTER_COMPONENT_SINT32: elemDesc.Format = DXGI_FORMAT_R32G32B32_SINT; break;
+			case D3D_REGISTER_COMPONENT_FLOAT32: elemDesc.Format = DXGI_FORMAT_R32G32B32_FLOAT; break;
 			}
 		}
 		else if (paramDesc.Mask <= 15) {
 			switch (paramDesc.ComponentType) {
-				case D3D_REGISTER_COMPONENT_UINT32: elemDesc.Format = DXGI_FORMAT_R32G32B32A32_UINT; break;
-				case D3D_REGISTER_COMPONENT_SINT32: elemDesc.Format = DXGI_FORMAT_R32G32B32A32_SINT; break;
-				case D3D_REGISTER_COMPONENT_FLOAT32: elemDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; break;
+			case D3D_REGISTER_COMPONENT_UINT32: elemDesc.Format = DXGI_FORMAT_R32G32B32A32_UINT; break;
+			case D3D_REGISTER_COMPONENT_SINT32: elemDesc.Format = DXGI_FORMAT_R32G32B32A32_SINT; break;
+			case D3D_REGISTER_COMPONENT_FLOAT32: elemDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; break;
 			}
 		}
 		elemDesc.InputSlot = 0u;

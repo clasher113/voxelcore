@@ -2,10 +2,6 @@
 #include "ConstantBufferBuilder.hpp"
 #include "DXError.hpp"
 
-size_t ConstantBufferBuilder::s_m_size = 0;
-unsigned int ConstantBufferBuilder::s_m_shaderType;
-std::unordered_map<std::string, ConstantBufferVariable> ConstantBufferBuilder::s_m_bufferVars;
-
 void ConstantBufferBuilder::build(ID3D10Blob* shader, unsigned int shaderType) {
 	ID3D11ShaderReflection* pReflector;
 	CHECK_ERROR1(D3DReflect(shader->GetBufferPointer(), shader->GetBufferSize(), IID_PPV_ARGS(&pReflector)));

@@ -13,6 +13,7 @@
 class Mesh;
 class Texture;
 class Sprite;
+class Shader;
 
 class Batch2D {
 	float* buffer;

@@ -10,10 +10,9 @@
 #include "../settings.h"
 
 #ifdef USE_DIRECTX
-typedef unsigned long DWORD;
-#define INDEX_TYPE DWORD
+typedef unsigned long index_t;
 #elif USE_OPENGL
-#define INDEX_TYPE int
+typedef uint32_t index_t;
 #endif // USE_DIRECTX
 
 class Content;
@@ -30,7 +29,7 @@ class BlocksRenderer {
 	static const uint VERTEX_SIZE;
 	const Content* const content;
 	float* vertexBuffer;
-	INDEX_TYPE* indexBuffer;
+	index_t* indexBuffer;
 	size_t vertexOffset;
 	size_t indexOffset, indexSize;
 	size_t capacity;

@@ -20,6 +20,7 @@ private:
 	ID3D11PixelShader* m_p_pixelShader;
 	ID3D11InputLayout* m_p_inputLayout;
 public:
+	static void compileShader(const std::wstring_view& shaderFile, ID3D10Blob** shader, ShaderType shaderType);
 	static Shader* loadShader(const std::wstring_view& shaderFile);
 };
 
