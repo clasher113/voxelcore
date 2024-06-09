@@ -26,7 +26,7 @@ uniform float u_torchlightDistance;
 void main(){
     vec3 pos3d = (u_model * vec4(v_position, 1.0)).xyz-u_cameraPos.xyz;
 	vec4 modelpos = u_model * vec4(v_position, 1.0);
-	vec2 pos2d = modelpos.xz-u_cameraPos.xz;
+    modelpos.y -= pow(length(pos3d.xz)*0.002, 3.0);
 	vec4 viewmodelpos = u_view * modelpos;
 	vec4 decomp_light = decompress_light(v_light);
 	vec3 light = decomp_light.rgb;
@@ -40,6 +40,7 @@ void main(){
 	skyLightColor.g *= 0.9;
 	skyLightColor.b *= 0.8;
 	skyLightColor = min(vec3(1.0), skyLightColor*SKY_LIGHT_MUL);
+    skyLightColor = max(vec3(0.1, 0.11, 0.14), skyLightColor);
 	
 	a_color.rgb = max(a_color.rgb, skyLightColor.rgb*decomp_light.a);
 	a_distance = length(u_view * u_model * vec4(pos3d.x, pos3d.y*0.2, pos3d.z, 0.0));

@@ -1,26 +1,24 @@
-#include "ChunksStorage.h"
+#include "ChunksStorage.hpp"
 
-#include <assert.h>
-#include <iostream>
+#include "VoxelsVolume.hpp"
+#include "Chunk.hpp"
+#include "Block.hpp"
+#include "../content/Content.hpp"
+#include "../files/WorldFiles.hpp"
+#include "../world/Level.hpp"
+#include "../world/World.hpp"
+#include "../maths/voxmaths.hpp"
+#include "../lighting/Lightmap.hpp"
+#include "../items/Inventories.hpp"
+#include "../typedefs.hpp"
+#include "../debug/Logger.hpp"
 
-#include "VoxelsVolume.h"
-#include "Chunk.h"
-#include "Block.h"
-#include "../content/Content.h"
-#include "../files/WorldFiles.h"
-#include "../world/Level.h"
-#include "../world/World.h"
-#include "../maths/voxmaths.h"
-#include "../lighting/Lightmap.h"
-#include "../typedefs.h"
+static debug::Logger logger("chunks-storage");
 
 ChunksStorage::ChunksStorage(Level* level) : level(level) {
 }
 
-ChunksStorage::~ChunksStorage() {
-}
-
-void ChunksStorage::store(std::shared_ptr<Chunk> chunk) {
+void ChunksStorage::store(const std::shared_ptr<Chunk>& chunk) {
 	chunksMap[glm::ivec2(chunk->x, chunk->z)] = chunk;
 }
 
@@ -39,42 +37,51 @@ void ChunksStorage::remove(int x, int z) {
 	}
 }
 
-void verifyLoadedChunk(ContentIndices* indices, Chunk* chunk) {
+static void verifyLoadedChunk(ContentIndices* indices, Chunk* chunk) {
     for (size_t i = 0; i < CHUNK_VOL; i++) {
         blockid_t id = chunk->voxels[i].id;
         if (indices->getBlockDef(id) == nullptr) {
-            std::cout << "corruped block detected at " << i << " of chunk ";
-            std::cout << chunk->x << "x" << chunk->z;
-            std::cout << " -> " << (int)id << std::endl;
-            chunk->voxels[i].id = 11;
+            auto logline = logger.error();
+            logline << "corruped block detected at " << i << " of chunk ";
+            logline << chunk->x << "x" << chunk->z;
+            logline << " -> " << id;
+            chunk->voxels[i].id = BLOCK_AIR;
         }
     }
 }
 
 std::shared_ptr<Chunk> ChunksStorage::create(int x, int z) {
-	World* world = level->world;
+	World* world = level->getWorld();
+    auto& regions = world->wfile.get()->getRegions();
 
     auto chunk = std::make_shared<Chunk>(x, z);
 	store(chunk);
-	std::unique_ptr<ubyte[]> data(world->wfile->getChunk(chunk->x, chunk->z));
+	auto data = regions.getChunk(chunk->x, chunk->z);
 	if (data) {
 		chunk->decode(data.get());
-		chunk->setLoaded(true);
-        verifyLoadedChunk(level->content->indices, chunk.get());
+
+		auto invs = regions.fetchInventories(chunk->x, chunk->z);
+		chunk->setBlockInventories(std::move(invs));
+
+        chunk->flags.loaded = true;
+		for(auto& entry : chunk->inventories) {
+			level->inventories->store(entry.second);
+		}
+        verifyLoadedChunk(level->content->getIndices(), chunk.get());
 	}
 
-	light_t* lights = world->wfile->getLights(chunk->x, chunk->z);
+	auto lights = regions.getLights(chunk->x, chunk->z);
 	if (lights) {
-		chunk->lightmap->set(lights);
-		chunk->setLoadedLights(true);
+		chunk->lightmap.set(lights.get());
+        chunk->flags.loadedLights = true;
 	}
 	return chunk;
 }
 
-// some magic code
+// reduce nesting on next modification
 void ChunksStorage::getVoxels(VoxelsVolume* volume, bool backlight) const {
 	const Content* content = level->content;
-	const ContentIndices* indices = content->indices;
+	auto indices = content->getIndices();
 	voxel* voxels = volume->getVoxels();
 	light_t* lights = volume->getLights();
 	int x = volume->getX();
@@ -97,7 +104,7 @@ void ChunksStorage::getVoxels(VoxelsVolume* volume, bool backlight) const {
 	// cw*ch chunks will be scanned
 	for (int cz = scz; cz < scz + ch; cz++) {
 		for (int cx = scx; cx < scx + cw; cx++) {
-			auto found = chunksMap.find(glm::ivec2(cx, cz));
+			const auto& found = chunksMap.find(glm::ivec2(cx, cz));
 			if (found == chunksMap.end()) {
 				// no chunk loaded -> filling with BLOCK_VOID
 				for (int ly = y; ly < y + h; ly++) {
@@ -114,9 +121,9 @@ void ChunksStorage::getVoxels(VoxelsVolume* volume, bool backlight) const {
 					}
 				}
 			} else {
-				const std::shared_ptr<Chunk>& chunk = found->second;
+				auto& chunk = found->second;
 				const voxel* cvoxels = chunk->voxels;
-				const light_t* clights = chunk->lightmap->getLights();
+				const light_t* clights = chunk->lightmap.getLights();
 				for (int ly = y; ly < y + h; ly++) {
 					for (int lz = max(z, cz * CHUNK_D);
 						lz < min(z + d, (cz + 1) * CHUNK_D);

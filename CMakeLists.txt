@@ -1,3 +1,8 @@
+option(VOXELENGINE_BUILD_WINDOWS_VCPKG OFF)
+if(VOXELENGINE_BUILD_WINDOWS_VCPKG AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+  set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+endif()
+
 cmake_minimum_required(VERSION 3.15)
 project(VoxelEngine)
 
@@ -28,8 +33,10 @@ if(VOXELENGINE_BUILD_APPDIR)
   install(TARGETS VoxelEngine DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/AppDir/usr/bin)
 endif()
 
-
 if(MSVC)
+    if(NOT CMAKE_BUILD_TYPE)
+      set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+    endif()
     if((CMAKE_BUILD_TYPE EQUAL "Release") OR (CMAKE_BUILD_TYPE EQUAL "RelWithDebInfo"))
       set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Release>:Release>")
       target_compile_options(${PROJECT_NAME} PRIVATE /W4 /MT /O2)
@@ -38,44 +45,99 @@ if(MSVC)
     endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /source-charset:UTF-8")
 else()
-  target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -lstdc++fs
+  target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra
     # additional warnings
     -Wformat-nonliteral -Wcast-align
     -Wpointer-arith -Wundef
     -Wwrite-strings -Wno-unused-parameter)
+  if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(${PROJECT_NAME} PRIVATE -Og)
+  endif()
+endif()
+
+if(VOXELENGINE_BUILD_WINDOWS_VCPKG AND WIN32)
+  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/.git")
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+      message(STATUS "Adding vcpkg as a git submodule...")
+      execute_process(COMMAND ${GIT_EXECUTABLE} submodule add https://github.com/microsoft/vcpkg.git vcpkg WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    else()
+      message(FATAL_ERROR "Git not found, cannot add vcpkg submodule.")
+    endif()
+  endif()
+
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/.git")
+    message(STATUS "Initializing and updating vcpkg submodule...")
+    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    execute_process(COMMAND ${CMAKE_COMMAND} -E chdir vcpkg ./bootstrap-vcpkg.bat WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  endif()
+
+  foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/${CONFIG_TYPE_UPPER}/res)
+  endforeach()
 endif()
 
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(OpenAL REQUIRED)
-# luajit has no CMakeLists.txt to use it as subdirectory, so install it
-find_package(Lua REQUIRED)
+find_package(ZLIB REQUIRED)
 
 if (WIN32)
-    set(PNGLIB spng)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw)
-else()
+    if(VOXELENGINE_BUILD_WINDOWS_VCPKG)
+      set(LUA_LIBRARIES "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/luajit_x64-windows/lib/lua51.lib")
+      set(LUA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/luajit_x64-windows/include/luajit")
+      find_package(glfw3 REQUIRED)
+      find_package(spng REQUIRED)
+      find_package(glm REQUIRED)
+      find_package(vorbis REQUIRED)
+      set(PNGLIB spng::spng)
+      set(VORBISLIB Vorbis::vorbis Vorbis::vorbisfile)
+    else()
+      find_package(Lua REQUIRED)
+      set(PNGLIB spng)
+      set(VORBISLIB vorbis vorbisfile) # not tested
+      add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw)
+    endif()
+elseif(APPLE)
+    find_package(PkgConfig)
+    pkg_check_modules(LUAJIT REQUIRED luajit)
+    pkg_check_modules(VORBIS REQUIRED vorbis vorbisfile)
+    set(LUA_INCLUDE_DIR "/opt/homebrew/include/luajit-2.1")
+    set(LUA_LIBRARIES "/opt/homebrew/lib/libluajit-5.1.a")
+    message(STATUS "LUA Libraries: ${LUA_LIBRARIES}")
+    message(STATUS "LUA Include Dir: ${LUA_INCLUDE_DIR}")
     find_package(PNG REQUIRED)
     set(PNGLIB PNG::PNG)
+    set(VORBISLIB ${VORBIS_LDFLAGS})
+    message(STATUS "Vorbis Lib: ${VORBIS_LDFLAGS}")
+else()
+    find_package(PkgConfig)
+    pkg_check_modules(LUAJIT REQUIRED luajit)
+    pkg_check_modules(VORBIS REQUIRED vorbis vorbisfile)
+    set(LUA_LIBRARIES ${LUAJIT_LIBRARIES})
+    set(LUA_INCLUDE_DIR ${LUAJIT_INCLUDE_DIRS})
+    find_package(PNG REQUIRED)
+    set(PNGLIB PNG::PNG)
+    set(VORBISLIB ${VORBIS_LDFLAGS})
 endif()
-
-if (APPLE)
-    find_package(glfw3 3.3 REQUIRED)
-endif ()
 
 set(LIBS "")
 
 if(UNIX)
+    find_package(glfw3 3.3 REQUIRED)
     find_package(Threads REQUIRED)
     set(LIBS ${LIBS} Threads::Threads)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -no-pie")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -no-pie -lstdc++fs")
 endif()
 
 include_directories(${LUA_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME} ${LIBS} glfw OpenGL::GL ${OPENAL_LIBRARY} GLEW::GLEW ${PNGLIB} ${LUA_LIBRARIES} ${CMAKE_DL_LIBS})
+target_link_libraries(${PROJECT_NAME} ${LIBS} glfw OpenGL::GL ${OPENAL_LIBRARY} GLEW::GLEW ZLIB::ZLIB ${VORBISLIB} ${PNGLIB} ${LUA_LIBRARIES} ${CMAKE_DL_LIBS})
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/res DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 

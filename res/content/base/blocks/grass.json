@@ -1,5 +1,7 @@
 {
+    "caption": "tall grass",
     "texture": "grass",
+    "material": "base:grass",
     "draw-group": 1,
     "light-passing": true,
     "obstacle": false,

@@ -8,10 +8,13 @@ Debug/voxel_engine
 /screenshots
 /out
 
+/misc
 /world
 /worlds/**/*
 /settings.toml
 /controls.json
+/controls.toml
+/latest.log
 
 /.idea
 .vscode
@@ -25,12 +28,20 @@ Debug/voxel_engine
 .settings
 .cproject
 .project
+.fleet
 .git
 /Default/
 AppDir
 appimage-build/
 
+# for vcpkg
+/vcpkg/
+.gitmodules
+
 # macOS folder attributes
 *.DS_Store
 
 *~
+
+/res/content/*
+!/res/content/base

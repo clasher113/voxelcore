@@ -1,46 +1,35 @@
-#include "Lightmap.h"
+#include "Lightmap.hpp"
+
+#include "../util/data_io.hpp"
+
 #include <assert.h>
 
-#include "../util/data_io.h"
-
-Lightmap::Lightmap(){
-	map = new light_t[CHUNK_VOL];
-	for (uint i = 0; i < CHUNK_VOL; i++){
-		map[i] = 0x0000;
-	}
-}
-
-Lightmap::~Lightmap(){
-	delete[] map;
-}
-
 void Lightmap::set(const Lightmap* lightmap) {
-	for (unsigned int i = 0; i < CHUNK_VOL; i++){
-		map[i] = lightmap->map[i];
-	}
+    set(lightmap->map);
 }
 
-void Lightmap::set(light_t* map) {
-	delete[] this->map;
-	this->map = map;
+void Lightmap::set(const light_t* map) {
+    for (size_t i = 0; i < CHUNK_VOL; i++) {
+        this->map[i] = map[i];
+    }
 }
 
 static_assert(sizeof(light_t) == 2, "replace dataio calls to new light_t");
 
-ubyte* Lightmap::encode() const {
-	ubyte* buffer = new ubyte[LIGHTMAP_DATA_LEN];
-	for (uint i = 0; i < CHUNK_VOL; i+=2) {
-		buffer[i/2] = ((map[i] >> 12) & 0xF) | ((map[i+1] >> 8) & 0xF0);
-	}
-	return buffer;
+std::unique_ptr<ubyte[]> Lightmap::encode() const {
+    auto buffer = std::make_unique<ubyte[]>(LIGHTMAP_DATA_LEN);
+    for (uint i = 0; i < CHUNK_VOL; i+=2) {
+        buffer[i/2] = ((map[i] >> 12) & 0xF) | ((map[i+1] >> 8) & 0xF0);
+    }
+    return buffer;
 }
 
-light_t* Lightmap::decode(ubyte* buffer) {
-	light_t* lights = new light_t[CHUNK_VOL];
-	for (uint i = 0; i < CHUNK_VOL; i+=2) {
-		ubyte b = buffer[i/2];
-		lights[i] = ((b & 0xF) << 12);
-		lights[i+1] = ((b & 0xF0) << 8);
-	} 
-	return lights;
+std::unique_ptr<light_t[]> Lightmap::decode(const ubyte* buffer) {
+    auto lights = std::make_unique<light_t[]>(CHUNK_VOL);
+    for (uint i = 0; i < CHUNK_VOL; i+=2) {
+        ubyte b = buffer[i/2];
+        lights[i] = ((b & 0xF) << 12);
+        lights[i+1] = ((b & 0xF0) << 8);
+    } 
+    return lights;
 }

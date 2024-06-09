@@ -1,11 +1,12 @@
-#include "Block.h"
+#include "Block.hpp"
 
-#include "../core_defs.h"
+#include <utility>
 
-using glm::vec3;
+#include "../core_defs.hpp"
+#include "../util/stringutil.hpp"
 
 CoordSystem::CoordSystem(glm::ivec3 axisX, glm::ivec3 axisY, glm::ivec3 axisZ)
-	: axisX(axisX), axisY(axisY), axisZ(axisZ)
+  : axisX(axisX), axisY(axisY), axisZ(axisZ)
 {
 	fix = glm::ivec3(0);
 	if (isVectorHasNegatives(axisX)) fix -= axisX;
@@ -14,9 +15,9 @@ CoordSystem::CoordSystem(glm::ivec3 axisX, glm::ivec3 axisY, glm::ivec3 axisZ)
 }
 
 void CoordSystem::transform(AABB& aabb) const {
-	vec3 X(axisX);
-	vec3 Y(axisY);
-	vec3 Z(axisZ);
+	glm::vec3 X(axisX);
+	glm::vec3 Y(axisY);
+	glm::vec3 Z(axisZ);
 	aabb.a = X * aabb.a.x + Y * aabb.a.y + Z * aabb.a.z;
 	aabb.b = X * aabb.b.x + Y * aabb.b.y + Z * aabb.b.z;
 	aabb.a += fix;
@@ -39,14 +40,15 @@ const BlockRotProfile BlockRotProfile::PANE {"pane", {
 		{ { 0, 0, 1 }, { 0, 1, 0 }, {-1, 0, 0 }}, // West
 }};
 
-Block::Block(std::string name) 
+Block::Block(const std::string& name)
 	: name(name), 
+      caption(util::id_to_caption(name)),
 	  textureFaces {TEXTURE_NOTFOUND,TEXTURE_NOTFOUND,TEXTURE_NOTFOUND,
-	  			    TEXTURE_NOTFOUND,TEXTURE_NOTFOUND,TEXTURE_NOTFOUND} {
-	rotations = BlockRotProfile::PIPE;
-}
+	  			    TEXTURE_NOTFOUND,TEXTURE_NOTFOUND,TEXTURE_NOTFOUND},
+      rotations(BlockRotProfile::PIPE)
+{}
 
-Block::Block(std::string name, std::string texture) : name(name),
-		textureFaces{texture,texture,texture,texture,texture,texture} {
-	rotations = BlockRotProfile::PIPE;
-}
+Block::Block(std::string name, const std::string& texture) : name(std::move(name)),
+		textureFaces{texture,texture,texture,texture,texture,texture},
+        rotations(BlockRotProfile::PIPE)
+{}
