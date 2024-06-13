@@ -43,8 +43,11 @@ public:
 
     void update(float delta);
 private:
+#ifdef USE_DIRECTX
+#elif USE_OPENGL
     uint fboR;
     uint fboD;
+#endif // USE_DIRECTX
 
     std::vector<TextureAnimation> animations;
 };

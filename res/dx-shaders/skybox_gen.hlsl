@@ -295,7 +295,7 @@ float4 PShader(PSInput input) : SV_TARGET {
         MIE_BETA,                   // Mie scattering coefficient
         ABSORPTION_BETA,            // Absorbtion coefficient
         AMBIENT_BETA,               // ambient scattering, turned off for now. This causes the air to glow a bit when no light reaches it
-        G * fog,                    // Mie preferred scattering direction
+        G * fog*0.7,                // Mie preferred scattering direction
         HEIGHT_RAY,                 // Rayleigh scale height
         HEIGHT_MIE * c_mie * c_mie, // Mie scale height
         HEIGHT_ABSORPTION,          // the height at which the most absorption happens

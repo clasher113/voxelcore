@@ -1,3 +1,4 @@
+#ifdef USE_OPENGL
 #include "Shader.hpp"
 
 #include <exception>
@@ -127,3 +128,5 @@ std::unique_ptr<Shader> Shader::create(
     }
     return std::make_unique<Shader>(id);
 }
+
+#endif // USE_OPENGL

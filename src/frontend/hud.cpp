@@ -14,9 +14,6 @@
 #include "../graphics/core/Batch3D.hpp"
 #include "../graphics/core/DrawContext.hpp"
 #include "../graphics/core/Font.hpp"
-#include "../graphics/core/Mesh.hpp"
-#include "../graphics/core/Shader.hpp"
-#include "../graphics/core/Texture.hpp"
 #include "../graphics/render/WorldRenderer.hpp"
 #include "../graphics/ui/elements/InventoryView.hpp"
 #include "../graphics/ui/elements/Menu.hpp"
@@ -43,6 +40,16 @@
 #include "../window/Window.hpp"
 #include "../world/Level.hpp"
 #include "../world/World.hpp"
+
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXMesh.hpp"
+#include "../directx/graphics/DXShader.hpp"
+#include "../directx/graphics/DXTexture.hpp"
+#elif USE_OPENGL
+#include "../graphics/core/Mesh.hpp"
+#include "../graphics/core/Shader.hpp"
+#include "../graphics/core/Texture.hpp"
+#endif // USE_DIRECTX
 
 #include <assert.h>
 #include <memory>
@@ -461,8 +468,8 @@ void Hud::draw(const DrawContext& ctx){
     batch->begin();
 
     Shader* uishader = assets->getShader("ui");
-    uishader->use();
     uishader->uniformMatrix("u_projview", uicamera->getProjView());
+    uishader->use();
 
     // Crosshair
     if (!pause && !inventoryOpen && !player->debug) {

@@ -1,10 +1,16 @@
 #include "Batch2D.hpp"
-#include "Mesh.hpp"
-#include "Texture.hpp"
 #include "gl_util.hpp"
 #include "../../maths/UVRegion.hpp"
 
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXMesh.hpp"
+#include "../../directx/graphics/DXTexture.hpp"
+#include "../../directx/graphics/DXLine.hpp"
+#elif USE_OPENGL
+#include "Mesh.hpp"
+#include "Texture.hpp"
 #include <GL/glew.h>
+#endif // USE_DIRECTX
 
 inline constexpr uint B2D_VERTEX_SIZE = 8;
 
@@ -242,12 +248,12 @@ void Batch2D::rect(
     }
     setPrimitive(DrawPrimitive::triangle);
     vertex(x, y, u, v+ty, r,g,b,a);
-    vertex(x+w, y+h, u+tx, v, r,g,b,a);
     vertex(x, y+h, u, v, r,g,b,a);
+    vertex(x+w, y+h, u+tx, v, r,g,b,a);
 
     vertex(x, y, u, v+ty, r,g,b,a);
-    vertex(x+w, y, u+tx, v+ty, r,g,b,a);
     vertex(x+w, y+h, u+tx, v, r,g,b,a);
+    vertex(x+w, y, u+tx, v+ty, r,g,b,a);
 }
 
 void Batch2D::rect(
@@ -329,10 +335,21 @@ void Batch2D::flush() {
     if (index == 0)
         return;
     mesh->reload(buffer.get(), index / B2D_VERTEX_SIZE);
+#ifdef USE_DIRECTX
+    if (primitive == DrawPrimitive::line) {
+        DXLine::draw(mesh.get());
+    }
+    else mesh->draw();
+#elif USE_OPENGL
     mesh->draw(gl::to_glenum(primitive));
+#endif // USE_DIRECTX
     index = 0;
 }
 
 void Batch2D::lineWidth(float width) {
+#ifdef USE_DIRECTX
+    //DXLine::setWidth(width);
+#elif USE_OPENGL
     glLineWidth(width);
+#endif // USE_DIRECTX
 }

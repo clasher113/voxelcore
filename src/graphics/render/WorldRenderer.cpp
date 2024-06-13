@@ -1,7 +1,6 @@
 #include "WorldRenderer.hpp"
 
 #include "ChunksRenderer.hpp"
-#include "Skybox.hpp"
 
 #include "../../assets/Assets.hpp"
 #include "../../content/Content.hpp"
@@ -27,13 +26,22 @@
 #include "../core/Batch3D.hpp"
 #include "../core/DrawContext.hpp"
 #include "../core/LineBatch.hpp"
-#include "../core/Mesh.hpp"
 #include "../core/PostProcessing.hpp"
-#include "../core/Shader.hpp"
+
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXMesh.hpp"
+#include "../../directx/graphics/DXTexture.hpp"
+#include "../../directx/graphics/DXShader.hpp"
+#include "../../directx/graphics/DXSkybox.hpp"
+#elif USE_OPENGL
+#include "../core/Mesh.hpp"
 #include "../core/Texture.hpp"
+#include "../core/Shader.hpp"
+#include "Skybox.hpp"
+#include <GL/glew.h>
+#endif // USE_DIRECTX
 
 #include <assert.h>
-#include <GL/glew.h>
 #include <algorithm>
 #include <memory>
 
@@ -110,6 +118,9 @@ bool WorldRenderer::drawChunk(
     glm::vec3 coord(chunk->x*CHUNK_W+0.5f, 0.5f, chunk->z*CHUNK_D+0.5f);
     glm::mat4 model = glm::translate(glm::mat4(1.0f), coord);
     shader->uniformMatrix("u_model", model);
+#ifdef USE_DIRECTX
+    shader->applyChanges();
+#endif // USE_DIRECTX
     mesh->draw();
     return true;
 }
@@ -169,7 +180,9 @@ void WorldRenderer::renderLevel(
     shader->uniform1f("u_fogCurve", settings.graphics.fogCurve.get());
     shader->uniform1f("u_dayTime", level->getWorld()->daytime);
     shader->uniform3f("u_cameraPos", camera->position);
+#ifdef USE_OPENGL
     shader->uniform1i("u_cubemap", 1);
+#endif // USE_OPENGL
 
     // Light emission when an emissive item is chosen
     {
@@ -206,8 +219,8 @@ void WorldRenderer::renderBlockSelection(Camera* camera, Shader* linesShader) {
         ? block->rt.hitboxes[PlayerController::selectedBlockRotation]
         : block->hitboxes;
 
-    linesShader->use();
     linesShader->uniformMatrix("u_projview", camera->getProjView());
+    linesShader->use();
     lineBatch->lineWidth(2.0f);
     for (auto& hitbox: hitboxes) {
         const glm::vec3 center = glm::vec3(pos) + hitbox.center();
@@ -236,6 +249,9 @@ void WorldRenderer::renderDebugLines(
 
     if (showChunkBorders){
         linesShader->uniformMatrix("u_projview", camera->getProjView());
+#ifdef USE_DIRECTX
+        linesShader->applyChanges();
+#endif // USE_DIRECTX
         glm::vec3 coord = player->camera->position;
         if (coord.x < 0) coord.x--;
         if (coord.z < 0) coord.z--;
@@ -256,7 +272,9 @@ void WorldRenderer::renderDebugLines(
         0.f, (float)displayHeight,
         -length, length) * model * glm::inverse(camera->rotation)
     );
-
+#ifdef USE_DIRECTX
+    linesShader->applyChanges();
+#endif // USE_DIRECTX
     ctx.setDepthTest(false);
     lineBatch->lineWidth(4.0f);
     lineBatch->line(0.f, 0.f, 0.f, length, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
@@ -291,7 +309,7 @@ void WorldRenderer::draw(
     // World render scope with diegetic HUD included
     {
         DrawContext wctx = pctx.sub();
-        postProcessing->use(wctx);
+       postProcessing->use(wctx);
 
         Window::clearDepth();
 

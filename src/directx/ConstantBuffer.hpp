@@ -1,6 +1,8 @@
 #ifndef CONSTANT_BUFFER_HPP
 #define CONSTANT_BUFFER_HPP
 
+#define NOMINMAX
+
 #include "ShaderTypes.hpp"
 
 #include <d3dcompiler.h>
@@ -13,20 +15,25 @@ struct ID3D10Blob;
 struct ID3D11Buffer;
 
 struct ConstantBufferVariable {
-	UINT startOffset;
-	UINT size;
+	size_t startOffset;
+	size_t size;
+};
+
+struct ConstantBufferData {
+	std::unordered_map<std::string, ConstantBufferVariable> bufferVars;
+	size_t size;
+	unsigned int shaderType;
 };
 
 class ConstantBuffer {
 public:
-	ConstantBuffer(UINT size, unsigned int shaderType);
+	ConstantBuffer(const ConstantBufferData& data);
 	~ConstantBuffer();
-
-	void addVariable(const std::string& name, const ConstantBufferVariable& variable);
 
 	void uniformMatrix(const std::string_view& name, const DirectX::XMFLOAT4X4& matrix);
 	void uniformMatrix(const std::string_view& name, const glm::mat4& matrix);
 	void uniform1i(const std::string_view& name, int x);
+	void uniform2i(const std::string_view& name, glm::ivec2 xy);
 	void uniform1f(const std::string_view& name, float x);
 	void uniform2f(const std::string_view& name, float x, float y);
 	void uniform2f(const std::string_view& name, const DirectX::XMFLOAT2& xy);
@@ -40,7 +47,7 @@ public:
 
 private:
 	bool m_hasChanges;
-	UINT m_size;
+	size_t m_size;
 	unsigned char* m_p_data;
 	unsigned int m_shaderType;
 

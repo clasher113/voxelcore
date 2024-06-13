@@ -3,9 +3,7 @@
 #include "../graphics/DXLine.hpp"
 #include "../util/DXError.hpp"
 #include "../util/AdapterReader.hpp"
-#include "../../util/stringutil.h"
 
-#include <DirectXColors.h>
 #include <iostream>
 
 void DXDevice::initialize(HWND window, UINT windowWidth, UINT windowHeight) {
@@ -22,14 +20,7 @@ void DXDevice::initialize(HWND window, UINT windowWidth, UINT windowHeight) {
 
 void DXDevice::terminate() {
 	DXLine::terminate();
-#ifdef _DEBUG
-	ID3D11Debug* debugDev;
-	s_m_device->QueryInterface(IID_PPV_ARGS(&debugDev));
-	CHECK_ERROR1(debugDev->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL), "Not all objects was been destroyed", false);
-	debugDev->Release();
-#endif // _DEBUG
-	s_m_device.Reset();
-	s_m_context.Reset();
+
 	s_m_swapChain.Reset();
 	s_m_renderTargetView.Reset();
 	s_m_depthStencilView.Reset();
@@ -38,6 +29,14 @@ void DXDevice::terminate() {
 	s_m_blendState.Reset();
 	s_m_samplerState.Reset();
 	s_m_samplerStateLinear.Reset();
+	s_m_device.Reset();
+	s_m_context->Flush();
+	s_m_context.Reset();
+#ifdef _DEBUG
+	CHECK_ERROR1(s_m_debug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL),
+		"Cant get live objects", false);
+	s_m_debug.Reset();
+#endif // _DEBUG
 }
 
 void DXDevice::createDevice() {
@@ -88,10 +87,9 @@ void DXDevice::createDevice() {
 	), L"Failed to create D3D11 device");
 
 #ifndef NDEBUG
-	Microsoft::WRL::ComPtr<ID3D11Debug> d3dDebug;
-	if (SUCCEEDED(device.As(&d3dDebug))) {
+	if (SUCCEEDED(device.As(&s_m_debug))) {
 		Microsoft::WRL::ComPtr<ID3D11InfoQueue> d3dInfoQueue;
-		if (SUCCEEDED(d3dDebug.As(&d3dInfoQueue))) {
+		if (SUCCEEDED(s_m_debug.As(&d3dInfoQueue))) {
 #ifdef _DEBUG
 			d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
 			d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
@@ -149,10 +147,11 @@ void DXDevice::createSwapChain() {
 void DXDevice::createResources() {
 	// create render target view
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer = getSurface();
+
 	CHECK_ERROR2(s_m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, s_m_renderTargetView.ReleaseAndGetAddressOf()),
 		L"Failed to create render target view");
 
-	CD3D11_TEXTURE2D_DESC depthTexDesc(DXGI_FORMAT_D24_UNORM_S8_UINT, s_m_windowWidth, s_m_windowHeight, 1, 1, D3D11_BIND_DEPTH_STENCIL);
+	CD3D11_TEXTURE2D_DESC depthTexDesc(DXGI_FORMAT_D32_FLOAT, s_m_windowWidth, s_m_windowHeight, 1, 1, D3D11_BIND_DEPTH_STENCIL);
 
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> depthStencil;
 	CHECK_ERROR1(s_m_device->CreateTexture2D(&depthTexDesc, nullptr, depthStencil.GetAddressOf()));
@@ -160,56 +159,40 @@ void DXDevice::createResources() {
 	CHECK_ERROR2(s_m_device->CreateDepthStencilView(depthStencil.Get(), nullptr, s_m_depthStencilView.ReleaseAndGetAddressOf()),
 		L"Failed to create depth stencil view", false);
 
+	resetRenderTarget();
+
 	// create depth stencil state
-	D3D11_DEPTH_STENCIL_DESC depthStencilDesc{};
-	ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));
+	ZeroMemory(&s_m_depthStencilStateDesc, sizeof(s_m_depthStencilStateDesc));
 
-	depthStencilDesc.DepthEnable = true;
-	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK::D3D11_DEPTH_WRITE_MASK_ALL;
-	depthStencilDesc.DepthFunc = D3D11_COMPARISON_FUNC::D3D11_COMPARISON_LESS_EQUAL;
+	s_m_depthStencilStateDesc.DepthEnable = true;
+	s_m_depthStencilStateDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK::D3D11_DEPTH_WRITE_MASK_ALL;
+	s_m_depthStencilStateDesc.DepthFunc = D3D11_COMPARISON_FUNC::D3D11_COMPARISON_LESS_EQUAL;
 
-	CHECK_ERROR3(s_m_device->CreateDepthStencilState(&depthStencilDesc, s_m_depthStencilState.ReleaseAndGetAddressOf()),
-		L"Failed to create depth stencil state", false);
-
-	s_m_context->OMSetRenderTargets(1, s_m_renderTargetView.GetAddressOf(), s_m_depthStencilView.Get());
-	s_m_context->OMSetDepthStencilState(s_m_depthStencilState.Get(), 0);
+	updateDepthStencilState();
 
 	// create blend state
-	D3D11_BLEND_DESC1 blendStateDesc{};
-	ZeroMemory(&blendStateDesc, sizeof(blendStateDesc));
+	ZeroMemory(&s_m_renderTargetBlendDesc, sizeof(s_m_renderTargetBlendDesc));
 
-	D3D11_RENDER_TARGET_BLEND_DESC1 rtbd{};
-	ZeroMemory(&rtbd, sizeof(rtbd));
+	s_m_renderTargetBlendDesc.BlendEnable = true;
+	s_m_renderTargetBlendDesc.SrcBlend = D3D11_BLEND::D3D11_BLEND_SRC_ALPHA;
+	s_m_renderTargetBlendDesc.DestBlend = D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA;
+	s_m_renderTargetBlendDesc.BlendOp = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
 
-	rtbd.BlendEnable = true;
-	rtbd.SrcBlend = D3D11_BLEND::D3D11_BLEND_SRC_ALPHA;
-	rtbd.DestBlend = D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA;
-	rtbd.BlendOp = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
+	s_m_renderTargetBlendDesc.SrcBlendAlpha = D3D11_BLEND::D3D11_BLEND_ONE;
+	s_m_renderTargetBlendDesc.DestBlendAlpha = D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA;
+	s_m_renderTargetBlendDesc.BlendOpAlpha = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
+	s_m_renderTargetBlendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE::D3D11_COLOR_WRITE_ENABLE_ALL;
 
-	rtbd.SrcBlendAlpha = D3D11_BLEND::D3D11_BLEND_ONE;
-	rtbd.DestBlendAlpha = D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA;
-	rtbd.BlendOpAlpha = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
-	rtbd.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE::D3D11_COLOR_WRITE_ENABLE_ALL;
-
-	blendStateDesc.RenderTarget[0] = rtbd;
-
-	CHECK_ERROR3(s_m_device->CreateBlendState1(&blendStateDesc, s_m_blendState.ReleaseAndGetAddressOf()),
-		L"Failed to create blend state", false);
-
-	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
-	UINT sampleMask = 0xffffffff;
-	s_m_context->OMSetBlendState(s_m_blendState.Get(), blendFactor, sampleMask);
+	updateBlendState();
 
 	// create rasterizer state
 	ZeroMemory(&s_m_rasterizerStateDesc, sizeof(s_m_rasterizerStateDesc));
 
 	s_m_rasterizerStateDesc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
 	s_m_rasterizerStateDesc.CullMode = D3D11_CULL_MODE::D3D11_CULL_FRONT;
+	//s_m_rasterizerStateDesc.AntialiasedLineEnable = true;
 
-	CHECK_ERROR3(s_m_device->CreateRasterizerState(&s_m_rasterizerStateDesc, s_m_rasterizerState.ReleaseAndGetAddressOf()),
-		L"Failed to create rasterizer state", false);
-
-	s_m_context->RSSetState(s_m_rasterizerState.Get());
+	updateRasterizerState();
 
 	// create sampler state
 	D3D11_SAMPLER_DESC samplerDesc{};
@@ -245,8 +228,26 @@ void DXDevice::onDeviceLost() {
 }
 
 void DXDevice::updateRasterizerState() {
-	CHECK_ERROR1(s_m_device->CreateRasterizerState(&s_m_rasterizerStateDesc, s_m_rasterizerState.ReleaseAndGetAddressOf()));
+	CHECK_ERROR3(s_m_device->CreateRasterizerState(&s_m_rasterizerStateDesc, s_m_rasterizerState.ReleaseAndGetAddressOf()),
+		L"Failed to create rasterizer state", false);
 	s_m_context->RSSetState(s_m_rasterizerState.Get());
+}
+
+void DXDevice::updateDepthStencilState() {
+	CHECK_ERROR3(s_m_device->CreateDepthStencilState(&s_m_depthStencilStateDesc, s_m_depthStencilState.ReleaseAndGetAddressOf()),
+		L"Failed to create depth stencil state", false);
+	s_m_context->OMSetDepthStencilState(s_m_depthStencilState.Get(), 0);
+}
+
+void DXDevice::updateBlendState() {
+	D3D11_BLEND_DESC blendStateDesc{};
+	ZeroMemory(&blendStateDesc, sizeof(blendStateDesc));
+	blendStateDesc.RenderTarget[0] = s_m_renderTargetBlendDesc;
+
+	CHECK_ERROR3(s_m_device->CreateBlendState(&blendStateDesc, s_m_blendState.ReleaseAndGetAddressOf()),
+		L"Failed to create blend state", false);
+
+	s_m_context->OMSetBlendState(s_m_blendState.Get(), NULL, 0xffffffff);
 }
 
 void DXDevice::clearContext() {
@@ -263,7 +264,7 @@ void DXDevice::onWindowResize(UINT windowWidth, UINT windowHeight) {
 
 	s_m_windowWidth = windowWidth;
 	s_m_windowHeight = windowHeight;
-
+	
 	HRESULT hr = s_m_swapChain->ResizeBuffers(0, s_m_windowWidth, s_m_windowHeight, DXGI_FORMAT_UNKNOWN, 0);
 
 	if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
@@ -290,12 +291,13 @@ void DXDevice::setScissorRect(LONG x, LONG y, LONG width, LONG height) {
 }
 
 void DXDevice::clear() {
-	s_m_context->ClearRenderTargetView(s_m_renderTargetView.Get(), DirectX::Colors::CornflowerBlue);
-	s_m_context->ClearDepthStencilView(s_m_depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+	s_m_context->ClearRenderTargetView(s_m_p_currentRenderTargetView, s_m_clearColor);
+	clearDepth();
 }
 
 void DXDevice::clearDepth() {
-	s_m_context->ClearDepthStencilView(s_m_depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+	if (!s_m_p_currentDepthStencilView) return;
+	s_m_context->ClearDepthStencilView(s_m_p_currentDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 }
 
 void DXDevice::display() {
@@ -309,17 +311,35 @@ void DXDevice::display() {
 	}
 }
 
-void DXDevice::setDepthTest(bool enabled) {
-	s_m_context->OMSetRenderTargets(1, s_m_renderTargetView.GetAddressOf(), (enabled ? s_m_depthStencilView.Get() : nullptr));
+void DXDevice::setDepthTest(bool flag) {
+	s_m_context->OMSetRenderTargets(1, &s_m_p_currentRenderTargetView, (flag ? s_m_p_currentDepthStencilView : nullptr));
 }
 
-void DXDevice::setCullFace(bool enabled) {
-	s_m_rasterizerStateDesc.CullMode = (enabled ? D3D11_CULL_MODE::D3D11_CULL_FRONT : D3D11_CULL_MODE::D3D11_CULL_NONE);
+void DXDevice::setCullFace(bool flag) {
+	s_m_rasterizerStateDesc.CullMode = (flag ? D3D11_CULL_MODE::D3D11_CULL_FRONT : D3D11_CULL_MODE::D3D11_CULL_NONE);
 	updateRasterizerState();
 }
 
-void DXDevice::setScissorTest(BOOL enabled) {
-	s_m_rasterizerStateDesc.ScissorEnable = enabled;
+void DXDevice::setWriteDepthEnabled(bool flag) {
+	s_m_depthStencilStateDesc.DepthWriteMask = (flag ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO);
+	updateDepthStencilState();
+}
+
+void DXDevice::setBlendFunc(D3D11_BLEND srcBlend, D3D11_BLEND dstBlend, D3D11_BLEND_OP blendOp, D3D11_BLEND srcBlendAlpha, 
+	D3D11_BLEND dstBlendAlpha, D3D11_BLEND_OP blendOpAlpha) 
+{
+	s_m_renderTargetBlendDesc.SrcBlend = srcBlend;
+	s_m_renderTargetBlendDesc.DestBlend = dstBlend;
+	s_m_renderTargetBlendDesc.BlendOp = blendOp;
+
+	s_m_renderTargetBlendDesc.SrcBlendAlpha = srcBlendAlpha;
+	s_m_renderTargetBlendDesc.DestBlendAlpha = dstBlendAlpha;
+	s_m_renderTargetBlendDesc.BlendOpAlpha = blendOpAlpha;
+	updateBlendState();
+}
+
+void DXDevice::setScissorTest(BOOL flag) {
+	s_m_rasterizerStateDesc.ScissorEnable = flag;
 	updateRasterizerState();
 }
 
@@ -331,8 +351,18 @@ void DXDevice::setSwapInterval(UINT interval) {
 	s_m_swapInterval = interval;
 }
 
-void DXDevice::rebindRenderTarget() {
-	s_m_context->OMSetRenderTargets(1, s_m_renderTargetView.GetAddressOf(), s_m_depthStencilView.Get());
+void DXDevice::setRenderTarget(ID3D11RenderTargetView* renderTarget, ID3D11DepthStencilView* depthStencil) {
+	s_m_context->OMSetRenderTargets(1, &renderTarget, depthStencil);
+	s_m_p_currentRenderTargetView = renderTarget;
+	s_m_p_currentDepthStencilView = depthStencil;
+}
+
+void DXDevice::setClearColor(float r, float g, float b, float a) {
+	s_m_clearColor = { { { r, g, b, a } } };
+}
+
+void DXDevice::resetRenderTarget() {
+	setRenderTarget(s_m_renderTargetView.Get(), s_m_depthStencilView.Get());
 }
 
 Microsoft::WRL::ComPtr<ID3D11Texture2D> DXDevice::getSurface() {

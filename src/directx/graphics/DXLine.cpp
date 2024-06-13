@@ -1,7 +1,6 @@
 #ifdef USE_DIRECTX
 #include "DXLine.hpp"
 #include "../window/DXDevice.hpp"
-#include "../../util/stringutil.h"
 #include "../util/DXError.hpp"
 #include "../ConstantBuffer.hpp"
 #include "../util/ConstantBufferBuilder.hpp"
@@ -9,11 +8,6 @@
 #include "DXShader.hpp"
 
 #include <d3dcommon.h>
-#include <d3dcompiler.h>
-
-float DXLine::m_width = 1.f;
-ID3D11GeometryShader* DXLine::s_m_p_geometryShader = nullptr;
-ConstantBuffer* DXLine::s_m_p_cbLineWidth = nullptr;
 
 void DXLine::initialize() {
 	auto device = DXDevice::getDevice();
@@ -24,12 +18,12 @@ void DXLine::initialize() {
 
 	CHECK_ERROR1(device->CreateGeometryShader(GS->GetBufferPointer(), GS->GetBufferSize(), NULL, &s_m_p_geometryShader));
 
-	ConstantBufferBuilder::build(GS, ShaderType::GEOMETRY);
+	ConstantBufferBuilder cbuffBuilder;
+	cbuffBuilder.build(GS, ShaderType::GEOMETRY);
 
 	GS->Release();
 
-	s_m_p_cbLineWidth = ConstantBufferBuilder::create();
-	ConstantBufferBuilder::clear();
+	s_m_p_cbLineWidth = new ConstantBuffer(cbuffBuilder.getData());
 }
 
 void DXLine::terminate() {

@@ -27,5 +27,8 @@ Texture2D my_texture;
 SamplerState my_sampler;
 
 float4 PShader(PSInput input) : SV_TARGET {
-    return input.color * my_texture.Sample(my_sampler, input.texCoord);
+    float4 outColor = input.color * my_texture.Sample(my_sampler, input.texCoord);
+    if (outColor.a == 0.f)
+        discard;
+    return outColor;
 }

@@ -76,8 +76,9 @@ void Mesh::draw(D3D_PRIMITIVE_TOPOLOGY primitive) {
 	UINT stride = sizeof(float) * m_vertexSize;
 	UINT offset = 0;
 	auto context = DXDevice::getContext();
-	context->IASetVertexBuffers(0, 1, &m_p_vertexBuffer, &stride, &offset);
 	context->IASetPrimitiveTopology(primitive);
+
+	context->IASetVertexBuffers(0, 1, &m_p_vertexBuffer, &stride, &offset);
 	if (m_p_indexBuffer == nullptr) {
 		context->Draw(m_vertices, 0);
 	}

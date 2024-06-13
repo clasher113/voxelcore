@@ -44,7 +44,11 @@ inline constexpr uint vox_index(uint x, uint y, uint z, uint w=CHUNK_W, uint d=C
     return (y * d + z) * w + x;
 }
 
+#ifdef USE_DIRECTX
+inline const std::string SHADERS_FOLDER = "dx-shaders";
+#elif USE_OPENGL
 inline const std::string SHADERS_FOLDER = "shaders";
+#endif // USE_DIRECTX
 inline const std::string TEXTURES_FOLDER = "textures";
 inline const std::string FONTS_FOLDER = "fonts";
 inline const std::string LAYOUTS_FOLDER = "layouts";

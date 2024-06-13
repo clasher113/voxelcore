@@ -1,3 +1,4 @@
+#ifdef USE_OPENGL
 #include "Framebuffer.hpp"
 
 #include <GL/glew.h>
@@ -28,7 +29,7 @@ static std::unique_ptr<Texture> create_texture(int width, int height, int format
     return std::make_unique<Texture>(tex, width, height);
 }
 
-Framebuffer::Framebuffer(uint width, uint height, bool alpha) 
+Framebuffer::Framebuffer(uint width, uint height, bool alpha)
   : width(width), height(height)
 {
     glGenFramebuffers(1, &fbo);
@@ -87,3 +88,5 @@ uint Framebuffer::getWidth() const {
 uint Framebuffer::getHeight() const {
     return height;
 }
+
+#endif // USE_OPENGL

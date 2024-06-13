@@ -9,11 +9,18 @@
 #include "../../window/Window.hpp"
 #include "../core/Atlas.hpp"
 #include "../core/Batch3D.hpp"
-#include "../core/Framebuffer.hpp"
 #include "../core/DrawContext.hpp"
+#include "../core/Viewport.hpp"
+
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXShader.hpp"
+#include "../../directx/graphics/DXTexture.hpp"
+#include "../../directx/graphics/DXFramebuffer.hpp"
+#elif USE_OPENGL
+#include "../core/Framebuffer.hpp"
 #include "../core/Shader.hpp"
 #include "../core/Texture.hpp"
-#include "../core/Viewport.hpp"
+#endif // USE_DIRECTX
 
 #include <glm/ext.hpp>
 
@@ -38,6 +45,9 @@ std::unique_ptr<ImageData> BlocksPreview::draw(
             break;
         case BlockModel::block:
             shader->uniformMatrix("u_apply", glm::translate(glm::mat4(1.0f), offset));
+#ifdef USE_DIRECTX
+            shader->applyChanges();
+#endif // USE_DIRECTX
             batch->blockCube(glm::vec3(size * 0.63f), texfaces, 
                              glm::vec4(1.0f), !def->rt.emissive);
             batch->flush();
@@ -50,6 +60,9 @@ std::unique_ptr<ImageData> BlocksPreview::draw(
                 }
                 offset = glm::vec3(1, 1, 0.0f);
                 shader->uniformMatrix("u_apply", glm::translate(glm::mat4(1.0f), offset));
+#ifdef USE_DIRECTX
+                shader->applyChanges();
+#endif // USE_DIRECTX
                 batch->cube(
                     -hitbox * glm::vec3(size * 0.63f)*0.5f * glm::vec3(1,1,-1),
                     hitbox * glm::vec3(size * 0.63f), 
@@ -68,6 +81,9 @@ std::unique_ptr<ImageData> BlocksPreview::draw(
                 }
                 offset.y += (1.0f - hitbox).y * 0.5f;
                 shader->uniformMatrix("u_apply", glm::translate(glm::mat4(1.0f), offset));
+#ifdef USE_DIRECTX
+                shader->applyChanges();
+#endif // USE_DIRECTX
                 for (size_t i = 0; i < def->modelBoxes.size(); i++) {
                     const UVRegion (&boxtexfaces)[6] = {
                         def->modelUVs[i * 6],

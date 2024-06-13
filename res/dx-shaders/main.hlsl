@@ -60,6 +60,7 @@ PSInput VShader(VSInput input) {
 	skyLightColor.g *= 0.9;
 	skyLightColor.b *= 0.8;
     skyLightColor = min(float3(1.f, 1.f, 1.f), skyLightColor * SKY_LIGHT_MUL);
+    skyLightColor = max(float3(0.1f, 0.11f, 0.14f), skyLightColor);
 	
 	output.color.rgb = max(output.color.rgb, skyLightColor.rgb * decomp_light.a);
     output.distance = length(mul(float4(pos3d.x, pos3d.y * 0.2, pos3d.z, 0.0), mul(u_model, u_view)));

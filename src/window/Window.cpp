@@ -7,8 +7,17 @@
 #include "../settings.hpp"
 #include "../util/ObjectsKeeper.hpp"
 
+#ifdef USE_DIRECTX
+#include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define NOMINMAX
+#include <GLFW/glfw3native.h>
+#include "../directx/window/DXDevice.hpp"
+#include "../directx/util/TextureUtil.hpp"
+#elif USE_OPENGL
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#endif // USE_DIRECTX
 
 static debug::Logger logger("window");
 
@@ -66,7 +75,11 @@ bool Window::isFocused()
 void window_size_callback(GLFWwindow*, int width, int height) {
     if (width && height) {
         if (Window::isFocused()) {
+#ifdef USE_DIRECTX
+            DXDevice::onWindowResize(width, height);
+#elif USE_OPENGL
             glViewport(0, 0, width, height);
+#endif // !USE_DIRECTX
             Window::width = width;
             Window::height = height;
         }
@@ -113,16 +126,24 @@ int Window::initialize(DisplaySettings* settings){
     Window::width = settings->width.get();
     Window::height = settings->height.get();
 
-    std::string title = "VoxelEngine-Cpp v" + 
+    std::string title = "VoxelEngine-Cpp v" +
         std::to_string(ENGINE_VERSION_MAJOR) + "." +
-        std::to_string(ENGINE_VERSION_MINOR);
-
+        std::to_string(ENGINE_VERSION_MINOR) +
+#ifdef USE_DIRECTX
+        " DirectX";
+#elif USE_OPENGL
+        " OpenGL";
+#endif // USE_DIRECTX
+ 
     glfwSetErrorCallback(error_callback);
     if (glfwInit() == GLFW_FALSE) {
         logger.error() << "failed to initialize GLFW";
         return -1;
     }
 
+#ifdef USE_DIRECTX
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+#elif USE_OPENGL
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 #ifdef __APPLE__
@@ -134,6 +155,7 @@ int Window::initialize(DisplaySettings* settings){
 #endif
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
     glfwWindowHint(GLFW_SAMPLES, settings->samples.get());
+#endif // USE_DIRECTX
 
     window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
     if (window == nullptr){
@@ -141,7 +163,18 @@ int Window::initialize(DisplaySettings* settings){
         glfwTerminate();
         return -1;
     }
+
+#ifdef USE_DIRECTX
+    HWND windowHandle = glfwGetWin32Window(window);
+    DXDevice::initialize(windowHandle, width, height);
+    DXDevice::setSwapInterval(settings->vsync.get());
+
+    auto adapterDesc = DXDevice::getAdapterDesc();
+
+    std::wcout << L"Renderer: " << adapterDesc.Description << std::endl;
+#elif USE_OPENGL
     glfwMakeContextCurrent(window);
+
 
     glewExperimental = GL_TRUE;
     GLenum glewErr = glewInit();
@@ -162,6 +195,14 @@ int Window::initialize(DisplaySettings* settings){
         logger.info() << "max texture size is " << Texture::MAX_RESOLUTION;
     }
 
+    glfwSwapInterval(settings->vsync.get());
+    const GLubyte* vendor = glGetString(GL_VENDOR);
+    const GLubyte* renderer = glGetString(GL_RENDERER);
+    logger.info() << "GL Vendor: " << (char*)vendor;
+    logger.info() << "GL Renderer: " << (char*)renderer;
+    logger.info() << "GLFW: " << glfwGetVersionString();
+
+#endif // USE_DIRECTX
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
@@ -176,35 +217,48 @@ int Window::initialize(DisplaySettings* settings){
         }
     }, true));
 
-    glfwSwapInterval(settings->vsync.get());
-    const GLubyte* vendor = glGetString(GL_VENDOR);
-    const GLubyte* renderer = glGetString(GL_RENDERER);
-    logger.info() << "GL Vendor: " << (char*)vendor;
-    logger.info() << "GL Renderer: " << (char*)renderer;
-    logger.info() << "GLFW: " << glfwGetVersionString();
-
     input_util::initialize();
     return 0;
 }
 
 void Window::clear() {
+#ifdef USE_DIRECTX
+    DXDevice::clear();
+#elif USE_OPENGL
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+#endif // USE_DIRECTX
 }
 
 void Window::clearDepth() {
+#ifdef USE_DIRECTX
+    DXDevice::clearDepth();
+#elif USE_OPENGL
     glClear(GL_DEPTH_BUFFER_BIT);
+#endif // USE_DIRECTX
 }
 
 void Window::setBgColor(glm::vec3 color) {
+#ifdef USE_DIRECTX
+    DXDevice::setClearColor(color.r, color.g, color.b, 1.f);
+#elif USE_OPENGL
     glClearColor(color.r, color.g, color.b, 1.0f);
+#endif // USE_DIRECTX
 }
 
 void Window::setBgColor(glm::vec4 color) {
+#ifdef USE_DIRECTX
+    DXDevice::setClearColor(color.r, color.g, color.b, color.a);
+#elif USE_OPENGL
     glClearColor(color.r, color.g, color.b, color.a);
+#endif // USE_DIRECTX
 }
 
 void Window::viewport(int x, int y, int width, int height){
+#ifdef USE_DIRECTX
+    DXDevice::resizeViewPort(x, y, width, height);
+#elif USE_OPENGL
     glViewport(x, y, width, height);
+#endif // USE_DIRECTX
 }
 
 void Window::setCursorMode(int mode){
@@ -214,12 +268,20 @@ void Window::setCursorMode(int mode){
 void Window::resetScissor() {
     scissorArea = glm::vec4(0.0f, 0.0f, width, height);
     scissorStack = std::stack<glm::vec4>();
+#ifdef USE_DIRECTX
+    DXDevice::setScissorTest(false);
+#elif USE_OPENGL
     glDisable(GL_SCISSOR_TEST);
+#endif // USE_DIRECTX
 }
 
 void Window::pushScissor(glm::vec4 area) {
     if (scissorStack.empty()) {
+#ifdef USE_DIRECTX
+        DXDevice::setScissorTest(true);
+#elif USE_OPENGL
         glEnable(GL_SCISSOR_TEST);
+#endif // USE_DIRECTX
     }
     scissorStack.push(scissorArea);
 
@@ -233,37 +295,66 @@ void Window::pushScissor(glm::vec4 area) {
     area.w = fmin(area.w, scissorArea.w);
 
     if (area.z < 0.0f || area.w < 0.0f) {
+#ifdef USE_DIRECTX
+        DXDevice::setScissorRect(0, 0, 0, 0);
+#elif USE_OPENGL
         glScissor(0, 0, 0, 0);
-    } else {
-        glScissor(area.x, Window::height-area.w, 
-                  std::max(0, int(area.z-area.x)), 
-                  std::max(0, int(area.w-area.y)));
+#endif // USE_DIRECTX
+    }
+    else {
+#ifdef USE_DIRECTX
+        DXDevice::setScissorRect(area.x, area.y,
+            std::max(0, int(area.z - area.x)),
+            std::max(0, int(area.w - area.y)));
+#elif USE_OPENGL
+        glScissor(area.x, Window::height - area.w,
+            std::max(0, int(area.z - area.x)),
+            std::max(0, int(area.w - area.y)));
+#endif // USE_DIRECTX
     }
     scissorArea = area;
 }
 
 void Window::popScissor() {
     if (scissorStack.empty()) {
-        logger.warning() << "extra Window::popScissor call";
+        std::cerr << "warning: extra Window::popScissor call" << std::endl;
         return;
     }
     glm::vec4 area = scissorStack.top();
     scissorStack.pop();
     if (area.z < 0.0f || area.w < 0.0f) {
+#ifdef USE_DIRECTX
+        DXDevice::setScissorRect(0, 0, 0, 0);
+#elif USE_OPENGL
         glScissor(0, 0, 0, 0);
-    } else {
-        glScissor(area.x, Window::height-area.w, 
-                  std::max(0, int(area.z-area.x)), 
-                  std::max(0, int(area.w-area.y)));
+#endif // USE_DIRECTX
+    }
+    else {
+#ifdef USE_DIRECTX
+        DXDevice::setScissorRect(area.x, area.y,
+            std::max(0, int(area.z - area.x)),
+            std::max(0, int(area.w - area.y)));
+#elif USE_OPENGL
+        glScissor(area.x, Window::height - area.w,
+            std::max(0, int(area.z - area.x)),
+            std::max(0, int(area.w - area.y)));
+#endif // USE_DIRECTX
     }
     if (scissorStack.empty()) {
+#ifdef USE_DIRECTX
+        DXDevice::setScissorTest(false);
+#elif USE_OPENGL
         glDisable(GL_SCISSOR_TEST);
+#endif // USE_DIRECTX
     }
     scissorArea = area;
 }
 
 void Window::terminate(){
     observers_keeper = util::ObjectsKeeper();
+#ifdef USE_DIRECTX
+    DXDevice::terminate();
+#endif // USE_DIRECTX
     glfwTerminate();
 }
 
@@ -276,7 +367,11 @@ void Window::setShouldClose(bool flag){
 }
 
 void Window::swapInterval(int interval){
+#ifdef USE_DIRECTX
+    DXDevice::setSwapInterval(interval);
+#elif USE_OPENGL
     glfwSwapInterval(interval);
+#endif // USE_DIRECTX
 }
 
 void Window::toggleFullscreen(){
@@ -310,7 +405,11 @@ bool Window::isFullscreen() {
 }
 
 void Window::swapBuffers(){
+#ifdef USE_DIRECTX
+    DXDevice::display();
+#elif USE_OPENGL
     glfwSwapBuffers(window);
+#endif // USE_DIRECTX
     Window::resetScissor();
 }
 
@@ -323,12 +422,24 @@ DisplaySettings* Window::getSettings() {
 }
 
 std::unique_ptr<ImageData> Window::takeScreenshot() {
+#ifdef USE_DIRECTX
+    auto data = std::make_unique<ubyte[]>(width * height * 4);
+    auto texture = DXDevice::getSurface();
+    ID3D11Texture2D* staged = nullptr;
+    TextureUtil::stageTexture(texture.Get(), &staged);
+    TextureUtil::readPixels(staged, data.get());
+    staged->Release();
+    return std::make_unique<ImageData>(
+        ImageFormat::rgba8888, width, height, data.release()
+    ); 
+#elif USE_OPENGL
     auto data = std::make_unique<ubyte[]>(width * height * 3);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data.get());
     return std::make_unique<ImageData>(
         ImageFormat::rgb888, width, height, data.release()
     );
+#endif // USE_DIRECTX
 }
 
 const char* Window::getClipboardText() {

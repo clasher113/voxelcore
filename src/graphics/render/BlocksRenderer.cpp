@@ -1,6 +1,5 @@
 #include "BlocksRenderer.hpp"
 
-#include "../core/Mesh.hpp"
 #include "../../maths/UVRegion.hpp"
 #include "../../constants.hpp"
 #include "../../content/Content.hpp"
@@ -11,6 +10,12 @@
 #include "../../lighting/Lightmap.hpp"
 #include "../../frontend/ContentGfxCache.hpp"
 #include "../../settings.hpp"
+
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXMesh.hpp"
+#elif USE_OPENGL
+#include "../core/Mesh.hpp"
+#endif // USE_DIRECTX
 
 #include <glm/glm.hpp>
 
@@ -35,7 +40,7 @@ BlocksRenderer::BlocksRenderer(
     settings(settings) 
 {
     vertexBuffer = new float[capacity];
-    indexBuffer = new int[capacity];
+    indexBuffer = new index_t[capacity];
     voxelsBuffer = new VoxelsVolume(CHUNK_W + 2, CHUNK_H, CHUNK_D + 2);
     blockDefsCache = content->getIndices()->getBlockDefs();
 }

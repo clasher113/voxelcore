@@ -10,12 +10,17 @@
 #include "../../frontend/UiDocument.hpp"
 #include "../../frontend/locale.hpp"
 #include "../../graphics/core/Batch2D.hpp"
-#include "../../graphics/core/Shader.hpp"
 #include "../../graphics/core/DrawContext.hpp"
 #include "../../window/Events.hpp"
 #include "../../window/Window.hpp"
 #include "../../window/input.hpp"
 #include "../../window/Camera.hpp"
+
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXShader.hpp"
+#elif USE_OPENGL
+#include "../../graphics/core/Shader.hpp"
+#endif // USE_DIRECTX
 
 #include <iostream>
 #include <algorithm>
@@ -206,8 +211,8 @@ void GUI::draw(const DrawContext* pctx, Assets* assets) {
     uicamera->setFov(wsize.y);
 
     Shader* uishader = assets->getShader("ui");
-    uishader->use();
     uishader->uniformMatrix("u_projview", uicamera->getProjView());
+    uishader->use();
 
     pctx->getBatch2D()->begin();
     container->draw(pctx, assets);

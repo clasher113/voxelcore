@@ -6,7 +6,6 @@
 #include "../debug/Logger.hpp"
 
 #include <iostream>
-#include <GL/glew.h>
 
 static debug::Logger logger("png-coder");
 

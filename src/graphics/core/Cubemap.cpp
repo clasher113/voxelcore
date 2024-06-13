@@ -1,3 +1,4 @@
+#ifdef USE_OPENGL
 #include "Cubemap.hpp"
 #include "gl_util.hpp"
 
@@ -37,3 +38,5 @@ void Cubemap::bind(){
 void Cubemap::unbind() {
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
+
+#endif // USE_OPENGL

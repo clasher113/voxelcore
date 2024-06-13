@@ -1,3 +1,4 @@
+#ifdef USE_OPENGL
 #include "Skybox.hpp"
 #include "../../assets/Assets.hpp"
 #include "../../graphics/core/Shader.hpp"
@@ -204,3 +205,5 @@ void Skybox::unbind() const {
     fbo->getTexture()->unbind();
     glActiveTexture(GL_TEXTURE0);
 }
+
+#endif // USE_OPENGL

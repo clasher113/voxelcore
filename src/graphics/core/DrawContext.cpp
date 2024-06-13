@@ -1,24 +1,44 @@
 #include "DrawContext.hpp"
 
-#include <GL/glew.h>
-
 #include <utility>
 
-#include "Batch2D.hpp"
+#ifdef USE_DIRECTX
+#include "../../directx/window/DXDevice.hpp"
+#include "../../directx/graphics/DXFramebuffer.hpp"
+#elif USE_OPENGL
+#include <GL/glew.h>
 #include "Framebuffer.hpp"
+#endif // USE_DIRECTX
+
+#include "Batch2D.hpp"
 #include "../../window/Window.hpp"
 
 static void set_blend_mode(BlendMode mode) {
     switch (mode) {
-        case BlendMode::normal:
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            break;
-        case BlendMode::addition:
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-            break;
-        case BlendMode::inversion:
-            glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-            break;
+#ifdef USE_DIRECTX
+    case BlendMode::normal:
+        DXDevice::setBlendFunc(D3D11_BLEND::D3D11_BLEND_SRC_ALPHA, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
+            D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD);
+        break;
+    case BlendMode::addition:
+        DXDevice::setBlendFunc(D3D11_BLEND::D3D11_BLEND_SRC_ALPHA, D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
+            D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD);
+        break;
+    case BlendMode::inversion:
+        DXDevice::setBlendFunc(D3D11_BLEND::D3D11_BLEND_INV_DEST_COLOR, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
+            D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD);
+        break;
+#elif USE_OPENGL
+    case BlendMode::normal:
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        break;
+    case BlendMode::addition:
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        break;
+    case BlendMode::inversion:
+        glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+        break;
+#endif // USE_DIRECTX
     }
 }
 
@@ -60,15 +80,27 @@ DrawContext::~DrawContext() {
     );
 
     if (depthMask != parent->depthMask) {
+#ifdef USE_DIRECTX
+        DXDevice::setWriteDepthEnabled(parent->depthMask);
+#elif USE_OPENGL
         glDepthMask(parent->depthMask);
+#endif // USE_DIRECTX
     }
     if (depthTest != parent->depthTest) {
+#ifdef USE_DIRECTX
+        DXDevice::setDepthTest(!depthTest);
+#elif USE_OPENGL
         if (depthTest) glDisable(GL_DEPTH_TEST);
         else glEnable(GL_DEPTH_TEST);
+#endif // USE_DIRECTX
     }
     if (cullFace != parent->cullFace) {
+#ifdef USE_DIRECTX
+        DXDevice::setCullFace(!cullFace);
+#elif USE_OPENGL
         if (cullFace) glDisable(GL_CULL_FACE);
         else glEnable(GL_CULL_FACE);
+#endif // USE_DIRECTX
     }
     if (blendMode != parent->blendMode) {
         set_blend_mode(parent->blendMode);
@@ -112,29 +144,43 @@ void DrawContext::setDepthMask(bool flag) {
     if (depthMask == flag)
         return;
     depthMask = flag;
+#ifdef USE_DIRECTX
+    DXDevice::setWriteDepthEnabled(flag);
+#elif USE_OPENGL
     glDepthMask(GL_FALSE + flag);
+#endif // USE_DIRECTX
 }
 
 void DrawContext::setDepthTest(bool flag) {
     if (depthTest == flag)
         return;
     depthTest = flag;
-    if (flag) {
-        glEnable(GL_DEPTH_TEST);
-    } else {
-        glDisable(GL_DEPTH_TEST);
-    }
+#ifdef USE_DIRECTX
+	DXDevice::setDepthTest(depthTest);
+#elif USE_OPENGL
+	if (depthTest) {
+		glEnable(GL_DEPTH_TEST);
+	}
+	else {
+		glDisable(GL_DEPTH_TEST);
+	}
+#endif // USE_DIRECTX
 }
 
 void DrawContext::setCullFace(bool flag) {
     if (cullFace == flag)
         return;
     cullFace = flag;
-    if (flag) {
-        glEnable(GL_CULL_FACE);
-    } else {
-        glDisable(GL_CULL_FACE);
-    }
+#ifdef USE_DIRECTX
+	DXDevice::setCullFace(cullFace);
+#elif USE_OPENGL
+	if (cullFace) {
+		glEnable(GL_CULL_FACE);
+	}
+	else {
+		glDisable(GL_CULL_FACE);
+	}
+#endif // USE_DIRECTX
 }
 
 void DrawContext::setBlendMode(BlendMode mode) {
@@ -142,6 +188,7 @@ void DrawContext::setBlendMode(BlendMode mode) {
         return;
     blendMode = mode;
     set_blend_mode(mode);
+
 }
 
 void DrawContext::setScissors(glm::vec4 area) {

@@ -3,7 +3,6 @@
 #include "../debug/Logger.hpp"
 #include "../util/stringutil.hpp"
 
-#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <string.h>
 

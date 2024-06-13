@@ -1,9 +1,14 @@
 #include "Batch3D.hpp"
 
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXMesh.hpp"
+#include "../../directx/graphics/DXTexture.hpp"
+#elif USE_OPENGL
 #include "Mesh.hpp"
 #include "Texture.hpp"
-
 #include <GL/glew.h>
+#endif // USE_DIRECTX
+
 #include "../../typedefs.hpp"
 
 inline constexpr uint B3D_VERTEX_SIZE = 9;
@@ -251,13 +256,19 @@ void Batch3D::point(glm::vec3 coord, glm::vec4 tint) {
 }
 
 void Batch3D::flush() {
+    if (index == 0) return;
     mesh->reload(buffer.get(), index / B3D_VERTEX_SIZE);
     mesh->draw();
     index = 0;
 }
 
 void Batch3D::flushPoints() {
+    if (index == 0) return;
     mesh->reload(buffer.get(), index / B3D_VERTEX_SIZE);
+#ifdef USE_DIRECTX
+    mesh->draw(D3D_PRIMITIVE_TOPOLOGY::D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+#elif USE_OPENGL
     mesh->draw(GL_POINTS);
+#endif // USE_DIRECTX
     index = 0;
 }

@@ -8,11 +8,12 @@
 #include <glm\gtc\type_ptr.hpp>
 #include <iostream>
 
-ConstantBuffer::ConstantBuffer(UINT size, unsigned int shaderType) :
-	m_size(size),
+ConstantBuffer::ConstantBuffer(const ConstantBufferData& data) :
+	m_bufferVars(std::move(data.bufferVars)),
+	m_size(data.size),
+	m_shaderType(data.shaderType),
 	m_hasChanges(false),
-	m_p_data(new unsigned char[size]),
-	m_shaderType(shaderType),
+	m_p_data(new unsigned char[data.size]),
 	m_p_buffer(nullptr)
 {
 	auto device = DXDevice::getDevice();
@@ -22,14 +23,13 @@ ConstantBuffer::ConstantBuffer(UINT size, unsigned int shaderType) :
 	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	desc.MiscFlags = 0;
-	desc.ByteWidth = static_cast<UINT>(size + (16 - size % 16));
+	desc.ByteWidth = static_cast<UINT>(m_size + (16 - m_size % 16));
 	desc.StructureByteStride = 0;
 
 	CHECK_ERROR2(device->CreateBuffer(&desc, 0, &m_p_buffer),
 		L"Failed to create constant buffer");
-#ifdef _DEBUG
-	SetDebugObjectName(m_p_buffer, "ConstantBuffer");
-#endif // _DEBUG
+
+	SET_DEBUG_OBJECT_NAME(m_p_buffer, "Constant Buffer")
 
 	memset(m_p_data, 0, m_size);
 }
@@ -37,10 +37,6 @@ ConstantBuffer::ConstantBuffer(UINT size, unsigned int shaderType) :
 ConstantBuffer::~ConstantBuffer() {
 	m_p_buffer->Release();
 	delete[] m_p_data;
-}
-
-void ConstantBuffer::addVariable(const std::string& name, const ConstantBufferVariable& variable) {
-	m_bufferVars.emplace(name, variable);
 }
 
 void ConstantBuffer::uniformMatrix(const std::string_view& name, const DirectX::XMFLOAT4X4& matrix) {
@@ -54,6 +50,10 @@ void ConstantBuffer::uniformMatrix(const std::string_view& name, const glm::mat4
 
 void ConstantBuffer::uniform1i(const std::string_view& name, int x) {
 	modifyVariable(name, &x);
+}
+
+void ConstantBuffer::uniform2i(const std::string_view& name, glm::ivec2 xy) {
+	modifyVariable(name, glm::value_ptr(xy));
 }
 
 void ConstantBuffer::uniform1f(const std::string_view& name, float x) {
@@ -87,7 +87,9 @@ void ConstantBuffer::uniform3f(const std::string_view& name, const glm::vec3& xy
 void ConstantBuffer::modifyVariable(const std::string_view& name, const void* src) {
 	auto item = m_bufferVars.find(name.data());
 	if (item == m_bufferVars.end()) {
+#ifdef _DEBUG
 		std::cout << __FUNCTION__ << "(); Unknown variable name: " << name << std::endl;
+#endif // _DEBUG
 		return;
 	}
 	ConstantBufferVariable& var = item->second;

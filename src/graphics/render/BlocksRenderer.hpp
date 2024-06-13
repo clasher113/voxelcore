@@ -18,12 +18,19 @@ class ContentGfxCache;
 struct EngineSettings;
 struct UVRegion;
 
+#ifdef USE_DIRECTX
+typedef unsigned long index_t;
+#elif USE_OPENGL
+typedef int index_t;
+#endif // USE_DIRECTX
+
+
 class BlocksRenderer {
     static const glm::vec3 SUN_VECTOR;
     static const uint VERTEX_SIZE;
     const Content* const content;
     float* vertexBuffer;
-    int* indexBuffer;
+    index_t* indexBuffer;
     size_t vertexOffset;
     size_t indexOffset, indexSize;
     size_t capacity;

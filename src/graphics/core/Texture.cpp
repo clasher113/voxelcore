@@ -1,3 +1,4 @@
+#ifdef USE_OPENGL
 #include "Texture.hpp"
 #include "gl_util.hpp"
 
@@ -81,3 +82,5 @@ uint Texture::getHeight() const {
 uint Texture::getId() const {
     return id;
 }
+
+#endif // USE_OPENGL

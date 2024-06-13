@@ -6,16 +6,18 @@ class ConstantBuffer;
 struct ID3D11GeometryShader;
 
 class DXLine {
-public:
+private:
+	friend class DXDevice;
 	static void initialize();
 	static void terminate();
+public:
 	static void setWidth(float width);
 
 	static void draw(Mesh* mesh);
 private:
-	static float m_width;
-	static ID3D11GeometryShader* s_m_p_geometryShader;
-	static ConstantBuffer* s_m_p_cbLineWidth;
+	static inline float m_width = 1.f;
+	static inline ID3D11GeometryShader* s_m_p_geometryShader = nullptr;
+	static inline ConstantBuffer* s_m_p_cbLineWidth = nullptr;
 };
 
 #endif // !DX_LINE_HPP

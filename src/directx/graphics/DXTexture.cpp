@@ -2,11 +2,13 @@
 #include "DXTexture.hpp"
 #include "../window/DXDevice.hpp"
 #include "../util/DXError.hpp"
-#include "../../graphics/ImageData.h"
+#include "../../graphics/core/ImageData.hpp"
 #include "../util/DebugUtil.hpp"
+#include "../util/TextureUtil.hpp"
 
 #include <stdexcept>
 
+uint Texture::MAX_RESOLUTION = 8192;
 constexpr UINT MAX_MIP_LEVEL = 3u;
 
 static UINT GetNumMipLevels(UINT width, UINT height) {
@@ -29,22 +31,21 @@ Texture::Texture(ID3D11Texture2D* texture) :
 
     m_p_texture->GetDesc(&m_description);
 
-    auto context = DXDevice::getContext();
-    context->GenerateMips(m_p_resourceView);
-
-#ifdef _DEBUG
-    SetDebugObjectName(m_p_texture, "Texture");
-    SetDebugObjectName(m_p_resourceView, "Resource View");
-#endif // _DEBUG
+    if (m_description.MiscFlags & D3D11_RESOURCE_MISC_GENERATE_MIPS) {
+        auto context = DXDevice::getContext();
+        context->GenerateMips(m_p_resourceView);
+    }
+    SET_DEBUG_OBJECT_NAME(m_p_texture, "Texture 2D");
+    SET_DEBUG_OBJECT_NAME(m_p_resourceView, "Resource View");
 }
 
-Texture::Texture(ubyte* data, UINT width, UINT height, DXGI_FORMAT format) {
+Texture::Texture(ubyte* data, uint width, uint height, ImageFormat format) {
     ZeroMemory(&m_description, sizeof(D3D11_TEXTURE2D_DESC));
     m_description.Width = width;
     m_description.Height = height;
     m_description.MipLevels = 0;
     m_description.ArraySize = 1;
-    m_description.Format = format;
+    m_description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     m_description.SampleDesc.Count = 1;
     m_description.SampleDesc.Quality = 0;
     m_description.CPUAccessFlags = 0;
@@ -72,15 +73,17 @@ Texture::Texture(ubyte* data, UINT width, UINT height, DXGI_FORMAT format) {
 
     context->GenerateMips(m_p_resourceView);
 
-#ifdef _DEBUG
-    SetDebugObjectName(m_p_texture, "Texture");
-    SetDebugObjectName(m_p_resourceView, "Resource View");
-#endif // _DEBUG
+    SET_DEBUG_OBJECT_NAME(m_p_texture, "Texture 2D");
+    SET_DEBUG_OBJECT_NAME(m_p_resourceView, "Resource View");
 }
 
 Texture::~Texture() {
     m_p_texture->Release();
     m_p_resourceView->Release();
+}
+
+void Texture::setNearestFilter() {
+
 }
 
 void Texture::bind(unsigned int shaderType, UINT startSlot) const {
@@ -95,18 +98,30 @@ void Texture::reload(ubyte* data) {
     context->UpdateSubresource(m_p_texture, 0u, nullptr, data, m_description.Width * (m_description.Format == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 3), 0u);
 }
 
-Texture* Texture::from(const ImageData* image) {
+std::unique_ptr<ImageData> Texture::readData() {
+    auto data = std::make_unique<ubyte[]>(m_description.Width * m_description.Height * 4);
+    ID3D11Texture2D* staged = nullptr;
+    TextureUtil::stageTexture(m_p_texture, &staged);
+    TextureUtil::readPixels(staged, data.get());
+    staged->Release();
+    return std::make_unique<ImageData>(
+        ImageFormat::rgba8888, m_description.Width, m_description.Height, data.release()
+    );
+}
+
+ID3D11Texture2D* Texture::getId() const {
+    return m_p_texture;
+}
+
+ID3D11ShaderResourceView* Texture::getResourceView() const {
+    return m_p_resourceView;
+}
+
+std::unique_ptr<Texture> Texture::from(const ImageData* image) {
     uint width = image->getWidth();
     uint height = image->getHeight();
-    DXGI_FORMAT format;
     const void* data = image->getData();
-    switch (image->getFormat()) {
-        case ImageFormat::rgb888: format = DXGI_FORMAT_D24_UNORM_S8_UINT; break; // TODO convert to rgba
-        case ImageFormat::rgba8888: format = DXGI_FORMAT_R8G8B8A8_UNORM; break;
-    default:
-        throw std::runtime_error("unsupported image data format");
-    }
-    return new Texture((ubyte*)data, width, height, format);
+    return std::make_unique<Texture>((ubyte*)data, width, height, image->getFormat());
 }
 
 #endif // USE_DIRECTX

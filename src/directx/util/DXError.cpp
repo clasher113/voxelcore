@@ -1,7 +1,7 @@
 #ifdef USE_DIRECTX
 #include "DXError.hpp"
 #include "../window/DXDevice.hpp"
-#include "../../util/stringutil.h"
+#include "../../util/stringutil.hpp"
 
 #include <comdef.h>
 

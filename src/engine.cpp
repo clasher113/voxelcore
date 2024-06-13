@@ -240,7 +240,9 @@ PacksManager Engine::createPacksManager(const fs::path& worldFolder) {
 
 void Engine::loadAssets() {
     logger.info() << "loading assets";
+#ifdef USE_OPENGL
     Shader::preprocessor->setPaths(resPaths.get());
+#endif // USE_OPEMGL
 
     auto new_assets = std::make_unique<Assets>();
     AssetsLoader loader(new_assets.get(), resPaths.get());

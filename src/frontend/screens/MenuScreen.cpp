@@ -3,12 +3,18 @@
 #include "../../graphics/ui/GUI.hpp"
 #include "../../graphics/ui/elements/Menu.hpp"
 #include "../../graphics/core/Batch2D.hpp"
-#include "../../graphics/core/Shader.hpp"
-#include "../../graphics/core/Texture.hpp"
 #include "../../maths/UVRegion.hpp"
 #include "../../window/Window.hpp"
 #include "../../window/Camera.hpp"
 #include "../../engine.hpp"
+
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXShader.hpp"
+#include "../../directx/graphics/DXTexture.hpp"
+#elif USE_OPENGL
+#include "../../graphics/core/Shader.hpp"
+#include "../../graphics/core/Texture.hpp"
+#endif // USE_DIRECTX
 
 MenuScreen::MenuScreen(Engine* engine) : Screen(engine) {
     engine->resetContent();
@@ -36,8 +42,8 @@ void MenuScreen::draw(float delta) {
 
     uicamera->setFov(Window::height);
     Shader* uishader = assets->getShader("ui");
-    uishader->use();
     uishader->uniformMatrix("u_projview", uicamera->getProjView());
+    uishader->use();
 
     uint width = Window::width;
     uint height = Window::height;

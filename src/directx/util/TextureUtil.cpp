@@ -1,6 +1,8 @@
 #ifdef USE_DIRECTX
 #include "TextureUtil.hpp"
+
 #include "../window/DXDevice.hpp"
+#include "../../graphics/core/ImageData.hpp"
 
 HRESULT TextureUtil::stageTexture(ID3D11Texture2D* src, ID3D11Texture2D** dst) {
 	auto device = DXDevice::getDevice();
@@ -23,7 +25,7 @@ HRESULT TextureUtil::stageTexture(ID3D11Texture2D* src, ID3D11Texture2D** dst) {
 	return S_OK;
 }
 
-HRESULT TextureUtil::readPixels(ID3D11Texture2D* src, void* dst) {
+HRESULT TextureUtil::readPixels(ID3D11Texture2D* src, void* dst, bool flipY) {
 	auto context = DXDevice::getContext();
 
 	D3D11_MAPPED_SUBRESOURCE resourceDesc{};
@@ -35,22 +37,29 @@ HRESULT TextureUtil::readPixels(ID3D11Texture2D* src, void* dst) {
 	if (FAILED(hr)) return hr;
 
 	unsigned int rowPitch = textureDesc.Width * 4;
-	unsigned int location = 0;
 
-	if (rowPitch == resourceDesc.RowPitch) {
+	if (rowPitch == resourceDesc.RowPitch && !flipY) {
 		memcpy(dst, resourceDesc.pData, textureDesc.Width * textureDesc.Height * 4);
 	}
 	else {
 		const unsigned char* source = static_cast<const unsigned char*>(resourceDesc.pData);
 		unsigned char* dest = static_cast<unsigned char*>(dst);
+		unsigned int location = (flipY ? (textureDesc.Height - 1) * resourceDesc.RowPitch : 0);
 		for (int i = 0; i < textureDesc.Height; ++i) {
 			memcpy(&dest[i * (textureDesc.Width * 4)], &source[location], textureDesc.Width * 4);
-			location += resourceDesc.RowPitch;
+			location += resourceDesc.RowPitch * (flipY ? -1 : 1);
 		}
 	}
 	context->Unmap(src, 0);
 
 	return S_OK;
+}
+
+DXGI_FORMAT TextureUtil::toDXFormat(ImageFormat format) {
+	//switch (format) {
+	//case ImageFormat::rgb888:
+	//}
+	return DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
 }
 
 #endif // USE_DIRECTX

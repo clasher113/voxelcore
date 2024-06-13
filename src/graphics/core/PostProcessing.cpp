@@ -1,19 +1,30 @@
 #include "PostProcessing.hpp"
+
+#include "Viewport.hpp"
+#include "DrawContext.hpp"
+
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXMesh.hpp"
+#include "../../directx/graphics/DXShader.hpp"
+#include "../../directx/graphics/DXTexture.hpp"
+#include "../../directx/graphics/DXFramebuffer.hpp"
+#elif USE_OPENGL
 #include "Mesh.hpp"
 #include "Shader.hpp"
 #include "Texture.hpp"
 #include "Framebuffer.hpp"
-#include "Viewport.hpp"
-#include "DrawContext.hpp"
+#endif // USE_DIRECTX
 
 #include <stdexcept>
 
 PostProcessing::PostProcessing() {
     // Fullscreen quad mesh bulding
-    float vertices[] {
-        -1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f,
-        -1.0f, -1.0f,  1.0f, 1.0f, 1.0f, -1.0f
+
+    float vertices[]{
+        -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f,
     };
+
     vattr attrs[] {{2}, {0}};
     quadMesh = std::make_unique<Mesh>(vertices, 6, attrs);
 }

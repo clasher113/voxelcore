@@ -3,7 +3,7 @@
 #define NOMINMAX
 
 #include <d3dcommon.h>
-#include "../../typedefs.h"
+#include "../../typedefs.hpp"
 
 struct ID3D11Buffer;
 

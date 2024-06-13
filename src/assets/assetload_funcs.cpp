@@ -10,13 +10,19 @@
 #include "../coders/imageio.hpp"
 #include "../coders/json.hpp"
 #include "../coders/GLSLExtension.hpp"
-#include "../graphics/core/Shader.hpp"
-#include "../graphics/core/Texture.hpp"
 #include "../graphics/core/ImageData.hpp"
 #include "../graphics/core/Atlas.hpp"
 #include "../graphics/core/Font.hpp"
 #include "../graphics/core/TextureAnimation.hpp"
 #include "../frontend/UiDocument.hpp"
+
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXShader.hpp"
+#include "../directx/graphics/DXTexture.hpp"
+#elif USE_OPENGL
+#include "../graphics/core/Shader.hpp"
+#include "../graphics/core/Texture.hpp"
+#endif // USE_DIRECTX
 
 #include <iostream>
 #include <stdexcept>
@@ -55,6 +61,13 @@ assetload::postfunc assetload::shader(
     const std::string& name,
     const std::shared_ptr<AssetCfg>&
 ) {
+#ifdef USE_DIRECTX
+    fs::path shaderfile = paths->find(filename + ".hlsl");
+
+    return [=](auto assets) {
+        assets->store(Shader::loadShader(shaderfile.wstring()), name);
+    };
+#elif USE_OPENGL
     fs::path vertexFile = paths->find(filename+".glslv");
     fs::path fragmentFile = paths->find(filename+".glslf");
 
@@ -71,6 +84,7 @@ assetload::postfunc assetload::shader(
             vertexSource, fragmentSource
         ), name);
     };
+#endif // USE_DIRECTX
 }
 
 static bool append_atlas(AtlasBuilder& atlas, const fs::path& file) {
@@ -235,8 +249,10 @@ static TextureAnimation create_animation(
     uint srcWidth = srcTex->getWidth();
     uint srcHeight = srcTex->getHeight();
 
-    frame.dstPos = glm::ivec2(region.u1 * dstWidth, region.v1 * dstHeight);
-    frame.size = glm::ivec2(region.u2 * dstWidth, region.v2 * dstHeight) - frame.dstPos;
+    const int extension = 2;
+
+    frame.dstPos = glm::ivec2(region.u1 * dstWidth, region.v1 * dstHeight) - extension;
+    frame.size = glm::ivec2(region.u2 * dstWidth, region.v2 * dstHeight) - frame.dstPos + extension;
 
     for (const auto& elem : frameList) {
         if (!srcAtlas->has(elem.first)) {
@@ -247,7 +263,7 @@ static TextureAnimation create_animation(
         if (elem.second > 0) {
             frame.duration = static_cast<float>(elem.second) / 1000.0f;
         }
-        frame.srcPos = glm::ivec2(region.u1 * srcWidth, srcHeight - region.v2 * srcHeight);
+        frame.srcPos = glm::ivec2(region.u1 * srcWidth, srcHeight - region.v2 * srcHeight) - extension;
         animation.addFrame(frame);
     }
     return animation;

@@ -5,12 +5,12 @@
 #include "../util/DebugUtil.hpp"
 #include "../util/InputLayoutBuilder.hpp"
 #include "../util/ConstantBufferBuilder.hpp"
-#include "../../util/stringutil.h"
+#include "../../util/stringutil.hpp"
 
 #include <d3dcompiler.h>
 
-Shader::Shader(ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout, ConstantBuffer* cBuffer) :
-	ConstantBuffer(*cBuffer),
+Shader::Shader(ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout, const ConstantBufferData& cbuffData) :
+	ConstantBuffer(cbuffData),
 	m_p_vertexShader(vertexShader),
 	m_p_pixelShader(pixelShader),
 	m_p_inputLayout(inputLayout)
@@ -73,7 +73,7 @@ void Shader::compileShader(const std::wstring_view& shaderFile, ID3D10Blob** sha
 	}
 }
 
-Shader* Shader::loadShader(const std::wstring_view& shaderFile) {
+std::unique_ptr<Shader> Shader::loadShader(const std::wstring_view& shaderFile) {
 	ID3D10Blob* VS, * PS;
 
 	compileShader(shaderFile, &VS, ShaderType::VERTEX);
@@ -89,20 +89,18 @@ Shader* Shader::loadShader(const std::wstring_view& shaderFile) {
 	CHECK_ERROR2(device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &pPS),
 		L"Failed to create pixel shader:\n" + std::wstring(shaderFile));
 
-	ConstantBufferBuilder::build(VS, ShaderType::VERTEX);
-	ConstantBufferBuilder::build(PS, ShaderType::PIXEL);
-	ConstantBuffer* cBuff = ConstantBufferBuilder::create();
+	ConstantBufferBuilder cbuffBuilder;
+	cbuffBuilder.build(VS, ShaderType::VERTEX);
+	cbuffBuilder.build(PS, ShaderType::PIXEL);
 
 	ID3D11InputLayout* pLayout;
 	CHECK_ERROR2(InputLayoutBuilder::create(device, VS, &pLayout),
 		L"Failed to create input layout for shader:\n" + std::wstring(shaderFile));
 
-	ConstantBufferBuilder::clear();
-
 	VS->Release();
 	PS->Release();
 
-	return new Shader(pVS, pPS, pLayout, cBuff);
+	return std::make_unique<Shader>(pVS, pPS, pLayout, cbuffBuilder.getData());
 }
 
 #endif // USE_DIRECTX

@@ -1,7 +1,12 @@
 #include "LineBatch.hpp"
-#include "Mesh.hpp"
 
+#ifdef USE_DIRECTX
+#include "../../directx/graphics/DXLine.hpp"
+#include "../../directx/graphics/DXMesh.hpp"
+#elif USE_OPENGL
+#include "Mesh.hpp"
 #include <GL/glew.h>
+#endif // USE_DIRECTX
 
 inline constexpr uint LB_VERTEX_SIZE = (3+4);
 
@@ -70,10 +75,18 @@ void LineBatch::render(){
     if (index == 0)
         return;
     mesh->reload(buffer, index / LB_VERTEX_SIZE);
+#ifdef USE_DIRECTX
+    DXLine::draw(mesh.get());
+#elif USE_OPENGL
     mesh->draw(GL_LINES);
+#endif // USE_DIRECTX
     index = 0;
 }
 
 void LineBatch::lineWidth(float width) {
+#ifdef USE_DIRECTX
+    DXLine::setWidth(width);
+#elif USE_OPENGL
     glLineWidth(width);
+#endif // USE_DIRECTX
 }
