@@ -5,10 +5,11 @@
 #include <d3dcompiler.h>
 #include <vector>
 
-HRESULT InputLayoutBuilder::create(ID3D11Device1* device, ID3D10Blob* shader, ID3D11InputLayout** inputLayout) {
+HRESULT InputLayoutBuilder::create(ID3D11Device* device, ID3D10Blob* shader, ID3D11InputLayout** inputLayout) {
 	std::vector<D3D11_INPUT_ELEMENT_DESC> elements;
 	ID3D11ShaderReflection* pReflector;
 	CHECK_ERROR1(D3DReflect(shader->GetBufferPointer(), shader->GetBufferSize(), IID_PPV_ARGS(&pReflector)));
+
 	D3D11_SHADER_DESC shaderDesc;
 	CHECK_ERROR1(pReflector->GetDesc(&shaderDesc));
 

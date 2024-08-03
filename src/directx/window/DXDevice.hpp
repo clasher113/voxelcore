@@ -7,6 +7,8 @@
 #include <DirectXColors.h>
 #undef DELETE
 
+class AdapterData;
+
 class DXDevice {
 public:
 	static void initialize(HWND window, UINT windowWidth, UINT windowHeight);
@@ -33,24 +35,25 @@ public:
 	static void resetRenderTarget();
 
 	static const HWND getWindowHandle() { return s_m_windowHandle; }
-	static ID3D11Device1* getDevice() { return s_m_device.Get(); };
-	static ID3D11DeviceContext1* getContext() { return s_m_context.Get(); };
+	static ID3D11Device* getDevice() { return s_m_device.Get(); };
+	static ID3D11DeviceContext* getContext() { return s_m_context.Get(); };
 	static Microsoft::WRL::ComPtr<ID3D11Texture2D> getSurface();
-	static DXGI_ADAPTER_DESC getAdapterDesc();
+	static const AdapterData& getAdapterData();
 private:
+	static inline bool s_m_initialized = false;
 	static inline UINT s_m_swapInterval = 1;
 	static inline HWND s_m_windowHandle = 0;
 	static inline UINT s_m_windowWidth = 0, s_m_windowHeight = 0;
 	static inline DirectX::XMVECTORF32 s_m_clearColor = DirectX::Colors::CornflowerBlue;
 
 	static inline D3D_FEATURE_LEVEL									s_m_featureLevel = D3D_FEATURE_LEVEL_9_1;
-	static inline DXGI_ADAPTER_DESC									s_m_adapterDesc;
+	static inline const AdapterData*								s_m_p_adapterData = nullptr;
 	static inline D3D11_RASTERIZER_DESC								s_m_rasterizerStateDesc;
 	static inline D3D11_DEPTH_STENCIL_DESC							s_m_depthStencilStateDesc;
 	static inline D3D11_RENDER_TARGET_BLEND_DESC					s_m_renderTargetBlendDesc;
-	static inline Microsoft::WRL::ComPtr<ID3D11Device1>				s_m_device = nullptr;
-	static inline Microsoft::WRL::ComPtr<ID3D11DeviceContext1>		s_m_context = nullptr;
-	static inline Microsoft::WRL::ComPtr<IDXGISwapChain1>			s_m_swapChain = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11Device>				s_m_device = nullptr;
+	static inline Microsoft::WRL::ComPtr<ID3D11DeviceContext>		s_m_context = nullptr;
+	static inline Microsoft::WRL::ComPtr<IDXGISwapChain>			s_m_swapChain = nullptr;
 #ifdef _DEBUG
 	static inline Microsoft::WRL::ComPtr<ID3D11Debug>				s_m_debug = nullptr;
 #endif // _DEBUG

@@ -8,8 +8,8 @@
 
 #include <stdexcept>
 
-uint Texture::MAX_RESOLUTION = 8192;
-constexpr UINT MAX_MIP_LEVEL = 3u;
+uint Texture::MAX_RESOLUTION = 16384;
+constexpr UINT MAX_MIP_LEVEL = 3U;
 
 static UINT GetNumMipLevels(UINT width, UINT height) {
     UINT numLevels = 1;

@@ -15,11 +15,9 @@ Shader::Shader(ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader,
 	m_p_pixelShader(pixelShader),
 	m_p_inputLayout(inputLayout)
 {
-#ifdef _DEBUG
-	SetDebugObjectName(m_p_vertexShader, "Vertex Shader");
-	SetDebugObjectName(m_p_pixelShader, "Pixel Shader");
-	SetDebugObjectName(m_p_inputLayout, "Input Layout");
-#endif // _DEBUG
+	SET_DEBUG_OBJECT_NAME(m_p_vertexShader, "Vertex Shader");
+	SET_DEBUG_OBJECT_NAME(m_p_pixelShader, "Pixel Shader");
+	SET_DEBUG_OBJECT_NAME(m_p_inputLayout, "Input Layout");
 }
 
 Shader::~Shader() {

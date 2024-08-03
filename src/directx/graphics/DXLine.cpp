@@ -8,10 +8,13 @@
 #include "DXShader.hpp"
 
 #include <d3dcommon.h>
+#include <iostream>
 
-void DXLine::initialize() {
-	auto device = DXDevice::getDevice();
-
+void DXLine::initialize(ID3D11Device* device) {
+	if (s_m_initialized) {
+		std::cout << "DXLine already initialized" << std::endl;
+		return;
+	}
 	ID3D10Blob* GS;
 
 	Shader::compileShader(L"res\\dx-shaders\\lines.hlsl", &GS, ShaderType::GEOMETRY);
@@ -24,16 +27,22 @@ void DXLine::initialize() {
 	GS->Release();
 
 	s_m_p_cbLineWidth = new ConstantBuffer(cbuffBuilder.getData());
+	s_m_initialized = true;
 }
 
 void DXLine::terminate() {
+	if (!s_m_initialized) {
+		std::cout << "DXLine not initialized" << std::endl;
+		return;
+	}
 	s_m_p_geometryShader->Release();
 	delete s_m_p_cbLineWidth;
+	s_m_initialized = false;
 }
 
 void DXLine::setWidth(float width) {
-	if (m_width == width) return;
-	m_width = width;
+	if (s_m_width == width) return;
+	s_m_width = width;
 
 	s_m_p_cbLineWidth->uniform1f("c_lineWidth", width);
 }

@@ -13,7 +13,8 @@ Mesh::Mesh(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer,
 	m_vertices(vertices),
 	m_indices(indices),
 	m_p_vertexBuffer(nullptr),
-	m_p_indexBuffer(nullptr)
+	m_p_indexBuffer(nullptr),
+	m_stride(0)
 {
 	for (int i = 0; attrs[i].size; i++) {
 		m_vertexSize += attrs[i].size;
@@ -38,6 +39,7 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 	auto device = DXDevice::getDevice();
 
 	m_vertices = vertices;
+	m_stride = sizeof(float) * m_vertexSize;
 
 	D3D11_BUFFER_DESC bufferDesc;
 	ZeroMemory(&bufferDesc, sizeof(bufferDesc));
@@ -53,32 +55,31 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 
 	CHECK_ERROR2(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_vertexBuffer),
 		L"Failed to create vertex buffer");
-#ifdef _DEBUG
-	SetDebugObjectName(m_p_vertexBuffer, "Vertex Buffer");
-#endif // _DEBUG
+
+	SET_DEBUG_OBJECT_NAME(m_p_vertexBuffer, "Vertex buffer");
 
 	if (indexBuffer != nullptr && indices > 0) {
 		m_indices = indices;
 
 		bufferDesc.ByteWidth = sizeof(DWORD) * indices;
 		bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
 		bufferData.pSysMem = indexBuffer;
 
 		CHECK_ERROR2(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_indexBuffer),
 			L"Failed to create index buffer");
-#ifdef _DEBUG
-		SetDebugObjectName(m_p_indexBuffer, "Index Buffer");
-#endif // _DEBUG
+
+		SET_DEBUG_OBJECT_NAME(m_p_indexBuffer, "Index buffer");
 	}
 }
 
 void Mesh::draw(D3D_PRIMITIVE_TOPOLOGY primitive) {
-	UINT stride = sizeof(float) * m_vertexSize;
-	UINT offset = 0;
 	auto context = DXDevice::getContext();
-	context->IASetPrimitiveTopology(primitive);
 
-	context->IASetVertexBuffers(0, 1, &m_p_vertexBuffer, &stride, &offset);
+	UINT offset = 0;
+
+	context->IASetPrimitiveTopology(primitive);
+	context->IASetVertexBuffers(0, 1, &m_p_vertexBuffer, &m_stride, &offset);
 	if (m_p_indexBuffer == nullptr) {
 		context->Draw(m_vertices, 0);
 	}

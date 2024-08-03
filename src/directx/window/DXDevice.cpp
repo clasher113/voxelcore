@@ -6,7 +6,16 @@
 
 #include <iostream>
 
+#pragma comment (lib, "D3DCompiler.lib")
+#pragma comment (lib, "DXGI.lib")
+#pragma comment (lib, "d3d11.lib")
+#pragma comment (lib, "dxguid.lib")
+
 void DXDevice::initialize(HWND window, UINT windowWidth, UINT windowHeight) {
+	if (s_m_initialized) {
+		std::cout << "DXDevice already initialized" << std::endl;
+		return;
+	}
 	s_m_windowHandle = window;
 	s_m_windowWidth = windowWidth;
 	s_m_windowHeight = windowHeight;
@@ -15,10 +24,15 @@ void DXDevice::initialize(HWND window, UINT windowWidth, UINT windowHeight) {
 	createSwapChain();
 	createResources();
 	resizeViewPort(0.f, 0.f, windowWidth, windowHeight);
-	DXLine::initialize();
+	DXLine::initialize(s_m_device.Get());
+	s_m_initialized = true;
 }
 
 void DXDevice::terminate() {
+	if (!s_m_initialized) {
+		std::cout << "DXDevice not initialized" << std::endl;
+		return;
+	}
 	DXLine::terminate();
 
 	s_m_swapChain.Reset();
@@ -37,6 +51,7 @@ void DXDevice::terminate() {
 		"Cant get live objects", false);
 	s_m_debug.Reset();
 #endif // _DEBUG
+	s_m_initialized = false;
 }
 
 void DXDevice::createDevice() {
@@ -58,36 +73,32 @@ void DXDevice::createDevice() {
 		D3D_FEATURE_LEVEL_9_1,
 	};
 
-	auto adapters = AdapterReader::GetAdapters();
-	AdapterData* performanceAdapter = nullptr;
-	size_t adapterIndex = 0;
+	const std::vector<AdapterData>& adapters = AdapterReader::GetAdapters();
+	IDXGIAdapter* performanceAdapter = nullptr;
 
-	do {
-		if (performanceAdapter == nullptr) performanceAdapter = &adapters[adapterIndex];
-		else if (performanceAdapter->m_description.DedicatedVideoMemory < adapters[adapterIndex].m_description.DedicatedVideoMemory) {
-			performanceAdapter = &adapters[adapterIndex];
-		}
-		adapterIndex++;
-	} while (adapterIndex < adapters.size());
-
-	Microsoft::WRL::ComPtr<ID3D11Device> device;
-	Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
+	if (!adapters.empty()) {
+		auto it = std::max_element(adapters.begin(), adapters.end(), [](const AdapterData& a, const AdapterData& b) {
+			return a.m_description.DedicatedVideoMemory < b.m_description.DedicatedVideoMemory;
+		});
+		performanceAdapter = it->m_adapter.Get();
+		s_m_p_adapterData = &(*it);
+	}
 
 	CHECK_ERROR2(D3D11CreateDevice(
-		(performanceAdapter == nullptr ? nullptr : performanceAdapter->m_adapter.Get()),
+		performanceAdapter,
 		(performanceAdapter == nullptr ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_UNKNOWN),
 		nullptr,
 		creationFlags,
 		featureLevels,
 		static_cast<UINT>(std::size(featureLevels)),
 		D3D11_SDK_VERSION,
-		device.GetAddressOf(),
+		s_m_device.GetAddressOf(),
 		&s_m_featureLevel,
-		context.GetAddressOf()
+		s_m_context.GetAddressOf()
 	), L"Failed to create D3D11 device");
 
 #ifndef NDEBUG
-	if (SUCCEEDED(device.As(&s_m_debug))) {
+	if (SUCCEEDED(s_m_device.As(&s_m_debug))) {
 		Microsoft::WRL::ComPtr<ID3D11InfoQueue> d3dInfoQueue;
 		if (SUCCEEDED(s_m_debug.As(&d3dInfoQueue))) {
 #ifdef _DEBUG
@@ -105,43 +116,33 @@ void DXDevice::createDevice() {
 		}
 	}
 #endif
-
-	CHECK_ERROR1(device.As(&s_m_device));
-	CHECK_ERROR1(context.As(&s_m_context));
 }
 
 void DXDevice::createSwapChain() {
 	Microsoft::WRL::ComPtr<IDXGIDevice1> dxgiDevice;
-	CHECK_ERROR1(s_m_device.As(&dxgiDevice));
+	CHECK_ERROR1(s_m_device->QueryInterface(IID_PPV_ARGS(dxgiDevice.GetAddressOf())));
 
 	Microsoft::WRL::ComPtr<IDXGIAdapter> dxgiAdapter;
-	CHECK_ERROR1(dxgiDevice->GetAdapter(dxgiAdapter.GetAddressOf()));
+	CHECK_ERROR1(dxgiDevice->GetParent(IID_PPV_ARGS(dxgiAdapter.GetAddressOf())));
 
-	Microsoft::WRL::ComPtr<IDXGIFactory2> dxgiFactory;
+	Microsoft::WRL::ComPtr<IDXGIFactory> dxgiFactory;
 	CHECK_ERROR1(dxgiAdapter->GetParent(IID_PPV_ARGS(dxgiFactory.GetAddressOf())));
 
-	DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
-	swapChainDesc.Width = s_m_windowWidth;
-	swapChainDesc.Height = s_m_windowHeight;
-	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	DXGI_SWAP_CHAIN_DESC swapChainDesc{};
+	swapChainDesc.BufferDesc.Width = s_m_windowWidth;
+	swapChainDesc.BufferDesc.Height = s_m_windowHeight;
+	swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc.SampleDesc.Count = 1;
 	swapChainDesc.SampleDesc.Quality = 0;
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapChainDesc.BufferCount = 2;
+	swapChainDesc.BufferCount = 1;
+	swapChainDesc.OutputWindow = s_m_windowHandle;
+	swapChainDesc.Windowed = TRUE;
 
-	DXGI_SWAP_CHAIN_FULLSCREEN_DESC fsSwapChainDesc{};
-	fsSwapChainDesc.Windowed = TRUE;
+	CHECK_ERROR2(dxgiFactory->CreateSwapChain(s_m_device.Get(), &swapChainDesc, s_m_swapChain.GetAddressOf()),
+		L"Failed to create swapchain");
 
-	CHECK_ERROR1(dxgiFactory->CreateSwapChainForHwnd(
-		s_m_device.Get(),
-		s_m_windowHandle,
-		&swapChainDesc,
-		&fsSwapChainDesc,
-		nullptr,
-		s_m_swapChain.GetAddressOf()
-	));
-
-	CHECK_ERROR1(dxgiFactory->MakeWindowAssociation(s_m_windowHandle, DXGI_MWA_NO_ALT_ENTER));
+	CHECK_ERROR1(dxgiFactory->MakeWindowAssociation(s_m_windowHandle, DXGI_MWA_NO_WINDOW_CHANGES));
 }
 
 void DXDevice::createResources() {
@@ -156,8 +157,8 @@ void DXDevice::createResources() {
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> depthStencil;
 	CHECK_ERROR1(s_m_device->CreateTexture2D(&depthTexDesc, nullptr, depthStencil.GetAddressOf()));
 
-	CHECK_ERROR2(s_m_device->CreateDepthStencilView(depthStencil.Get(), nullptr, s_m_depthStencilView.ReleaseAndGetAddressOf()),
-		L"Failed to create depth stencil view", false);
+	PRINT_ERROR2(s_m_device->CreateDepthStencilView(depthStencil.Get(), nullptr, s_m_depthStencilView.ReleaseAndGetAddressOf()),
+		L"Failed to create depth stencil view");
 
 	resetRenderTarget();
 
@@ -190,8 +191,7 @@ void DXDevice::createResources() {
 
 	s_m_rasterizerStateDesc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
 	s_m_rasterizerStateDesc.CullMode = D3D11_CULL_MODE::D3D11_CULL_FRONT;
-	//s_m_rasterizerStateDesc.AntialiasedLineEnable = true;
-
+	s_m_rasterizerStateDesc.MultisampleEnable = true;
 	updateRasterizerState();
 
 	// create sampler state
@@ -207,16 +207,16 @@ void DXDevice::createResources() {
 	samplerDesc.MinLOD = 0.f;
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-	CHECK_ERROR3(s_m_device->CreateSamplerState(&samplerDesc, s_m_samplerState.ReleaseAndGetAddressOf()),
-		L"Failed to create sampler", false);
+	PRINT_ERROR2(s_m_device->CreateSamplerState(&samplerDesc, s_m_samplerState.ReleaseAndGetAddressOf()),
+		L"Failed to create sampler");
 
 	s_m_context->VSSetSamplers(0, 1, s_m_samplerState.GetAddressOf());
 	s_m_context->PSSetSamplers(0, 1, s_m_samplerState.GetAddressOf());
 
 	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
 
-	CHECK_ERROR3(s_m_device->CreateSamplerState(&samplerDesc, s_m_samplerStateLinear.ReleaseAndGetAddressOf()),
-		L"Failed to create sampler", false);
+	PRINT_ERROR2(s_m_device->CreateSamplerState(&samplerDesc, s_m_samplerStateLinear.ReleaseAndGetAddressOf()),
+		L"Failed to create sampler");
 
 	s_m_context->VSSetSamplers(1, 1, s_m_samplerStateLinear.GetAddressOf());
 	s_m_context->PSSetSamplers(1, 1, s_m_samplerStateLinear.GetAddressOf());
@@ -228,14 +228,14 @@ void DXDevice::onDeviceLost() {
 }
 
 void DXDevice::updateRasterizerState() {
-	CHECK_ERROR3(s_m_device->CreateRasterizerState(&s_m_rasterizerStateDesc, s_m_rasterizerState.ReleaseAndGetAddressOf()),
-		L"Failed to create rasterizer state", false);
+	PRINT_ERROR2(s_m_device->CreateRasterizerState(&s_m_rasterizerStateDesc, s_m_rasterizerState.ReleaseAndGetAddressOf()),
+		L"Failed to create rasterizer state");
 	s_m_context->RSSetState(s_m_rasterizerState.Get());
 }
 
 void DXDevice::updateDepthStencilState() {
-	CHECK_ERROR3(s_m_device->CreateDepthStencilState(&s_m_depthStencilStateDesc, s_m_depthStencilState.ReleaseAndGetAddressOf()),
-		L"Failed to create depth stencil state", false);
+	PRINT_ERROR2(s_m_device->CreateDepthStencilState(&s_m_depthStencilStateDesc, s_m_depthStencilState.ReleaseAndGetAddressOf()),
+		L"Failed to create depth stencil state");
 	s_m_context->OMSetDepthStencilState(s_m_depthStencilState.Get(), 0);
 }
 
@@ -244,8 +244,8 @@ void DXDevice::updateBlendState() {
 	ZeroMemory(&blendStateDesc, sizeof(blendStateDesc));
 	blendStateDesc.RenderTarget[0] = s_m_renderTargetBlendDesc;
 
-	CHECK_ERROR3(s_m_device->CreateBlendState(&blendStateDesc, s_m_blendState.ReleaseAndGetAddressOf()),
-		L"Failed to create blend state", false);
+	PRINT_ERROR2(s_m_device->CreateBlendState(&blendStateDesc, s_m_blendState.ReleaseAndGetAddressOf()),
+		L"Failed to create blend state");
 
 	s_m_context->OMSetBlendState(s_m_blendState.Get(), NULL, 0xffffffff);
 }
@@ -268,12 +268,12 @@ void DXDevice::onWindowResize(UINT windowWidth, UINT windowHeight) {
 	HRESULT hr = s_m_swapChain->ResizeBuffers(0, s_m_windowWidth, s_m_windowHeight, DXGI_FORMAT_UNKNOWN, 0);
 
 	if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
+		CHECK_ERROR3(s_m_device->GetDeviceRemovedReason(), L"Device removed", false);
 		onDeviceLost();
 		return;
 	}
-	else {
-		CHECK_ERROR1(hr);
-	}
+
+	PRINT_ERROR1(hr);
 
 	createResources();
 
@@ -304,10 +304,11 @@ void DXDevice::display() {
 	HRESULT hr = s_m_swapChain->Present(s_m_swapInterval, 0);
 
 	if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
+		CHECK_ERROR3(s_m_device->GetDeviceRemovedReason(), L"Device removed", false);
 		onDeviceLost();
 	}
 	else {
-		CHECK_ERROR1(hr);
+		PRINT_ERROR1(hr);
 	}
 }
 
@@ -371,16 +372,8 @@ Microsoft::WRL::ComPtr<ID3D11Texture2D> DXDevice::getSurface() {
 	return backBuffer;
 }
 
-DXGI_ADAPTER_DESC DXDevice::getAdapterDesc() {
-	Microsoft::WRL::ComPtr<IDXGIDevice1> dxgiDevice;
-	CHECK_ERROR1(s_m_device.As(&dxgiDevice));
-
-	Microsoft::WRL::ComPtr<IDXGIAdapter> dxgiAdapter;
-	CHECK_ERROR1(dxgiDevice->GetAdapter(dxgiAdapter.GetAddressOf()));
-
-	DXGI_ADAPTER_DESC adapterDesc{};
-	dxgiAdapter->GetDesc(&adapterDesc);
-	return adapterDesc;
+const AdapterData& DXDevice::getAdapterData() {
+	return *s_m_p_adapterData;
 }
 
 #endif // USE_DIRECTX

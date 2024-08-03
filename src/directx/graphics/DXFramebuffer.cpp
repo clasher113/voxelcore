@@ -69,7 +69,7 @@ void Framebuffer::resize(uint width, uint height) {
 	CHECK_ERROR1(device->CreateDepthStencilView(m_p_depthTexture, nullptr, &m_p_depthStencil));
 
 	SET_DEBUG_OBJECT_NAME(m_p_renderTarget, "Frame buffer");
-	SET_DEBUG_OBJECT_NAME(m_p_depthStencil, "Depth stencil");
+	SET_DEBUG_OBJECT_NAME(m_p_depthStencil, "Depth stencil buffer");
 }
 
 void Framebuffer::bind() {

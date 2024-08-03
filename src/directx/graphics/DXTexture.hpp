@@ -1,11 +1,12 @@
 #ifndef DX_TEXTURE_HPP
 #define DX_TEXTURE_HPP
 
+#define NOMINMAX
+
 #include "../../typedefs.hpp"
 #include "../../graphics/core/ImageData.hpp"
 #include "../ShaderTypes.hpp"
 
-#define NOMINMAX
 #include <d3d11_1.h>
 #include <memory>
 

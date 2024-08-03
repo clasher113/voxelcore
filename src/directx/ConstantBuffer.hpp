@@ -21,8 +21,8 @@ struct ConstantBufferVariable {
 
 struct ConstantBufferData {
 	std::unordered_map<std::string, ConstantBufferVariable> bufferVars;
-	size_t size;
-	unsigned int shaderType;
+	size_t size = 0;
+	unsigned int shaderType = 0;
 };
 
 class ConstantBuffer {

@@ -5,7 +5,7 @@
 
 class InputLayoutBuilder {
 public:
-	static HRESULT create(ID3D11Device1* device, ID3D10Blob* shader, ID3D11InputLayout** inputLayout);
+	static HRESULT create(ID3D11Device* device, ID3D10Blob* shader, ID3D11InputLayout** inputLayout);
 };
 
 #endif // !INPUT_LAYOUT_BUILDER_HPP

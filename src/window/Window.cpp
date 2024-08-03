@@ -14,6 +14,7 @@
 #include <GLFW/glfw3native.h>
 #include "../directx/window/DXDevice.hpp"
 #include "../directx/util/TextureUtil.hpp"
+#include "../directx/util/AdapterReader.hpp"
 #elif USE_OPENGL
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -169,12 +170,13 @@ int Window::initialize(DisplaySettings* settings){
     DXDevice::initialize(windowHandle, width, height);
     DXDevice::setSwapInterval(settings->vsync.get());
 
-    auto adapterDesc = DXDevice::getAdapterDesc();
+    const AdapterData& adapterData = DXDevice::getAdapterData();
 
-    std::wcout << L"Renderer: " << adapterDesc.Description << std::endl;
+    logger.info() << "DirectX Vendor: " << adapterData.m_vendor;
+    logger.info() << "DirectX Renderer: " << std::string(std::begin(adapterData.m_description.Description), std::end(adapterData.m_description.Description));
+
 #elif USE_OPENGL
     glfwMakeContextCurrent(window);
-
 
     glewExperimental = GL_TRUE;
     GLenum glewErr = glewInit();
@@ -200,9 +202,9 @@ int Window::initialize(DisplaySettings* settings){
     const GLubyte* renderer = glGetString(GL_RENDERER);
     logger.info() << "GL Vendor: " << (char*)vendor;
     logger.info() << "GL Renderer: " << (char*)renderer;
+#endif // USE_DIRECTX
     logger.info() << "GLFW: " << glfwGetVersionString();
 
-#endif // USE_DIRECTX
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);

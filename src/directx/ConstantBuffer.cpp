@@ -9,7 +9,7 @@
 #include <iostream>
 
 ConstantBuffer::ConstantBuffer(const ConstantBufferData& data) :
-	m_bufferVars(std::move(data.bufferVars)),
+	m_bufferVars(data.bufferVars),
 	m_size(data.size),
 	m_shaderType(data.shaderType),
 	m_hasChanges(false),

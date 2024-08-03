@@ -1,5 +1,6 @@
 #ifndef DX_MESH_HPP
 #define DX_MESH_HPP
+
 #define NOMINMAX
 
 #include <d3dcommon.h>
@@ -25,6 +26,7 @@ private:
 	size_t m_vertices;
 	size_t m_indices;
 	size_t m_vertexSize;
+	UINT m_stride;
 
 	ID3D11Buffer* m_p_vertexBuffer;
 	ID3D11Buffer* m_p_indexBuffer;
