@@ -9,16 +9,21 @@
 #include "../coders/commons.hpp"
 #include "../coders/imageio.hpp"
 #include "../coders/json.hpp"
+#include "../coders/obj.hpp"
 #include "../coders/GLSLExtension.hpp"
 #include "../graphics/core/ImageData.hpp"
 #include "../graphics/core/Atlas.hpp"
 #include "../graphics/core/Font.hpp"
+#include "../graphics/core/Model.hpp"
 #include "../graphics/core/TextureAnimation.hpp"
+#include "../objects/rigging.hpp"
 #include "../frontend/UiDocument.hpp"
+#include "../constants.hpp"
 
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXShader.hpp"
 #include "../directx/graphics/DXTexture.hpp"
+#include "../directx/ShaderInclude.hpp"
 #elif USE_OPENGL
 #include "../graphics/core/Shader.hpp"
 #include "../graphics/core/Texture.hpp"
@@ -64,8 +69,10 @@ assetload::postfunc assetload::shader(
 #ifdef USE_DIRECTX
     fs::path shaderfile = paths->find(filename + ".hlsl");
 
-    return [=](auto assets) {
-        assets->store(Shader::loadShader(shaderfile.wstring()), name);
+    ShaderInclude include(shaderfile.parent_path());
+
+    return [=](auto assets) mutable {
+        assets->store(Shader::loadShader(shaderfile.wstring(), &include), name);
     };
 #elif USE_OPENGL
     fs::path vertexFile = paths->find(filename+".glslv");
@@ -133,9 +140,9 @@ assetload::postfunc assetload::font(
 ) {
     auto pages = std::make_shared<std::vector<std::unique_ptr<ImageData>>>();
     for (size_t i = 0; i <= 4; i++) {
-        std::string name = filename + "_" + std::to_string(i) + ".png"; 
-        name = paths->find(name).string();
-        pages->push_back(imageio::read(name));
+        std::string pagefile = filename + "_" + std::to_string(i) + ".png"; 
+        pagefile = paths->find(pagefile).string();
+        pages->push_back(imageio::read(pagefile));
     }
     return [=](auto assets) {
         int res = pages->at(0)->getHeight() / 16;
@@ -175,18 +182,26 @@ assetload::postfunc assetload::sound(
     auto cfg = std::dynamic_pointer_cast<SoundCfg>(config);
     bool keepPCM = cfg ? cfg->keepPCM : false;
 
-    std::string extension = ".ogg";
     std::unique_ptr<audio::Sound> baseSound = nullptr;
-
-    // looking for 'sound_name' as base sound
-    auto soundFile = paths->find(file+extension);
-    if (fs::exists(soundFile)) {
-        baseSound = audio::load_sound(soundFile, keepPCM);
+    static std::vector<std::string> extensions {".ogg", ".wav"};
+    std::string extension;
+    for (size_t i = 0; i < extensions.size(); i++) {
+        extension = extensions[i];
+        // looking for 'sound_name' as base sound
+        auto soundFile = paths->find(file+extension);
+        if (fs::exists(soundFile)) {
+            baseSound = audio::load_sound(soundFile, keepPCM);
+            break;
+        }
+        // looking for 'sound_name_0' as base sound
+        auto variantFile = paths->find(file+"_0"+extension);
+        if (fs::exists(variantFile)) {
+            baseSound = audio::load_sound(variantFile, keepPCM);
+            break;
+        }
     }
-    // looking for 'sound_name_0' as base sound
-    auto variantFile = paths->find(file+"_0"+extension);
-    if (fs::exists(variantFile)) {
-        baseSound = audio::load_sound(variantFile, keepPCM);
+    if (baseSound == nullptr) {
+        throw std::runtime_error("could not to find sound: " + file);
     }
 
     // loading sound variants
@@ -198,13 +213,36 @@ assetload::postfunc assetload::sound(
         baseSound->variants.emplace_back(audio::load_sound(variantFile, keepPCM));
     }
 
-    if (baseSound == nullptr) {
-        throw std::runtime_error("could not to find sound: " + file);
-    }
     auto sound = baseSound.release();
     return [=](auto assets) {
         assets->store(std::unique_ptr<audio::Sound>(sound), name);
     };
+}
+
+assetload::postfunc assetload::model(
+    AssetsLoader* loader,
+    const ResPaths* paths,
+    const std::string& file,
+    const std::string& name,
+    const std::shared_ptr<AssetCfg>&
+) {
+    auto path = paths->find(file+".obj");
+    auto text = files::read_string(path);
+    try {
+        auto model = obj::parse(path.u8string(), text).release();
+        return [=](Assets* assets) {
+            for (auto& mesh : model->meshes) {
+                if (mesh.texture.find('$') == std::string::npos) {
+                    auto filename = TEXTURES_FOLDER+"/"+mesh.texture;
+                    loader->add(AssetType::TEXTURE, filename, mesh.texture, nullptr);
+                }
+            }
+            assets->store(std::unique_ptr<model::Model>(model), name);
+        };
+    } catch (const parsing_error& err) {
+        std::cerr << err.errorLog() << std::endl;
+        throw;
+    }
 }
 
 static void read_anim_file(

@@ -1,11 +1,16 @@
 #include "png.hpp"
 
 #include "../graphics/core/ImageData.hpp"
-#include "../graphics/core/Texture.hpp"
 #include "../files/files.hpp"
 #include "../debug/Logger.hpp"
 
 #include <iostream>
+
+#ifdef USE_DIRECTX
+#include "../directx/graphics/DXTexture.hpp"
+#elif USE_OPENGL
+#include "../graphics/core/GLTexture.hpp"
+#endif // USE_DIRECTX
 
 static debug::Logger logger("png-coder");
 
@@ -158,8 +163,8 @@ std::unique_ptr<ImageData> _png_load(const char* file){
     color_type = 6;
     bit_depth  = png_get_bit_depth(png, info);
 
-    std::unique_ptr<png_byte[]> image_data (new png_byte[row_bytes * height]);
-    std::unique_ptr<png_byte*[]> row_pointers (new png_byte*[height]);
+    auto image_data = std::make_unique<png_byte[]>(row_bytes * height);
+    auto row_pointers = std::make_unique<png_byte*[]>(height);
     for (int i = 0; i < height; ++i ) {
         row_pointers[height - 1 - i] = image_data.get() + i * row_bytes;
     }
@@ -179,7 +184,7 @@ std::unique_ptr<ImageData> _png_load(const char* file){
             fclose(fp);
             return nullptr;
     }
-    auto image = std::make_unique<ImageData>(format, width, height, (void*)image_data.release());
+    auto image = std::make_unique<ImageData>(format, width, height, std::move(image_data));
     png_destroy_read_struct(&png, &info, &end_info);
     fclose(fp);
     return image;
@@ -232,9 +237,7 @@ int _png_write(const char* filename, uint width, uint height, const ubyte* data,
 std::unique_ptr<ImageData> _png_load(const char* file){
     int r = 0;
     FILE *png = nullptr;
-    char *pngbuf = nullptr;
     spng_ctx *ctx = nullptr;
-    unsigned char *out = nullptr;
 
     png = fopen(file, "rb");
     if (png == nullptr){
@@ -250,30 +253,26 @@ std::unique_ptr<ImageData> _png_load(const char* file){
         logger.error() << "could not to read file " << file;
         return nullptr;
     }
-    pngbuf = new char[siz_pngbuf];
-    if(fread(pngbuf, siz_pngbuf, 1, png) != 1){ //check of read elements count
+    auto pngbuf = std::make_unique<char[]>(siz_pngbuf);
+    if(fread(pngbuf.get(), siz_pngbuf, 1, png) != 1){ //check of read elements count
         fclose(png);
-        delete[] pngbuf;
         logger.error() << "fread() failed: " << file;
         return nullptr;
     }
     fclose(png); // <- finally closing file
     ctx = spng_ctx_new(0);
     if (ctx == nullptr){
-        delete[] pngbuf;
         logger.error() << "spng_ctx_new() failed";
         return nullptr;
     }
     r = spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
     if (r != SPNG_SUCCESS){
-        delete[] pngbuf;
         spng_ctx_free(ctx);
         logger.error() << "spng_set_crc_action(): " << spng_strerror(r);
         return nullptr;
     }
-    r = spng_set_png_buffer(ctx, pngbuf, siz_pngbuf);
+    r = spng_set_png_buffer(ctx, pngbuf.get(), siz_pngbuf);
     if (r != SPNG_SUCCESS){
-        delete[] pngbuf;
         spng_ctx_free(ctx);
         logger.error() << "spng_set_png_buffer(): " << spng_strerror(r);
         return nullptr;
@@ -282,7 +281,6 @@ std::unique_ptr<ImageData> _png_load(const char* file){
     spng_ihdr ihdr;
     r = spng_get_ihdr(ctx, &ihdr);
     if (r != SPNG_SUCCESS){
-        delete[] pngbuf;
         spng_ctx_free(ctx);
         logger.error() << "spng_get_ihdr(): " << spng_strerror(r);
         return nullptr;
@@ -291,36 +289,28 @@ std::unique_ptr<ImageData> _png_load(const char* file){
     size_t out_size;
     r = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size);
     if (r != SPNG_SUCCESS){
-        delete[] pngbuf;
         spng_ctx_free(ctx);
         logger.error() << "spng_decoded_image_size(): " << spng_strerror(r);
         return nullptr;
     }
-    out = new unsigned char[out_size];
-    r = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
+    auto out = std::make_unique<ubyte[]>(out_size);
+    r = spng_decode_image(ctx, out.get(), out_size, SPNG_FMT_RGBA8, 0);
     if (r != SPNG_SUCCESS){
-        delete[] out;
-        delete[] pngbuf;
         spng_ctx_free(ctx);
         logger.error() << "spng_decode_image(): " << spng_strerror(r);
         return nullptr;
     }
 
-    unsigned char* flipped = new unsigned char[out_size];
-
+    auto flipped = std::make_unique<ubyte[]>(out_size);
     for (size_t i = 0; i < ihdr.height; i+=1){
         size_t rowsize = ihdr.width*4;
         for (size_t j = 0; j < rowsize; j++){
             flipped[(ihdr.height-i-1)*rowsize+j] = out[i*rowsize+j];
         }
     }
-    delete[] out; // <- finally delete out // no, delete spng usage
 
-    auto image = std::make_unique<ImageData>(ImageFormat::rgba8888, ihdr.width, ihdr.height, (void*)flipped);
-
-    delete[] pngbuf;
+    auto image = std::make_unique<ImageData>(ImageFormat::rgba8888, ihdr.width, ihdr.height, std::move(flipped));
     spng_ctx_free(ctx);
-
     return image;
 }
 #endif
@@ -335,7 +325,11 @@ std::unique_ptr<ImageData> png::load_image(const std::string& filename) {
 
 std::unique_ptr<Texture> png::load_texture(const std::string& filename) {
     auto image = load_image(filename);
+#ifdef USE_DIRECTX
     auto texture = Texture::from(image.get());
+#elif USE_OPENGL
+    auto texture = GLTexture::from(image.get());
+#endif // USE_DIRECTX
     texture->setNearestFilter();
     return texture;
 }

@@ -1,8 +1,8 @@
 #ifndef GRAPHICS_CORE_BATCH3D_HPP_
 #define GRAPHICS_CORE_BATCH3D_HPP_
 
-#include "../../maths/UVRegion.hpp"
 #include "../../typedefs.hpp"
+#include "commons.hpp"
 
 #include <memory>
 #include <stdlib.h>
@@ -10,8 +10,9 @@
 
 class Mesh;
 class Texture;
+struct UVRegion;
 
-class Batch3D {
+class Batch3D : public Flushable {
     std::unique_ptr<float[]> buffer;
     size_t capacity;
     std::unique_ptr<Mesh> mesh;
@@ -54,7 +55,7 @@ public:
     void blockCube(const glm::vec3 size, const UVRegion(&texfaces)[6], const glm::vec4 tint, bool shading=true);
     void point(glm::vec3 pos, glm::vec2 uv, glm::vec4 tint);
     void point(glm::vec3 pos, glm::vec4 tint);
-    void flush();
+    void flush() override;
     void flushPoints();
 };
 

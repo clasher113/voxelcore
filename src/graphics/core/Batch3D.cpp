@@ -10,7 +10,9 @@
 #endif // USE_DIRECTX
 
 #include "../../typedefs.hpp"
+#include "../../maths/UVRegion.hpp"
 
+/// xyz, uv, rgba
 inline constexpr uint B3D_VERTEX_SIZE = 9;
 
 Batch3D::Batch3D(size_t capacity) 
@@ -23,10 +25,11 @@ Batch3D::Batch3D(size_t capacity)
     mesh = std::make_unique<Mesh>(buffer.get(), 0, attrs);
     index = 0;
 
-    ubyte pixels[] = {
+    const ubyte pixels[] = {
         255, 255, 255, 255,
     };
-    blank = std::make_unique<Texture>(pixels, 1, 1, ImageFormat::rgba8888);
+    ImageData image(ImageFormat::rgba8888, 1, 1, pixels);
+    blank = Texture::from(&image);
     currentTexture = nullptr;
 }
 

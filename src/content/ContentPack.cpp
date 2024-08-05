@@ -11,10 +11,6 @@
 
 namespace fs = std::filesystem;
 
-const std::string ContentPack::PACKAGE_FILENAME = "package.json";
-const std::string ContentPack::CONTENT_FILENAME = "content.json";
-const fs::path ContentPack::BLOCKS_FOLDER = "blocks";
-const fs::path ContentPack::ITEMS_FOLDER = "items";
 const std::vector<std::string> ContentPack::RESERVED_NAMES = {
     "res", "abs", "local", "core", "user", "world", "none", "null"
 };
@@ -146,5 +142,4 @@ ContentPackRuntime::ContentPackRuntime(
 {
 }
 
-ContentPackRuntime::~ContentPackRuntime() {
-}
+ContentPackRuntime::~ContentPackRuntime() = default;

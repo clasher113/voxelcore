@@ -49,8 +49,7 @@ GUI::GUI() {
     container->add(tooltip);
 }
 
-GUI::~GUI() {
-}
+GUI::~GUI() = default;
 
 std::shared_ptr<Menu> GUI::getMenu() {
     return menu;
@@ -136,7 +135,7 @@ void GUI::actMouse(float delta) {
             focus->defocus();
             focus = nullptr;
         }
-    } else if (pressed) {
+    } else if (!Events::clicked(mousecode::BUTTON_1) && pressed) {
         pressed->mouseRelease(this, Events::cursor.x, Events::cursor.y);
         pressed = nullptr;
     }
@@ -210,7 +209,7 @@ void GUI::draw(const DrawContext* pctx, Assets* assets) {
     menu->setPos((wsize - menu->getSize()) / 2.0f);
     uicamera->setFov(wsize.y);
 
-    Shader* uishader = assets->getShader("ui");
+    auto uishader = assets->get<Shader>("ui");
     uishader->uniformMatrix("u_projview", uicamera->getProjView());
     uishader->use();
 

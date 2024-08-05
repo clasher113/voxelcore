@@ -34,6 +34,8 @@ class World : Serializable {
     std::vector<ContentPack> packs;
 
     int64_t nextInventoryId = 0;
+
+    void writeResources(const Content* content);
 public:
     std::unique_ptr<WorldFiles> wfile;
 
@@ -43,13 +45,15 @@ public:
     float daytime = timeutil::time_value(10, 00, 00);
 
     // looking bad
-    float daytimeSpeed = 1.0f/60.0f/24.0f;
+    float daytimeSpeed = 1.0f;
     
     /// @brief total time passed in the world (not depending on daytimeSpeed)
     double totalTime = 0.0;
 
     /// @brief will be replaced with weather in future 
     float fog = 0.0f;
+
+    entityid_t nextEntityId = 0;
 
     World(
         std::string name, 

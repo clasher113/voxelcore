@@ -6,12 +6,12 @@
 #include <glm/glm.hpp>
 
 #include "commons.hpp"
+#include "../../maths/UVRegion.hpp"
 
 class Mesh;
 class Texture;
-struct UVRegion;
 
-class Batch2D {
+class Batch2D : public Flushable {
     std::unique_ptr<float[]> buffer;
     size_t capacity;
     std::unique_ptr<Mesh> mesh;
@@ -20,6 +20,7 @@ class Batch2D {
     glm::vec4 color;
     Texture* currentTexture;
     DrawPrimitive primitive = DrawPrimitive::triangle;
+    UVRegion region {0.0f, 0.0f, 1.0f, 1.0f};
 
     void setPrimitive(DrawPrimitive primitive);
 
@@ -42,6 +43,7 @@ public:
     void begin();
     void texture(Texture* texture);
     void untexture();
+    void setRegion(UVRegion region);
     void sprite(float x, float y, float w, float h, const UVRegion& region, glm::vec4 tint);
     void sprite(float x, float y, float w, float h, int atlasRes, int index, glm::vec4 tint);
     void point(float x, float y, float r, float g, float b, float a);
@@ -87,7 +89,7 @@ public:
         float r4, float g4, float b4, int sh
     );
 
-    void flush();
+    void flush() override;
 
     void lineWidth(float width);
 };

@@ -28,8 +28,8 @@ struct DisplaySettings {
     IntegerSetting height {720};
     /// @brief Anti-aliasing samples
     IntegerSetting samples {0};
-    /// @brief VSync on
-    FlagSetting vsync {true};
+    /// @brief Framerate limit
+    IntegerSetting framerate {-1, -1, 120};
 };
 
 struct ChunksSettings {
@@ -46,6 +46,8 @@ struct CameraSettings {
     FlagSetting fovEffects {true};
     /// @brief Camera movement shake
     FlagSetting shaking {true};
+    /// @brief Camera movement inertia effect
+    FlagSetting inertia {true};
     /// @brief Camera field of view
     NumberSetting fov {90.0f, 10, 120};
     /// @brief Camera sensitivity

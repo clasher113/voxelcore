@@ -10,9 +10,11 @@
 #include "../../items/ItemDef.hpp"
 #include "../../items/ItemStack.hpp"
 #include "../../logic/PlayerController.hpp"
+#include "../../logic/scripting/scripting_hud.hpp"
 #include "../../maths/FrustumCulling.hpp"
 #include "../../maths/voxmaths.hpp"
 #include "../../objects/Player.hpp"
+#include "../../objects/Entities.hpp"
 #include "../../settings.hpp"
 #include "../../voxels/Block.hpp"
 #include "../../voxels/Chunk.hpp"
@@ -27,6 +29,7 @@
 #include "../core/DrawContext.hpp"
 #include "../core/LineBatch.hpp"
 #include "../core/PostProcessing.hpp"
+#include "../../graphics/render/ModelBatch.hpp"
 
 #ifdef USE_DIRECTX
 #include "../../directx/graphics/DXMesh.hpp"
@@ -49,13 +52,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 bool WorldRenderer::showChunkBorders = false;
+bool WorldRenderer::showEntitiesDebug = false;
 
 WorldRenderer::WorldRenderer(Engine* engine, LevelFrontend* frontend, Player* player) 
-    : engine(engine), 
-      level(frontend->getLevel()),
-      player(player),
-      frustumCulling(std::make_unique<Frustum>()),
-      lineBatch(std::make_unique<LineBatch>())
+  : engine(engine), 
+    level(frontend->getLevel()),
+    player(player),
+    frustumCulling(std::make_unique<Frustum>()),
+    lineBatch(std::make_unique<LineBatch>()),
+    modelBatch(std::make_unique<ModelBatch>(20'000, engine->getAssets(), level->chunks.get()))
 {
     renderer = std::make_unique<ChunksRenderer>(
         level,
@@ -73,12 +78,11 @@ WorldRenderer::WorldRenderer(Engine* engine, LevelFrontend* frontend, Player* pl
     auto assets = engine->getAssets();
     skybox = std::make_unique<Skybox>(
         settings.graphics.skyboxResolution.get(), 
-        assets->getShader("skybox_gen")
+        assets->get<Shader>("skybox_gen")
     );
 }
 
-WorldRenderer::~WorldRenderer() {
-}
+WorldRenderer::~WorldRenderer() = default;
 
 bool WorldRenderer::drawChunk(
     size_t index,
@@ -112,7 +116,7 @@ bool WorldRenderer::drawChunk(
             chunk->z * CHUNK_D + CHUNK_D
         );
 
-        if (!frustumCulling->IsBoxVisible(min, max)) 
+        if (!frustumCulling->isBoxVisible(min, max)) 
             return false;
     }
     glm::vec3 coord(chunk->x*CHUNK_W+0.5f, 0.5f, chunk->z*CHUNK_D+0.5f);
@@ -157,24 +161,15 @@ void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
     }
 }
 
-void WorldRenderer::renderLevel(
-    const DrawContext&,
-    Camera* camera, 
-    const EngineSettings& settings
+void WorldRenderer::setupWorldShader(
+    Shader* shader, Camera* camera, const EngineSettings& settings, 
+    float fogFactor
 ) {
-    Assets* assets = engine->getAssets();
-    Atlas* atlas = assets->getAtlas("blocks");
-    Shader* shader = assets->getShader("main");
-
-    auto indices = level->content->getIndices();
-
-    float fogFactor = 15.0f / ((float)settings.chunks.loadDistance.get()-2);
-
-    // Setting up main shader
     shader->use();
+    shader->uniformMatrix("u_model", glm::mat4(1.0f));
     shader->uniformMatrix("u_proj", camera->getProjection());
     shader->uniformMatrix("u_view", camera->getView());
-    shader->uniform1f("u_timer", Window::time());
+    shader->uniform1f("u_timer", timer);
     shader->uniform1f("u_gamma", settings.graphics.gamma.get());
     shader->uniform1f("u_fogFactor", fogFactor);
     shader->uniform1f("u_fogCurve", settings.graphics.fogCurve.get());
@@ -184,11 +179,12 @@ void WorldRenderer::renderLevel(
     shader->uniform1i("u_cubemap", 1);
 #endif // USE_OPENGL
 
+    auto indices = level->content->getIndices();
     // Light emission when an emissive item is chosen
     {
         auto inventory = player->getInventory();
         ItemStack& stack = inventory->getSlot(player->getChosenSlot());
-        auto item = indices->getItemDef(stack.getItemId());
+        auto item = indices->items.get(stack.getItemId());
         float multiplier = 0.5f;
         shader->uniform3f("u_torchlightColor",  
             item->emission[0] / 15.0f * multiplier,
@@ -197,30 +193,58 @@ void WorldRenderer::renderLevel(
         );
         shader->uniform1f("u_torchlightDistance", 6.0f);
     }
+}
 
-    // Binding main shader textures
+void WorldRenderer::renderLevel(
+    const DrawContext&,
+    Camera* camera, 
+    const EngineSettings& settings,
+    float delta,
+    bool pause
+) {
+    auto assets = engine->getAssets();
+    auto atlas = assets->get<Atlas>("blocks");
+
+    bool culling = engine->getSettings().graphics.frustumCulling.get();
+    float fogFactor = 15.0f / ((float)settings.chunks.loadDistance.get()-2);
+
+    auto shader = assets->get<Shader>("main");
+    setupWorldShader(shader, camera, settings, fogFactor);
+
     skybox->bind();
     atlas->getTexture()->bind();
 
     drawChunks(level->chunks.get(), camera, shader);
 
+    auto entityShader = assets->get<Shader>("entity");
+    setupWorldShader(entityShader, camera, settings, fogFactor);
+#ifdef USE_DIRECTX
+    entityShader->applyChanges();
+#endif  // USE_DIRECTX
+    level->entities->render(
+        assets, *modelBatch, culling ? frustumCulling.get() : nullptr, delta, pause);
+
+    if (!pause) {
+        scripting::on_frontend_render();
+    }
+    modelBatch->render();
+
     skybox->unbind();
 }
 
-void WorldRenderer::renderBlockSelection(Camera* camera, Shader* linesShader) {
+void WorldRenderer::renderBlockSelection() {
+    const auto& selection = player->selection;
     auto indices = level->content->getIndices();
-    blockid_t id = PlayerController::selectedBlockId;
-    auto block = indices->getBlockDef(id);
-    const glm::ivec3 pos = player->selectedBlockPosition;
-    const glm::vec3 point = PlayerController::selectedPointPosition;
-    const glm::vec3 norm = PlayerController::selectedBlockNormal;
+    blockid_t id = selection.vox.id;
+    auto block = indices->blocks.get(id);
+    const glm::ivec3 pos = player->selection.position;
+    const glm::vec3 point = selection.hitPosition;
+    const glm::vec3 norm = selection.normal;
 
     const std::vector<AABB>& hitboxes = block->rotatable
-        ? block->rt.hitboxes[PlayerController::selectedBlockRotation]
+        ? block->rt.hitboxes[selection.vox.state.rotation]
         : block->hitboxes;
 
-    linesShader->uniformMatrix("u_projview", camera->getProjView());
-    linesShader->use();
     lineBatch->lineWidth(2.0f);
     for (auto& hitbox: hitboxes) {
         const glm::vec3 center = glm::vec3(pos) + hitbox.center();
@@ -230,7 +254,23 @@ void WorldRenderer::renderBlockSelection(Camera* camera, Shader* linesShader) {
             lineBatch->line(point, point+norm*0.5f, glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
         }
     }
-    lineBatch->render();
+    lineBatch->flush();
+}
+
+void WorldRenderer::renderLines(
+    Camera* camera, Shader* linesShader, const DrawContext& pctx
+) {
+    linesShader->uniformMatrix("u_projview", camera->getProjView());
+    linesShader->use();
+    if (player->selection.vox.id != BLOCK_VOID) {
+        renderBlockSelection();
+    }
+    if (player->debug && showEntitiesDebug) {
+        auto ctx = pctx.sub(lineBatch.get());
+        bool culling = engine->getSettings().graphics.frustumCulling.get();
+        level->entities->renderDebug(
+            *lineBatch, culling ? frustumCulling.get() : nullptr, ctx);
+    }
 }
 
 void WorldRenderer::renderDebugLines(
@@ -238,7 +278,7 @@ void WorldRenderer::renderDebugLines(
     Camera* camera,
     Shader* linesShader
 ) {
-    DrawContext ctx = pctx.sub();
+    DrawContext ctx = pctx.sub(lineBatch.get());
     const auto& viewport = ctx.getViewport();
     uint displayWidth = viewport.getWidth();
     uint displayHeight = viewport.getHeight();
@@ -255,8 +295,8 @@ void WorldRenderer::renderDebugLines(
         glm::vec3 coord = player->camera->position;
         if (coord.x < 0) coord.x--;
         if (coord.z < 0) coord.z--;
-        int cx = floordiv((int)coord.x, CHUNK_W);
-        int cz = floordiv((int)coord.z, CHUNK_D);
+        int cx = floordiv(static_cast<int>(coord.x), CHUNK_W);
+        int cz = floordiv(static_cast<int>(coord.z), CHUNK_D);
 
         drawBorders(
             cx * CHUNK_W, 0, cz * CHUNK_D, 
@@ -268,8 +308,8 @@ void WorldRenderer::renderDebugLines(
     glm::vec3 tsl(displayWidth/2, displayHeight/2, 0.f);
     glm::mat4 model(glm::translate(glm::mat4(1.f), tsl));
     linesShader->uniformMatrix("u_projview", glm::ortho(
-        0.f, (float)displayWidth, 
-        0.f, (float)displayHeight,
+        0.f, static_cast<float>(displayWidth), 
+        0.f, static_cast<float>(displayHeight),
         -length, length) * model * glm::inverse(camera->rotation)
     );
 #ifdef USE_DIRECTX
@@ -280,22 +320,24 @@ void WorldRenderer::renderDebugLines(
     lineBatch->line(0.f, 0.f, 0.f, length, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
     lineBatch->line(0.f, 0.f, 0.f, 0.f, length, 0.f, 0.f, 0.f, 0.f, 1.f);
     lineBatch->line(0.f, 0.f, 0.f, 0.f, 0.f, length, 0.f, 0.f, 0.f, 1.f);
-    lineBatch->render();
+    lineBatch->flush();
 
     ctx.setDepthTest(true);
     lineBatch->lineWidth(2.0f);
     lineBatch->line(0.f, 0.f, 0.f, length, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f);
     lineBatch->line(0.f, 0.f, 0.f, 0.f, length, 0.f, 0.f, 1.f, 0.f, 1.f);
     lineBatch->line(0.f, 0.f, 0.f, 0.f, 0.f, length, 0.f, 0.f, 1.f, 1.f);
-    lineBatch->render();
 }
 
 void WorldRenderer::draw(
     const DrawContext& pctx, 
     Camera* camera, 
-    bool hudVisible, 
+    bool hudVisible,
+    bool pause,
+    float delta,
     PostProcessing* postProcessing
 ){
+    timer += delta * !pause;
     auto world = level->getWorld();
     const Viewport& vp = pctx.getViewport();
     camera->aspect = vp.getWidth() / static_cast<float>(vp.getHeight());
@@ -303,8 +345,8 @@ void WorldRenderer::draw(
     const EngineSettings& settings = engine->getSettings();
     skybox->refresh(pctx, world->daytime, 1.0f+world->fog*2.0f, 4);
 
-    Assets* assets = engine->getAssets();
-    Shader* linesShader = assets->getShader("lines");
+    auto assets = engine->getAssets();
+    auto linesShader = assets->get<Shader>("lines");
     
     // World render scope with diegetic HUD included
     {
@@ -321,10 +363,10 @@ void WorldRenderer::draw(
             DrawContext ctx = wctx.sub();
             ctx.setDepthTest(true);
             ctx.setCullFace(true);
-            renderLevel(ctx, camera, settings);
-            // Selected block
-            if (PlayerController::selectedBlockId != -1 && hudVisible){
-                renderBlockSelection(camera, linesShader);
+            renderLevel(ctx, camera, settings, delta, pause);
+            // Debug lines
+            if (hudVisible){
+                renderLines(camera, linesShader, ctx);
             }
         }
 
@@ -334,9 +376,9 @@ void WorldRenderer::draw(
     }
 
     // Rendering fullscreen quad with 
-    auto screenShader = assets->getShader("screen");
+    auto screenShader = assets->get<Shader>("screen");
     screenShader->use();
-    screenShader->uniform1f("u_timer", Window::time());
+    screenShader->uniform1f("u_timer", timer);
     screenShader->uniform1f("u_dayTime", level->getWorld()->daytime);
     postProcessing->render(pctx, screenShader);
 }
@@ -376,5 +418,5 @@ void WorldRenderer::drawBorders(int sx, int sy, int sz, int ex, int ey, int ez) 
         lineBatch->line(ex, i, sz,
                         sx, i, sz, 0, 0.8f, 0, 1);
     }
-    lineBatch->render();
+    lineBatch->flush();
 }

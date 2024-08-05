@@ -28,8 +28,8 @@ struct ThreadPoolResult {
 template<class T, class R>
 class Worker {
 public:
-    Worker() {}
-    virtual ~Worker() {}
+    Worker() = default;
+    virtual ~Worker() = default;
     virtual R operator()(const std::shared_ptr<T>&) = 0;
 };
 
@@ -200,7 +200,7 @@ public:
         }
     }
 
-    void enqueueJob(std::shared_ptr<T> job) {
+    void enqueueJob(const std::shared_ptr<T>& job) {
         {
             std::lock_guard<std::mutex> lock(jobsMutex);
             jobs.push(job);
@@ -243,6 +243,10 @@ public:
             std::this_thread::sleep_for(2ms);
             update();
         }
+    }
+
+    uint getWorkersCount() const {
+        return threads.size();
     }
 };
 

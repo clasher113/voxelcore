@@ -1,90 +1,82 @@
-#include "lua_commons.hpp"
-#include "api_lua.hpp"
-#include "../scripting.hpp"
+#include "libentity.hpp"
+
 #include "../../../world/Level.hpp"
 #include "../../../objects/Player.hpp"
+#include "../../../objects/Entities.hpp"
 #include "../../../physics/Hitbox.hpp"
 #include "../../../window/Camera.hpp"
 #include "../../../items/Inventory.hpp"
 
 #include <glm/glm.hpp>
+#include <algorithm>
 
-inline std::shared_ptr<Player> get_player(lua_State* L, int idx) {
-    return scripting::level->getObject<Player>(lua_tointeger(L, idx));
+using namespace scripting;
+
+inline std::shared_ptr<Player> get_player(lua::State* L, int idx) {
+    return level->getObject<Player>(lua::tointeger(L, idx));
 }
 
-static int l_player_get_pos(lua_State* L) {
-    auto player = get_player(L, 1);
-    if (!player) {
-        return 0;
+static int l_get_pos(lua::State* L) {
+    if (auto player = get_player(L, 1)) {
+        return lua::pushvec3_stack(L, player->getPosition());
     }
-    glm::vec3 pos = player->hitbox->position;
-    lua_pushnumber(L, pos.x);
-    lua_pushnumber(L, pos.y);
-    lua_pushnumber(L, pos.z);
-    return 3;
-}
-
-static int l_player_set_pos(lua_State* L) {
-    auto player = get_player(L, 1);
-    if (!player) {
-        return 0;
-    }
-    auto x = lua_tonumber(L, 2);
-    auto y = lua_tonumber(L, 3);
-    auto z = lua_tonumber(L, 4);
-    player->hitbox->position = glm::vec3(x, y, z);
     return 0;
 }
 
-static int l_player_get_vel(lua_State* L) {
+static int l_set_pos(lua::State* L) {
     auto player = get_player(L, 1);
     if (!player) {
         return 0;
     }
-    glm::vec3 vel = player->hitbox->velocity;
-    lua_pushnumber(L, vel.x);
-    lua_pushnumber(L, vel.y);
-    lua_pushnumber(L, vel.z);
-    return 3;
-}
-
-static int l_player_set_vel(lua_State* L) {
-    auto player = get_player(L, 1);
-    if (!player) {
-        return 0;
-    }
-    auto x = lua_tonumber(L, 2);
-    auto y = lua_tonumber(L, 3);
-    auto z = lua_tonumber(L, 4);
-    player->hitbox->velocity = glm::vec3(x, y, z);
+    auto x = lua::tonumber(L, 2);
+    auto y = lua::tonumber(L, 3);
+    auto z = lua::tonumber(L, 4);
+    player->teleport(glm::vec3(x, y, z));
     return 0;
 }
 
-static int l_player_get_rot(lua_State* L) {
+static int l_get_vel(lua::State* L) {
+    if (auto player = get_player(L, 1)) {
+        if (auto hitbox = player->getHitbox()) {
+            return lua::pushvec3_stack(L, hitbox->velocity);
+        }
+    }
+    return 0;    
+}
+
+static int l_set_vel(lua::State* L) {
     auto player = get_player(L, 1);
     if (!player) {
         return 0;
     }
-    const glm::vec3& rot = player->cam;
-    lua_pushnumber(L, rot.x);
-    lua_pushnumber(L, rot.y);
-    lua_pushnumber(L, rot.z);
-    return 3;
+    auto x = lua::tonumber(L, 2);
+    auto y = lua::tonumber(L, 3);
+    auto z = lua::tonumber(L, 4);
+    if (auto hitbox = player->getHitbox()) {
+        hitbox->velocity = glm::vec3(x, y, z);
+    }
+    return 0;
 }
 
-static int l_player_set_rot(lua_State* L) {
+static int l_get_rot(lua::State* L) {
+    if (auto player = get_player(L, 1)) {
+        return lua::pushvec3_stack(L, player->cam);
+    }
+    return 0;
+}
+
+static int l_set_rot(lua::State* L) {
     auto player = get_player(L, 1);
     if (!player) {
         return 0;
     }
     glm::vec3& cam = player->cam;
 
-    lua_Number x = lua_tonumber(L, 2);
-    lua_Number y = lua_tonumber(L, 3);
-    lua_Number z = cam.z;
-    if (lua_isnumber(L, 4)) {
-        z = lua_tonumber(L, 4);
+    auto x = lua::tonumber(L, 2);
+    auto y = lua::tonumber(L, 3);
+    auto z = cam.z;
+    if (lua::isnumber(L, 4)) {
+        z = lua::tonumber(L, 4);
     }
     cam.x = x;
     cam.y = y;
@@ -92,72 +84,152 @@ static int l_player_set_rot(lua_State* L) {
     return 0;
 }
 
-static int l_player_get_inv(lua_State* L) {
+static int l_get_dir(lua::State* L) {
+    if (auto player = get_player(L, 1)) {
+        return lua::pushvec3(L, player->camera->front);
+    }
+    return 0;
+}
+
+static int l_get_inv(lua::State* L) {
     auto player = get_player(L, 1);
     if (!player) {
         return 0;
     }
-    lua_pushinteger(L, player->getInventory()->getId());
-    lua_pushinteger(L, player->getChosenSlot());
+    lua::pushinteger(L, player->getInventory()->getId());
+    lua::pushinteger(L, player->getChosenSlot());
     return 2;
 }
 
-static int l_player_is_flight(lua_State* L) {
+static int l_is_flight(lua::State* L) {
     if (auto player = get_player(L, 1)) {
-        lua_pushboolean(L, player->isFlight());
-        return 1;
+        return lua::pushboolean(L, player->isFlight());
     }
     return 0;
 }
 
-static int l_player_set_flight(lua_State* L) {
+static int l_set_flight(lua::State* L) {
     if (auto player = get_player(L, 1)) {
-        player->setFlight(lua_toboolean(L, 2));
+        player->setFlight(lua::toboolean(L, 2));
     }
     return 0;
 }
 
-static int l_player_is_noclip(lua_State* L) {
+static int l_is_noclip(lua::State* L) {
     if (auto player = get_player(L, 1)) {
-        lua_pushboolean(L, player->isNoclip());
-        return 1;
+        return lua::pushboolean(L, player->isNoclip());
     }
     return 0;
 }
 
-static int l_player_set_noclip(lua_State* L) {
+static int l_set_noclip(lua::State* L) {
     if (auto player = get_player(L, 1)) {
-        player->setNoclip(lua_toboolean(L, 2));
+        player->setNoclip(lua::toboolean(L, 2));
     }
     return 0;
 }
 
-static int l_player_get_selected_block(lua_State* L) {
+static int l_get_selected_block(lua::State* L) {
     if (auto player = get_player(L, 1)) {
-        if (player->selectedVoxel.id == BLOCK_VOID) {
+        if (player->selection.vox.id == BLOCK_VOID) {
             return 0;
         }
-        const glm::ivec3 pos = player->selectedBlockPosition;
-        lua_pushinteger(L, pos.x);
-        lua_pushinteger(L, pos.y);
-        lua_pushinteger(L, pos.z);
-        return 3;
+        return lua::pushivec3_stack(L, player->selection.position);
     }
+    return 0;
+}
+
+static int l_get_selected_entity(lua::State* L) {
+    if (auto player = get_player(L, 1)) {
+        if (auto eid = player->getSelectedEntity()) {
+            return lua::pushinteger(L, eid);
+        }
+    }
+    return 0;
+}
+
+static int l_get_spawnpoint(lua::State* L) {
+    if (auto player = get_player(L, 1)) {
+        return lua::pushvec3_stack(L, player->getSpawnPoint());
+    }
+    return 0;
+}
+
+
+static int l_set_spawnpoint(lua::State* L) {
+    auto player = get_player(L, 1);
+
+    if (player) {
+        auto x = lua::tonumber(L, 2);
+        auto y = lua::tonumber(L, 3);
+        auto z = lua::tonumber(L, 4);
+        player->setSpawnPoint(glm::vec3(x, y, z));
+    }
+    return 0;
+}
+
+static int l_get_entity(lua::State* L) {
+    auto player = get_player(L, 1);
+    if (player == nullptr) {
+        return 0;
+    }
+    return lua::pushinteger(L, player->getEntity());
+}
+
+static int l_set_entity(lua::State* L) {
+    auto player = get_player(L, 1);
+    if (player == nullptr) {
+        return 0;
+    }
+    if (auto entity = get_entity(L, 2)) {
+        player->setEntity(entity->getUID());
+    }
+    return 0;
+}
+
+static int l_get_camera(lua::State* L) {
+    auto player = get_player(L, 1);
+    if (player == nullptr) {
+        return 0;
+    }
+    auto found = std::find(
+        level->cameras.begin(), level->cameras.end(), player->currentCamera);
+    if (found == level->cameras.end()) {
+        return 0;
+    }
+    return lua::pushinteger(L, found - level->cameras.begin());
+}
+
+static int l_set_camera(lua::State* L) {
+    auto player = get_player(L, 1);
+    if (player == nullptr) {
+        return 0;
+    }
+    size_t index = lua::tointeger(L, 2);
+    player->currentCamera = level->cameras.at(index);
     return 0;
 }
 
 const luaL_Reg playerlib [] = {
-    {"get_pos", lua_wrap_errors<l_player_get_pos>},
-    {"set_pos", lua_wrap_errors<l_player_set_pos>},
-    {"get_vel", lua_wrap_errors<l_player_get_vel>},
-    {"set_vel", lua_wrap_errors<l_player_set_vel>},
-    {"get_rot", lua_wrap_errors<l_player_get_rot>},
-    {"set_rot", lua_wrap_errors<l_player_set_rot>},
-    {"get_inventory", lua_wrap_errors<l_player_get_inv>},
-    {"is_flight", lua_wrap_errors<l_player_is_flight>},
-    {"set_flight", lua_wrap_errors<l_player_set_flight>},
-    {"is_noclip", lua_wrap_errors<l_player_is_noclip>},
-    {"set_noclip", lua_wrap_errors<l_player_set_noclip>},
-    {"get_selected_block", lua_wrap_errors<l_player_get_selected_block>},
+    {"get_pos", lua::wrap<l_get_pos>},
+    {"set_pos", lua::wrap<l_set_pos>},
+    {"get_vel", lua::wrap<l_get_vel>},
+    {"set_vel", lua::wrap<l_set_vel>},
+    {"get_rot", lua::wrap<l_get_rot>},
+    {"set_rot", lua::wrap<l_set_rot>},
+    {"get_dir", lua::wrap<l_get_dir>},
+    {"get_inventory", lua::wrap<l_get_inv>},
+    {"is_flight", lua::wrap<l_is_flight>},
+    {"set_flight", lua::wrap<l_set_flight>},
+    {"is_noclip", lua::wrap<l_is_noclip>},
+    {"set_noclip", lua::wrap<l_set_noclip>},
+    {"get_selected_block", lua::wrap<l_get_selected_block>},
+    {"get_selected_entity", lua::wrap<l_get_selected_entity>},
+    {"set_spawnpoint", lua::wrap<l_set_spawnpoint>},
+    {"get_spawnpoint", lua::wrap<l_get_spawnpoint>},
+    {"get_entity", lua::wrap<l_get_entity>},
+    {"set_entity", lua::wrap<l_set_entity>},
+    {"get_camera", lua::wrap<l_get_camera>},
+    {"set_camera", lua::wrap<l_set_camera>},
     {NULL, NULL}
 };

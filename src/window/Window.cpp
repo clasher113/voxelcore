@@ -19,6 +19,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #endif // USE_DIRECTX
+#include <thread>
+#include <chrono>
 
 static debug::Logger logger("window");
 
@@ -30,6 +32,8 @@ uint Window::width = 0;
 uint Window::height = 0;
 int Window::posX = 0;
 int Window::posY = 0;
+int Window::framerate = -1;
+double Window::prevSwap = 0.0;
 bool Window::fullscreen = false;
 
 static util::ObjectsKeeper observers_keeper;
@@ -68,8 +72,7 @@ bool Window::isIconified() {
     return glfwGetWindowAttrib(window, GLFW_ICONIFIED);
 }
 
-bool Window::isFocused()
-{
+bool Window::isFocused() {
     return glfwGetWindowAttrib(window, GLFW_FOCUSED);
 }
 
@@ -168,7 +171,7 @@ int Window::initialize(DisplaySettings* settings){
 #ifdef USE_DIRECTX
     HWND windowHandle = glfwGetWin32Window(window);
     DXDevice::initialize(windowHandle, width, height);
-    DXDevice::setSwapInterval(settings->vsync.get());
+    DXDevice::setSwapInterval(1);
 
     const AdapterData& adapterData = DXDevice::getAdapterData();
 
@@ -179,10 +182,16 @@ int Window::initialize(DisplaySettings* settings){
     glfwMakeContextCurrent(window);
 
     glewExperimental = GL_TRUE;
+    
     GLenum glewErr = glewInit();
     if (glewErr != GLEW_OK){
-        logger.error() << "failed to initialize GLEW:\n" << glewGetErrorString(glewErr);
-        return -1;
+        if (glewErr == GLEW_ERROR_NO_GLX_DISPLAY) {
+            // see issue #240
+            logger.warning() << "glewInit() returned GLEW_ERROR_NO_GLX_DISPLAY; ignored";
+        } else {
+            logger.error() << "failed to initialize GLEW:\n" << glewGetErrorString(glewErr);
+            return -1;
+        }
     }
 
     glViewport(0,0, width, height);
@@ -196,8 +205,9 @@ int Window::initialize(DisplaySettings* settings){
         Texture::MAX_RESOLUTION = maxTextureSize[0];
         logger.info() << "max texture size is " << Texture::MAX_RESOLUTION;
     }
+    glfwSwapInterval(1);
+    setFramerate(settings->framerate.get());
 
-    glfwSwapInterval(settings->vsync.get());
     const GLubyte* vendor = glGetString(GL_VENDOR);
     const GLubyte* renderer = glGetString(GL_RENDERER);
     logger.info() << "GL Vendor: " << (char*)vendor;
@@ -368,12 +378,15 @@ void Window::setShouldClose(bool flag){
     glfwSetWindowShouldClose(window, flag);
 }
 
-void Window::swapInterval(int interval){
+void Window::setFramerate(int framerate) {
+    if ((framerate != -1) != (Window::framerate != -1)) {
 #ifdef USE_DIRECTX
-    DXDevice::setSwapInterval(interval);
+        DXDevice::setSwapInterval(framerate == -1);
 #elif USE_OPENGL
-    glfwSwapInterval(interval);
-#endif // USE_DIRECTX
+        glfwSwapInterval(framerate == -1);
+#endif  // USE_DIRECTX
+    }
+    Window::framerate = framerate;
 }
 
 void Window::toggleFullscreen(){
@@ -413,6 +426,12 @@ void Window::swapBuffers(){
     glfwSwapBuffers(window);
 #endif // USE_DIRECTX
     Window::resetScissor();
+    double currentTime = time();
+    if (framerate > 0 && currentTime - prevSwap < (1.0 / framerate)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(
+            static_cast<int>((1.0/framerate - (currentTime-prevSwap))*1000)));
+    }
+    prevSwap = time();
 }
 
 double Window::time() {
@@ -468,4 +487,13 @@ bool Window::tryToMaximize(GLFWwindow* window, GLFWmonitor* monitor) {
     glfwSetWindowPos(window, workArea.x + (workArea.z - Window::width) / 2, 
                              workArea.y + (workArea.w - Window::height) / 2 + windowFrame.y / 2);
     return false;
+}
+
+void Window::setIcon(const ImageData* image) {
+    GLFWimage icon {
+        static_cast<int>(image->getWidth()),
+        static_cast<int>(image->getHeight()),
+        image->getData() 
+    };
+    glfwSetWindowIcon(window, 1, &icon);
 }

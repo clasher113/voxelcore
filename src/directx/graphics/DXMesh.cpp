@@ -7,6 +7,7 @@
 #include <d3d11_1.h>
 
 int Mesh::meshesCount = 0;
+int Mesh::drawCalls = 0;
 
 Mesh::Mesh(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer, size_t indices, const vattr* attrs) :
 	m_vertexSize(0),
@@ -26,15 +27,14 @@ Mesh::Mesh(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer,
 }
 
 Mesh::~Mesh() {
-	if (m_p_vertexBuffer != nullptr) m_p_vertexBuffer->Release();
-	if (m_p_indexBuffer != nullptr) m_p_indexBuffer->Release();
+	releaseResources();
 	meshesCount--;
 }
 
 void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer, size_t indices) {
 	if (vertexBuffer == nullptr || vertices == 0) return;
-	if (m_p_vertexBuffer != nullptr) m_p_vertexBuffer->Release();
-	if (m_p_indexBuffer != nullptr) m_p_indexBuffer->Release();
+
+	releaseResources();
 
 	auto device = DXDevice::getDevice();
 
@@ -86,6 +86,18 @@ void Mesh::draw(D3D_PRIMITIVE_TOPOLOGY primitive) {
 	else {
 		context->IASetIndexBuffer(m_p_indexBuffer, DXGI_FORMAT_R32_UINT, 0);
 		context->DrawIndexed(m_indices, 0, 0);
+	}
+    drawCalls++;
+}
+
+void Mesh::releaseResources() {
+	if (m_p_vertexBuffer != nullptr) {
+		m_p_vertexBuffer->Release();
+		m_p_vertexBuffer = nullptr;
+	}
+	if (m_p_indexBuffer != nullptr) {
+		m_p_indexBuffer->Release();
+		m_p_indexBuffer = nullptr;
 	}
 }
 

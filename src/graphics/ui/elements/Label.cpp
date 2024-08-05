@@ -145,7 +145,7 @@ uint Label::getLineByYOffset(int offset) const {
 
 uint Label::getLineByTextIndex(size_t index) const {
     for (size_t i = 0; i < cache.lines.size(); i++) {
-        if (cache.lines.at(i).offset > index) {
+        if (cache.lines[i].offset > index) {
             return i-1;
         }
     }
@@ -158,7 +158,7 @@ uint Label::getLinesNumber() const {
 
 void Label::draw(const DrawContext* pctx, Assets* assets) {
     auto batch = pctx->getBatch2D();
-    auto font = assets->getFont(fontName);
+    auto font = assets->get<Font>(fontName);
     cache.prepare(font, static_cast<size_t>(glm::abs(getSize().x)));
 
     if (supplier) {
@@ -195,7 +195,7 @@ void Label::draw(const DrawContext* pctx, Assets* assets) {
 
     if (multiline) {
         for (size_t i = 0; i < cache.lines.size(); i++) {
-            auto& line = cache.lines.at(i);
+            auto& line = cache.lines[i];
             size_t offset = line.offset;
             std::wstring_view view(text.c_str()+offset, text.length()-offset);
             if (i < cache.lines.size()-1) {

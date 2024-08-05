@@ -3,13 +3,14 @@
 
 #include <string>
 #include <vector>
+#include <optional>
 #include <glm/glm.hpp>
 
 #include "../maths/aabb.hpp"
 #include "../maths/UVRegion.hpp"
 #include "../typedefs.hpp"
 
-#define BLOCK_ITEM_SUFFIX ".item"
+inline std::string BLOCK_ITEM_SUFFIX = ".item";
 
 inline constexpr uint FACE_MX = 0;
 inline constexpr uint FACE_PX = 1;
@@ -57,11 +58,17 @@ struct BlockRotProfile {
     std::string name;
     CoordSystem variants[MAX_COUNT];
 
+    /// @brief No rotation
+    static const BlockRotProfile NONE;
+
     /// @brief Wood logs, pillars, pipes
     static const BlockRotProfile PIPE;
 
     /// @brief Doors, signs and other panes
     static const BlockRotProfile PANE;
+
+    static inline std::string PIPE_NAME = "pipe";
+    static inline std::string PANE_NAME = "pane";
 };
 
 enum class BlockModel {
@@ -76,6 +83,9 @@ enum class BlockModel {
     /// @brief custom model defined in json
     custom
 };
+
+std::string to_string(BlockModel model);
+std::optional<BlockModel> BlockModel_from(std::string_view str);
 
 using BoxModel = AABB;
 
@@ -110,6 +120,8 @@ public:
     /// @brief Light emission R, G, B, S (sky lights: sun, moon, radioactive clouds)
     uint8_t emission[4] {0, 0, 0, 0};
 
+    glm::i8vec3 size {1, 1, 1};
+
     /// @brief Influences visible block sides for transparent blocks
     uint8_t drawGroup = 0;
     
@@ -121,6 +133,12 @@ public:
     
     /// @brief Does the block passing top-down sky lights into itself
     bool skyLightPassing = false;
+
+    /// @brief Does block model have shading
+    bool shadeless = false;
+
+    /// @brief Does block model have vertex-based AO effect
+    bool ambientOcclusion = true;
     
     /// @brief Is the block a physical obstacle
     bool obstacle = true;
@@ -148,7 +166,7 @@ public:
     std::vector<AABB> hitboxes;
     
     /// @brief Set of available block rotations (coord-systems)
-    BlockRotProfile rotations;
+    BlockRotProfile rotations = BlockRotProfile::NONE;
     
     /// @brief Item will be picked on MMB click on the block
     std::string pickingItem = name+BLOCK_ITEM_SUFFIX;
@@ -175,6 +193,9 @@ public:
         
         /// @brief does the block emit any lights
         bool emissive = false;
+
+        // @brief block size is greather than 1x1x1
+        bool extended = false;
         
         /// @brief set of hitboxes sets with all coord-systems precalculated
         std::vector<AABB> hitboxes[BlockRotProfile::MAX_COUNT];
@@ -184,11 +205,15 @@ public:
         
         /// @brief picking item integer id
         itemid_t pickingItem = 0;
-    } rt;
+    } rt {};
 
     Block(const std::string& name);
     Block(std::string name, const std::string& texture);
     Block(const Block&) = delete;
 };
 
-#endif /* VOXELS_BLOCK_HPP_ */
+inline glm::ivec3 get_ground_direction(const Block* def, int rotation) {
+    return -def->rotations.variants[rotation].axisY;
+}
+
+#endif // VOXELS_BLOCK_HPP_

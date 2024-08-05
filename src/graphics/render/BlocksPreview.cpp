@@ -60,12 +60,13 @@ std::unique_ptr<ImageData> BlocksPreview::draw(
                 }
                 offset = glm::vec3(1, 1, 0.0f);
                 shader->uniformMatrix("u_apply", glm::translate(glm::mat4(1.0f), offset));
+                glm::vec3 scaledSize = glm::vec3(size * 0.63f);
 #ifdef USE_DIRECTX
                 shader->applyChanges();
 #endif // USE_DIRECTX
                 batch->cube(
-                    -hitbox * glm::vec3(size * 0.63f)*0.5f * glm::vec3(1,1,-1),
-                    hitbox * glm::vec3(size * 0.63f), 
+                    -hitbox * scaledSize * 0.5f * glm::vec3(1,1,-1),
+                    hitbox * scaledSize,
                     texfaces, glm::vec4(1.0f), 
                     !def->rt.emissive
                 );
@@ -139,11 +140,11 @@ std::unique_ptr<Atlas> BlocksPreview::build(
     const Content* content
 ) {
     auto indices = content->getIndices();
-    size_t count = indices->countBlockDefs();
+    size_t count = indices->blocks.count();
     size_t iconSize = ITEM_ICON_SIZE;
 
-    Shader* shader = assets->getShader("ui3d");
-    Atlas* atlas = assets->getAtlas("blocks");
+    auto shader = assets->get<Shader>("ui3d");
+    auto atlas = assets->get<Atlas>("blocks");
 
     Viewport viewport(iconSize, iconSize);
     DrawContext pctx(nullptr, viewport, nullptr);
@@ -169,7 +170,7 @@ std::unique_ptr<Atlas> BlocksPreview::build(
     
     fbo.bind();
     for (size_t i = 0; i < count; i++) {
-        auto def = indices->getBlockDef(i);
+        auto def = indices->blocks.get(i);
         atlas->getTexture()->bind();
         builder.add(def->name, draw(cache, shader, &fbo, &batch, def, iconSize));
     }

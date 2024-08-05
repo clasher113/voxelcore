@@ -25,13 +25,17 @@ package = {
 }
 local __cached_scripts = {}
 
+function on_deprecated_call(name)
+    debug.warning("deprecated function called ("..name..")\n"..debug.traceback())
+end
+
 -- Load script with caching
 --
 -- path - script path `contentpack:filename`. 
 --     Example `base:scripts/tests.lua`
 --
 -- nocache - ignore cached script, load anyway
-function load_script(path, nocache)
+local function __load_script(path, nocache)
     local packname, filename = parse_path(path)
 
     -- __cached_scripts used in condition because cached result may be nil
@@ -68,7 +72,7 @@ end
 
 function require(path)
     local prefix, file = parse_path(path)
-    return load_script(prefix..":modules/"..file..".lua")
+    return __load_script(prefix..":modules/"..file..".lua")
 end
 
 function sleep(timesec)
@@ -78,24 +82,6 @@ function sleep(timesec)
     end
 end
 
-_dofile = dofile
--- Replaces dofile('*/content/packid/*') with load_script('packid:*') 
-function dofile(path)
-    local index = string.find(path, "/content/")
-    if index then
-        local newpath = string.sub(path, index+9)
-        index = string.find(newpath, "/")
-        if index then
-            local label = string.sub(newpath, 1, index-1)
-            newpath = label..':'..string.sub(newpath, index+1)
-            if file.isfile(newpath) then
-                return load_script(newpath, true)
-            end
-        end
-    end
-    return _dofile(path)
-end
-
 function pack.is_installed(packid)
     return file.isfile(packid..":package.json")
 end
@@ -103,26 +89,6 @@ end
 function pack.data_file(packid, name)
     file.mkdirs("world:data/"..packid)
     return "world:data/"..packid.."/"..name
-end
-
-vec2_mt = {}
-function vec2_mt.__tostring(self)
-    return "vec2("..self[1]..", "..self[2]..")"
-end
-
-vec3_mt = {}
-function vec3_mt.__tostring(self)
-    return "vec3("..self[1]..", "..self[2]..", "..self[3]..")"
-end
-
-vec4_mt = {}
-function vec4_mt.__tostring(self)
-    return "vec4("..self[1]..", "..self[2]..", "..self[3]..", "..self[4]..")"
-end
-
-color_mt = {}
-function color_mt.__tostring(self)
-    return "rgba("..self[1]..", "..self[2]..", "..self[3]..", "..self[4]..")"
 end
 
 -- events
@@ -252,9 +218,11 @@ function session.reset_entry(name)
     session.entries[name] = nil
 end
 
-function timeit(func, ...)
+function timeit(iters, func, ...)
     local tm = time.uptime()
-    func(...)
+    for i=1,iters do
+        func(...)
+    end
     print("[time mcs]", (time.uptime()-tm) * 1000000)
 end
 
@@ -303,7 +271,162 @@ function file.readlines(path)
     return lines
 end
 
--- Deprecated functions
+stdcomp = require "core:internal/stdcomp"
+entities.get = stdcomp.get_Entity
+entities.get_all = function(uids)
+    if uids == nil then
+        local values = {}
+        for k,v in pairs(stdcomp.get_all()) do
+            values[k] = v
+        end
+        return values 
+    else
+        return stdcomp.get_all(uids)
+    end
+end
+
+math.randomseed(time.uptime() * 1536227939)
+
+----------------------------------------------
+
+function math.clamp(_in, low, high)
+    return math.min(math.max(_in, low), high)
+end
+
+function math.rand(low, high)
+    return low + (high - low) * math.random()
+end
+
+----------------------------------------------
+
+function table.copy(t)
+    local copied = {}
+
+    for k, v in pairs(t) do
+        copied[k] = v
+    end
+
+    return copied
+end
+
+function table.count_pairs(t)
+    local count = 0
+
+    for k, v in pairs(t) do
+        count = count + 1
+    end
+
+    return count
+end
+
+function table.random(t)
+    return t[math.random(1, #t)]
+end
+
+----------------------------------------------
+
+local pattern_escape_replacements = {
+    ["("] = "%(",
+    [")"] = "%)",
+    ["."] = "%.",
+    ["%"] = "%%",
+    ["+"] = "%+",
+    ["-"] = "%-",
+    ["*"] = "%*",
+    ["?"] = "%?",
+    ["["] = "%[",
+    ["]"] = "%]",
+    ["^"] = "%^",
+    ["$"] = "%$",
+    ["\0"] = "%z"
+}
+
+function string.pattern_safe(str)
+    return string.gsub(str, ".", pattern_escape_replacements)
+end
+
+--local totable = string.ToTable
+local string_sub = string.sub
+local string_find = string.find
+local string_len = string.len
+function string.explode(separator, str, withpattern)
+    --if (separator == "") then return totable(str) end
+    if (withpattern == nil) then withpattern = false end
+
+    local ret = {}
+    local current_pos = 1
+
+    for i = 1, string_len(str) do
+        local start_pos, end_pos = string_find(str, separator, current_pos, not withpattern)
+        if (not start_pos) then break end
+        ret[i] = string_sub(str, current_pos, start_pos - 1)
+        current_pos = end_pos + 1
+    end
+
+    ret[#ret + 1] = string_sub(str, current_pos)
+
+    return ret
+end
+
+function string.split(str, delimiter)
+    return string.explode(delimiter, str)
+end
+
+function string.formatted_time(seconds, format)
+    if (not seconds) then seconds = 0 end
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds / 60) % 60)
+    local millisecs = (seconds - math.floor(seconds)) * 1000
+    seconds = math.floor(seconds % 60)
+
+    if (format) then
+        return string.format(format, minutes, seconds, millisecs)
+    else
+        return { h = hours, m = minutes, s = seconds, ms = millisecs }
+    end
+end
+
+function string.replace(str, tofind, toreplace)
+    local tbl = string.Explode(tofind, str)
+    if (tbl[1]) then return table.concat(tbl, toreplace) end
+    return str
+end
+
+function string.trim(s, char)
+    if char then char = string.pattern_safe(char) else char = "%s" end
+    return string.match(s, "^" .. char .. "*(.-)" .. char .. "*$") or s
+end
+
+function string.trim_right(s, char)
+    if char then char = string.pattern_safe(char) else char = "%s" end
+    return string.match(s, "^(.-)" .. char .. "*$") or s
+end
+
+function string.trim_left(s, char)
+    if char then char = string.pattern_safe(char) else char = "%s" end
+    return string.match(s, "^" .. char .. "*(.+)$") or s
+end
+
+local meta = getmetatable("")
+
+function meta:__index(key)
+    local val = string[key]
+    if (val ~= nil) then
+        return val
+    elseif (tonumber(key)) then
+        return string.sub(self, key, key)
+    end
+end
+
+function string.starts_with(str, start)
+    return string.sub(str, 1, string.len(start)) == start
+end
+
+function string.ends_with(str, endStr)
+    return endStr == "" or string.sub(str, -string.len(endStr)) == endStr
+end
+
+-- --------- Deprecated functions ------ --
 block_index = block.index
 block_name = block.name
 blocks_count = block.defs_count
@@ -320,3 +443,27 @@ get_block_rotation = block.get_rotation
 set_block_rotation = block.set_rotation
 get_block_user_bits = block.get_user_bits
 set_block_user_bits = block.set_user_bits
+
+function load_script(path, nocache)
+    on_deprecated_call("load_script")
+    return __load_script(path, nocache)
+end
+
+_dofile = dofile
+-- Replaces dofile('*/content/packid/*') with load_script('packid:*') 
+function dofile(path)
+    on_deprecated_call("dofile")
+    local index = string.find(path, "/content/")
+    if index then
+        local newpath = string.sub(path, index+9)
+        index = string.find(newpath, "/")
+        if index then
+            local label = string.sub(newpath, 1, index-1)
+            newpath = label..':'..string.sub(newpath, index+1)
+            if file.isfile(newpath) then
+                return __load_script(newpath, true)
+            end
+        end
+    end
+    return _dofile(path)
+end

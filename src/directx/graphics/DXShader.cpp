@@ -7,6 +7,8 @@
 #include "../util/ConstantBufferBuilder.hpp"
 #include "../../util/stringutil.hpp"
 
+#include "../ShaderInclude.hpp"
+
 #include <d3dcompiler.h>
 
 Shader::Shader(ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout, const ConstantBufferData& cbuffData) :
@@ -34,7 +36,7 @@ void Shader::use() {
 	context->IASetInputLayout(m_p_inputLayout);
 }
 
-void Shader::compileShader(const std::wstring_view& shaderFile, ID3D10Blob** shader, ShaderType shaderType) {
+void Shader::compileShader(const std::wstring_view& shaderFile, ID3D10Blob** shader, ShaderType shaderType, ID3DInclude* include) {
 	ID3D10Blob* errorMsg = nullptr;
 	HRESULT errorCode = S_OK;
 	UINT flag1 = 0, flag2 = 0;
@@ -60,7 +62,7 @@ void Shader::compileShader(const std::wstring_view& shaderFile, ID3D10Blob** sha
 	default: break;
 	}
 
-	errorCode = D3DCompileFromFile(shaderFile.data(), 0, 0, entryPoint, target, flag1, flag2, shader, &errorMsg);
+	errorCode = D3DCompileFromFile(shaderFile.data(), 0, include, entryPoint, target, flag1, flag2, shader, &errorMsg);
 
 	//if (shader == nullptr) errorCode = S_FALSE;
 	CHECK_ERROR2(errorCode, L"Failed to compile " + name + L" shader:\n" + util::str2wstr_utf8((char*)errorMsg->GetBufferPointer()));
@@ -71,11 +73,11 @@ void Shader::compileShader(const std::wstring_view& shaderFile, ID3D10Blob** sha
 	}
 }
 
-std::unique_ptr<Shader> Shader::loadShader(const std::wstring_view& shaderFile) {
+std::unique_ptr<Shader> Shader::loadShader(const std::wstring_view& shaderFile, ID3DInclude* include) {
 	ID3D10Blob* VS, * PS;
 
-	compileShader(shaderFile, &VS, ShaderType::VERTEX);
-	compileShader(shaderFile, &PS, ShaderType::PIXEL);
+	compileShader(shaderFile, &VS, ShaderType::VERTEX, include);
+	compileShader(shaderFile, &PS, ShaderType::PIXEL, include);
 
 	auto device = DXDevice::getDevice();
 

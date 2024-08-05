@@ -5,12 +5,14 @@
 #include "../util/DXError.hpp"
 #include "../ConstantBuffer.hpp"
 #include "DXShader.hpp"
+#include "DXTexture.hpp"
 #include "../math/DXMathHelper.hpp"
 #include "../../window/Window.hpp"
 #include "../../graphics/core/DrawContext.hpp"
 #include "../../window/Camera.hpp"
 #include "../../assets/Assets.hpp"
 #include "../../graphics/core/Batch3D.hpp"
+#include "../../maths/UVRegion.hpp"
 
 #include <glm\glm.hpp>
 #include <d3d11_1.h>
@@ -127,7 +129,7 @@ Skybox::~Skybox() {
 }
 
 void Skybox::drawBackground(Camera* camera, Assets* assets, int width, int height) {
-	Shader* backShader = assets->getShader("background");
+	Shader* backShader = assets->get<Shader>("background");
 	backShader->uniformMatrix("u_view", camera->getView(false));
 	backShader->uniform1f("u_zoom", camera->zoom * camera->getFov() / (M_PI * 0.5f));
 	backShader->uniform1f("u_ar", float(width) / float(height));
@@ -170,7 +172,7 @@ void Skybox::draw(const DrawContext& pctx, Camera* camera, Assets* assets, float
 	DrawContext ctx = pctx.sub();
 	ctx.setBlendMode(BlendMode::addition);
 
-	Shader* shader = assets->getShader("ui3d");
+	Shader* shader = assets->get<Shader>("ui3d");
 	shader->uniformMatrix("u_projview", camera->getProjView(false));
 	shader->uniformMatrix("u_apply", glm::mat4(1.0f));
 	shader->use();
@@ -180,7 +182,7 @@ void Skybox::draw(const DrawContext& pctx, Camera* camera, Assets* assets, float
 	float opacity = glm::pow(1.0f - fog, 7.0f);
 
 	for (auto& sprite : sprites) {
-		m_p_batch3d->texture(assets->getTexture(sprite.texture));
+		m_p_batch3d->texture(assets->get<Texture>(sprite.texture));
 
 		float sangle = daytime * M_PI * 2 + sprite.phase;
 		float distance = sprite.distance;

@@ -12,6 +12,7 @@
 #include "../content/Content.hpp"
 #include "../content/ContentPack.hpp"
 #include "../voxels/Block.hpp"
+#include "../objects/rigging.hpp"
 #include "../graphics/core/Texture.hpp"
 #include "../logic/scripting/scripting.hpp"
 
@@ -24,12 +25,13 @@ static debug::Logger logger("assets-loader");
 AssetsLoader::AssetsLoader(Assets* assets, const ResPaths* paths) 
   : assets(assets), paths(paths) 
 {
-    addLoader(AssetType::shader, assetload::shader);
-    addLoader(AssetType::texture, assetload::texture);
-    addLoader(AssetType::font, assetload::font);
-    addLoader(AssetType::atlas, assetload::atlas);
-    addLoader(AssetType::layout, assetload::layout);
-    addLoader(AssetType::sound, assetload::sound);
+    addLoader(AssetType::SHADER, assetload::shader);
+    addLoader(AssetType::TEXTURE, assetload::texture);
+    addLoader(AssetType::FONT, assetload::font);
+    addLoader(AssetType::ATLAS, assetload::atlas);
+    addLoader(AssetType::LAYOUT, assetload::layout);
+    addLoader(AssetType::SOUND, assetload::sound);
+    addLoader(AssetType::MODEL, assetload::model);
 }
 
 void AssetsLoader::addLoader(AssetType tag, aloader_func func) {
@@ -54,7 +56,7 @@ aloader_func AssetsLoader::getLoader(AssetType tag) {
     return found->second;
 }
 
-bool AssetsLoader::loadNext() {
+void AssetsLoader::loadNext() {
     const aloader_entry& entry = entries.front();
     logger.info() << "loading " << entry.filename << " as " << entry.alias;
     try {
@@ -62,11 +64,13 @@ bool AssetsLoader::loadNext() {
         auto postfunc = loader(this, paths, entry.filename, entry.alias, entry.config);
         postfunc(assets);
         entries.pop();
-        return true;
     } catch (std::runtime_error& err) {
         logger.error() << err.what();
+        auto type = entry.tag;
+        std::string filename = entry.filename;
+        std::string reason = err.what();
         entries.pop();
-        return false;
+        throw assetload::error(type, std::move(filename), std::move(reason));
     }
 }
 
@@ -79,7 +83,7 @@ void addLayouts(const scriptenv& env, const std::string& prefix, const fs::path&
         if (file.extension().u8string() != ".xml")
             continue;
         std::string name = prefix+":"+file.stem().u8string();
-        loader.add(AssetType::layout, file.u8string(), name, std::make_shared<LayoutCfg>(env));
+        loader.add(AssetType::LAYOUT, file.u8string(), name, std::make_shared<LayoutCfg>(env));
     }
 }
 
@@ -88,17 +92,18 @@ void AssetsLoader::tryAddSound(const std::string& name) {
         return;
     }
     std::string file = SOUNDS_FOLDER+"/"+name;
-    add(AssetType::sound, file, name);
+    add(AssetType::SOUND, file, name);
 }
 
 static std::string assets_def_folder(AssetType tag) {
     switch (tag) {
-        case AssetType::font: return FONTS_FOLDER;
-        case AssetType::shader: return SHADERS_FOLDER;
-        case AssetType::texture: return TEXTURES_FOLDER;
-        case AssetType::atlas: return TEXTURES_FOLDER;
-        case AssetType::layout: return LAYOUTS_FOLDER;
-        case AssetType::sound: return SOUNDS_FOLDER;
+        case AssetType::FONT: return FONTS_FOLDER;
+        case AssetType::SHADER: return SHADERS_FOLDER;
+        case AssetType::TEXTURE: return TEXTURES_FOLDER;
+        case AssetType::ATLAS: return TEXTURES_FOLDER;
+        case AssetType::LAYOUT: return LAYOUTS_FOLDER;
+        case AssetType::SOUND: return SOUNDS_FOLDER;
+        case AssetType::MODEL: return MODELS_FOLDER;
     }
     return "<error>";
 }
@@ -116,7 +121,7 @@ void AssetsLoader::processPreload(
     }
     map->str("path", path);
     switch (tag) {
-        case AssetType::sound:
+        case AssetType::SOUND:
             add(tag, path, name, std::make_shared<SoundCfg>(
                 map->get("keep-pcm", false)
             ));
@@ -151,14 +156,23 @@ void AssetsLoader::processPreloadList(AssetType tag, dynamic::List* list) {
 
 void AssetsLoader::processPreloadConfig(const fs::path& file) {
     auto root = files::read_json(file);
-    processPreloadList(AssetType::font, root->list("fonts"));
-    processPreloadList(AssetType::shader, root->list("shaders"));
-    processPreloadList(AssetType::texture, root->list("textures"));
-    processPreloadList(AssetType::sound, root->list("sounds"));
+    processPreloadList(AssetType::ATLAS, root->list("atlases").get());
+    processPreloadList(AssetType::FONT, root->list("fonts").get());
+    processPreloadList(AssetType::SHADER, root->list("shaders").get());
+    processPreloadList(AssetType::TEXTURE, root->list("textures").get());
+    processPreloadList(AssetType::SOUND, root->list("sounds").get());
+    processPreloadList(AssetType::MODEL, root->list("models").get());
     // layouts are loaded automatically
 }
 
 void AssetsLoader::processPreloadConfigs(const Content* content) {
+    auto preloadFile = paths->getMainRoot()/fs::path("preload.json");
+    if (fs::exists(preloadFile)) {
+        processPreloadConfig(preloadFile);
+    }
+    if (content == nullptr) {
+        return;
+    }
     for (auto& entry : content->getPacks()) {
         const auto& pack = entry.second;
         auto preloadFile = pack->getInfo().folder / fs::path("preload.json");
@@ -166,28 +180,11 @@ void AssetsLoader::processPreloadConfigs(const Content* content) {
             processPreloadConfig(preloadFile);
         }
     }
-    auto preloadFile = paths->getMainRoot()/fs::path("preload.json");
-    if (fs::exists(preloadFile)) {
-        processPreloadConfig(preloadFile);
-    }
 }
 
 void AssetsLoader::addDefaults(AssetsLoader& loader, const Content* content) {
-    loader.add(AssetType::font, FONTS_FOLDER+"/font", "normal");
-    loader.add(AssetType::shader, SHADERS_FOLDER+"/ui", "ui");
-    loader.add(AssetType::shader, SHADERS_FOLDER+"/main", "main");
-    loader.add(AssetType::shader, SHADERS_FOLDER+"/lines", "lines");
-    loader.add(AssetType::texture, TEXTURES_FOLDER+"/gui/menubg", "gui/menubg");
-    loader.add(AssetType::texture, TEXTURES_FOLDER+"/gui/delete_icon", "gui/delete_icon");
-    loader.add(AssetType::texture, TEXTURES_FOLDER+"/gui/no_icon", "gui/no_icon");
-    loader.add(AssetType::texture, TEXTURES_FOLDER+"/gui/no_world_icon", "gui/no_world_icon");
-    loader.add(AssetType::texture, TEXTURES_FOLDER+"/gui/warning", "gui/warning");
-    loader.add(AssetType::texture, TEXTURES_FOLDER+"/gui/error", "gui/error");
-    loader.add(AssetType::texture, TEXTURES_FOLDER+"/gui/cross", "gui/cross");
-    loader.add(AssetType::texture, TEXTURES_FOLDER+"/gui/refresh", "gui/refresh");
+    loader.processPreloadConfigs(content);
     if (content) {
-        loader.processPreloadConfigs(content);
-
         for (auto& entry : content->getBlockMaterials()) {
             auto& material = *entry.second;
             loader.tryAddSound(material.stepsSound);
@@ -202,9 +199,17 @@ void AssetsLoader::addDefaults(AssetsLoader& loader, const Content* content) {
             fs::path folder = info.folder / fs::path("layouts");
             addLayouts(pack->getEnvironment(), info.id, folder, loader);
         }
+
+        for (auto& entry : content->getSkeletons()) {
+            auto& skeleton = *entry.second;
+            for (auto& bone : skeleton.getBones()) {
+                auto& model = bone->model.name;
+                if (!model.empty()) {
+                    loader.add(AssetType::MODEL, MODELS_FOLDER+"/"+model, model);
+                }
+            }
+        }
     }
-    loader.add(AssetType::atlas, TEXTURES_FOLDER+"/blocks", "blocks");
-    loader.add(AssetType::atlas, TEXTURES_FOLDER+"/items", "items");
 }
 
 bool AssetsLoader::loadExternalTexture(
@@ -212,7 +217,7 @@ bool AssetsLoader::loadExternalTexture(
     const std::string& name,
     const std::vector<std::filesystem::path>& alternatives
 ) {
-    if (assets->getTexture(name) != nullptr) {
+    if (assets->get<Texture>(name) != nullptr) {
         return true;
     }
     for (auto& path : alternatives) {

@@ -97,6 +97,10 @@ void stringifyObj(
     const std::string& indentstr, 
     bool nice
 ) {
+    if (obj == nullptr) {
+        ss << "nullptr";
+        return;
+    }
     if (obj->values.empty()) {
         ss << "{}";
         return;
@@ -209,9 +213,8 @@ std::unique_ptr<List> Parser::parseList() {
 
 Value Parser::parseValue() {
     char next = peek();
-    if (next == '-' || next == '+') {
-        pos++;
-        return parseNumber(next == '-' ? -1 : 1);
+    if (next == '-' || next == '+' || is_digit(next)) {
+        return parseNumber();
     }
     if (is_identifier_start(next)) {
         std::string literal = parseName();
@@ -232,9 +235,6 @@ Value Parser::parseValue() {
     if (next == '[') {
         return List_sptr(parseList().release());
     }
-    if (is_digit(next)) {
-        return parseNumber(1);
-    }
     if (next == '"' || next == '\'') {
         pos++;
         return parseString(next);
@@ -242,11 +242,11 @@ Value Parser::parseValue() {
     throw error("unexpected character '"+std::string({next})+"'");
 }
 
-dynamic::Map_sptr json::parse(const std::string& filename, const std::string& source) {
+dynamic::Map_sptr json::parse(std::string_view filename, std::string_view source) {
     Parser parser(filename, source);
     return parser.parse();
 }
 
-dynamic::Map_sptr json::parse(const std::string& source) {
+dynamic::Map_sptr json::parse(std::string_view source) {
     return parse("<string>", source);
 }

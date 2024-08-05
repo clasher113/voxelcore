@@ -9,11 +9,13 @@
 #include "../graphics/render/BlocksPreview.hpp"
 #include "../logic/LevelController.hpp"
 #include "../logic/PlayerController.hpp"
+#include "../objects/Player.hpp"
 #include "../voxels/Block.hpp"
 #include "../world/Level.hpp"
 
-LevelFrontend::LevelFrontend(LevelController* controller, Assets* assets) 
-  : level(controller->getLevel()),
+LevelFrontend::LevelFrontend(
+    Player* currentPlayer, LevelController* controller, Assets* assets
+) : level(controller->getLevel()),
     controller(controller),
     assets(assets),
     contentCache(std::make_unique<ContentGfxCache>(level->content, assets)) 
@@ -22,19 +24,30 @@ LevelFrontend::LevelFrontend(LevelController* controller, Assets* assets)
         BlocksPreview::build(contentCache.get(), assets, level->content),
         "block-previews"
     );
-    controller->getPlayerController()->listenBlockInteraction(
-        [=](Player*, glm::ivec3 pos, const Block* def, BlockInteraction type) {
+    controller->getBlocksController()->listenBlockInteraction(
+        [=](Player* player, glm::ivec3 pos, const Block* def, BlockInteraction type) {
             auto material = level->content->findBlockMaterial(def->material);
             if (material == nullptr) {
                 return;
             }
 
             if (type == BlockInteraction::step) {
-                auto sound = assets->getSound(material->stepsSound);
+                auto sound = assets->get<audio::Sound>(material->stepsSound);
+                glm::vec3 pos {};
+                auto soundsCamera = currentPlayer->currentCamera.get();
+                if (soundsCamera == currentPlayer->spCamera.get() ||
+                    soundsCamera == currentPlayer->tpCamera.get()) {
+                    soundsCamera = currentPlayer->camera.get();
+                }
+                bool relative = player == currentPlayer && 
+                    soundsCamera == currentPlayer->camera.get();
+                if (!relative) {
+                    pos = player->getPosition();
+                }
                 audio::play(
                     sound, 
-                    glm::vec3(), 
-                    true, 
+                    pos, 
+                    relative, 
                     0.333f, 
                     1.0f + (rand() % 6 - 3) * 0.05f, 
                     false,
@@ -45,12 +58,12 @@ LevelFrontend::LevelFrontend(LevelController* controller, Assets* assets)
                 audio::Sound* sound = nullptr;
                 switch (type) {
                     case BlockInteraction::placing:
-                        sound = assets->getSound(material->placeSound);
+                        sound = assets->get<audio::Sound>(material->placeSound);
                         break;
                     case BlockInteraction::destruction:
-                        sound = assets->getSound(material->breakSound);
+                        sound = assets->get<audio::Sound>(material->breakSound);
                         break; 
-                    case BlockInteraction::step:
+                    default:
                         break;   
                 }
                 audio::play(
@@ -68,8 +81,7 @@ LevelFrontend::LevelFrontend(LevelController* controller, Assets* assets)
     );
 }
 
-LevelFrontend::~LevelFrontend() {
-}
+LevelFrontend::~LevelFrontend() = default;
 
 Level* LevelFrontend::getLevel() const {
     return level;

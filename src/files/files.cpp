@@ -78,6 +78,21 @@ std::unique_ptr<ubyte[]> files::read_bytes(const fs::path& filename, size_t& len
     return data;
 }
 
+std::vector<ubyte> files::read_bytes(const fs::path& filename) {
+    std::ifstream input(filename, std::ios::binary);
+    if (!input.is_open())
+        return {};
+    input.seekg(0, std::ios_base::end);
+    size_t length = input.tellg();
+    input.seekg(0, std::ios_base::beg);
+
+    std::vector<ubyte> data(length);
+    data.resize(length);
+    input.read((char*)data.data(), length);
+    input.close();
+    return data;
+}
+
 std::string files::read_string(const fs::path& filename) {
     size_t size;
     std::unique_ptr<ubyte[]> bytes (read_bytes(filename, size));
@@ -108,12 +123,7 @@ bool files::write_binary_json(const fs::path& filename, const dynamic::Map* obj,
 
 std::shared_ptr<dynamic::Map> files::read_json(const fs::path& filename) {
     std::string text = files::read_string(filename);
-    try {
-        return json::parse(filename.string(), text);;
-    } catch (const parsing_error& error) {
-        std::cerr << error.errorLog() << std::endl;
-        throw std::runtime_error("could not to parse "+filename.string());
-    }
+    return json::parse(filename.string(), text);
 }
 
 std::shared_ptr<dynamic::Map> files::read_binary_json(const fs::path& file) {

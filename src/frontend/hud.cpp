@@ -109,9 +109,9 @@ std::shared_ptr<InventoryView> Hud::createContentAccess() {
     auto indices = content->getIndices();
     auto inventory = player->getInventory();
     
-    int itemsCount = indices->countItemDefs();
+    size_t itemsCount = indices->items.count();
     auto accessInventory = std::make_shared<Inventory>(0, itemsCount);
-    for (int id = 1; id < itemsCount; id++) {
+    for (size_t id = 1; id < itemsCount; id++) {
         accessInventory->getSlot(id-1).set(ItemStack(id, 1));
     }
 
@@ -182,6 +182,7 @@ Hud::Hud(Engine* engine, LevelFrontend* frontend, Player* player)
 
     auto dplotter = std::make_shared<Plotter>(350, 250, 2000, 16);
     dplotter->setGravity(Gravity::bottom_right);
+    dplotter->setInteractive(false);
     add(HudElement(hud_element_mode::permanent, nullptr, dplotter, true));
 }
 
@@ -215,7 +216,7 @@ void Hud::processInput(bool visible) {
         }
     }
     if (!pause && Events::active(BIND_DEVTOOLS_CONSOLE)) {
-        showOverlay(assets->getLayout("core:console"), false);
+        showOverlay(assets->get<UiDocument>("core:console"), false);
     }
     if (!Window::isFocused() && !pause && !isInventoryOpen()) {
         setPause(true);
@@ -291,7 +292,7 @@ void Hud::update(bool visible) {
     contentAccessPanel->setVisible(inventoryView != nullptr);
     contentAccessPanel->setSize(glm::vec2(invSize.x, Window::height));
     contentAccess->setMinSize(glm::vec2(1, Window::height));
-    hotbarView->setVisible(visible);
+    hotbarView->setVisible(visible && !(secondUI && !inventoryView));
 
     if (visible) {
         for (auto& element : elements) {
@@ -312,7 +313,7 @@ void Hud::openInventory() {
 
     inventoryOpen = true;
     auto inventory = player->getInventory();
-    auto inventoryDocument = assets->getLayout("core:inventory");
+    auto inventoryDocument = assets->get<UiDocument>("core:inventory");
     inventoryView = std::dynamic_pointer_cast<InventoryView>(inventoryDocument->getRoot());
     inventoryView->bind(inventory, content);
     add(HudElement(hud_element_mode::inventory_bound, inventoryDocument, inventoryView, false));
@@ -412,9 +413,9 @@ void Hud::add(const HudElement& element) {
     using namespace dynamic;
 
     gui->add(element.getNode());
-    auto invview = std::dynamic_pointer_cast<InventoryView>(element.getNode());
     auto document = element.getDocument();
     if (document) {
+        auto invview = std::dynamic_pointer_cast<InventoryView>(element.getNode());
         auto inventory = invview ? invview->getInventory() : nullptr;
         std::vector<Value> args;
         args.emplace_back(inventory ? inventory.get()->getId() : 0);
@@ -467,7 +468,7 @@ void Hud::draw(const DrawContext& ctx){
     auto batch = ctx.getBatch2D();
     batch->begin();
 
-    Shader* uishader = assets->getShader("ui");
+    auto uishader = assets->get<Shader>("ui");
     uishader->uniformMatrix("u_projview", uicamera->getProjView());
     uishader->use();
 
@@ -475,7 +476,7 @@ void Hud::draw(const DrawContext& ctx){
     if (!pause && !inventoryOpen && !player->debug) {
         DrawContext chctx = ctx.sub();
         chctx.setBlendMode(BlendMode::inversion);
-        auto texture = assets->getTexture("gui/crosshair");
+        auto texture = assets->get<Texture>("gui/crosshair");
         batch->texture(texture);
         int chsizex = texture != nullptr ? texture->getWidth() : 16;
         int chsizey = texture != nullptr ? texture->getHeight() : 16;
@@ -513,10 +514,12 @@ void Hud::updateElementsPosition(const Viewport& viewport) {
                     height/2+totalHeight/2-invSize.y
                 ));
             }
-            secondUI->setPos(glm::vec2(
-                glm::min(width/2-invwidth/2, width-caWidth-(inventoryView ? 10 : 0)-invwidth),
-                height/2-totalHeight/2
-            ));
+            if (secondUI->getPositionFunc() == nullptr) {
+                secondUI->setPos(glm::vec2(
+                    glm::min(width/2-invwidth/2, width-caWidth-(inventoryView ? 10 : 0)-invwidth),
+                    height/2-totalHeight/2
+                ));
+            }
         }
     }
     if (exchangeSlot != nullptr) {

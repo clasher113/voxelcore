@@ -8,6 +8,7 @@
 #include "../../debug/Logger.hpp"
 #include "../../engine.hpp"
 #include "../../files/files.hpp"
+#include "../../content/Content.hpp"
 #include "../../graphics/core/DrawContext.hpp"
 #include "../../graphics/core/ImageData.hpp"
 #include "../../graphics/core/PostProcessing.hpp"
@@ -37,7 +38,7 @@ LevelScreen::LevelScreen(Engine* engine, std::unique_ptr<Level> level)
     menu->reset();
 
     controller = std::make_unique<LevelController>(settings, std::move(level));
-    frontend = std::make_unique<LevelFrontend>(controller.get(), assets);
+    frontend = std::make_unique<LevelFrontend>(controller->getPlayer(), controller.get(), assets);
 
     worldRenderer = std::make_unique<WorldRenderer>(engine, frontend.get(), controller->getPlayer());
     hud = std::make_unique<Hud>(engine, frontend.get(), controller->getPlayer());
@@ -98,7 +99,7 @@ void LevelScreen::saveWorldPreview() {
         Viewport viewport(previewSize * 1.5, previewSize);
         DrawContext ctx(&pctx, viewport, batch.get());
         
-        worldRenderer->draw(ctx, &camera, false, postProcessing.get());
+        worldRenderer->draw(ctx, &camera, false, true, 0.0f, postProcessing.get());
         auto image = postProcessing->toImage();
         image->flipY();
         imageio::write(paths->resolve("world:preview.png").u8string(), image.get());
@@ -131,14 +132,18 @@ void LevelScreen::update(float delta) {
     }
 
     auto player = controller->getPlayer();
-    auto camera = player->camera;
+    auto camera = player->currentCamera;
 
     bool paused = hud->isPause();
     audio::get_channel("regular")->setPaused(paused);
     audio::get_channel("ambient")->setPaused(paused);
+    glm::vec3 velocity {};
+    if (auto hitbox = player->getHitbox())  {
+        velocity = hitbox->velocity;
+    }
     audio::set_listener(
-        camera->position-camera->dir, 
-        player->hitbox->velocity,
+        camera->position, 
+        velocity,
         camera->dir, 
         glm::vec3(0, 1, 0)
     );
@@ -151,13 +156,13 @@ void LevelScreen::update(float delta) {
     hud->update(hudVisible);
 }
 
-void LevelScreen::draw(float) {
+void LevelScreen::draw(float delta) {
     auto camera = controller->getPlayer()->currentCamera;
 
     Viewport viewport(Window::width, Window::height);
     DrawContext ctx(nullptr, viewport, batch.get());
 
-    worldRenderer->draw(ctx, camera.get(), hudVisible, postProcessing.get());
+    worldRenderer->draw(ctx, camera.get(), hudVisible, hud->isPause(), delta, postProcessing.get());
 
     if (hudVisible) {
         hud->draw(ctx);
@@ -165,6 +170,9 @@ void LevelScreen::draw(float) {
 }
 
 void LevelScreen::onEngineShutdown() {
+    if (hud->isInventoryOpen()) {
+        hud->closeInventory();
+    }
     controller->saveWorld();
 }
 

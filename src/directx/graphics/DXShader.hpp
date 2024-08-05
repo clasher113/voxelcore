@@ -21,8 +21,9 @@ private:
 	ID3D11PixelShader* m_p_pixelShader;
 	ID3D11InputLayout* m_p_inputLayout;
 public:
-	static void compileShader(const std::wstring_view& shaderFile, ID3D10Blob** shader, ShaderType shaderType);
-	static std::unique_ptr<Shader> loadShader(const std::wstring_view& shaderFile);
+	static void compileShader(const std::wstring_view& shaderFile, ID3D10Blob** shader, ShaderType shaderType, 
+		ID3DInclude* include = D3D_COMPILE_STANDARD_FILE_INCLUDE);
+	static std::unique_ptr<Shader> loadShader(const std::wstring_view& shaderFile, ID3DInclude* include);
 };
 
 #endif // !DX_SHADER_HPP

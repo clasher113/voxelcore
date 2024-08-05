@@ -80,9 +80,9 @@ void DXDevice::createDevice() {
 		auto it = std::max_element(adapters.begin(), adapters.end(), [](const AdapterData& a, const AdapterData& b) {
 			return a.m_description.DedicatedVideoMemory < b.m_description.DedicatedVideoMemory;
 		});
-		performanceAdapter = it->m_adapter.Get();
 		s_m_p_adapterData = &(*it);
 	}
+    performanceAdapter = s_m_p_adapterData->m_adapter.Get();
 
 	CHECK_ERROR2(D3D11CreateDevice(
 		performanceAdapter,

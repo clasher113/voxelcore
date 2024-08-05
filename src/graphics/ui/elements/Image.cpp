@@ -5,6 +5,7 @@
 #include "../../core/DrawContext.hpp"
 #include "../../core/Batch2D.hpp"
 #include "../../core/Texture.hpp"
+#include "../../core/Atlas.hpp"
 #include "../../../assets/Assets.hpp"
 #include "../../../maths/UVRegion.hpp"
 
@@ -18,11 +19,31 @@ void Image::draw(const DrawContext* pctx, Assets* assets) {
     glm::vec2 pos = calcPos();
     auto batch = pctx->getBatch2D();
     
-    auto texture = assets->getTexture(this->texture);
-    if (texture && autoresize) {
-        setSize(glm::vec2(texture->getWidth(), texture->getHeight()));
+    Texture* texture = nullptr;
+    auto separator = this->texture.find(':');
+    if (separator == std::string::npos) {
+        texture = assets->get<Texture>(this->texture);
+        batch->texture(texture);
+        if (texture && autoresize) {
+            setSize(glm::vec2(texture->getWidth(), texture->getHeight()));
+        }
+    } else {
+        auto atlasName = this->texture.substr(0, separator);
+        if (auto atlas = assets->get<Atlas>(atlasName)) {
+            if (auto region = atlas->getIf(this->texture.substr(separator+1))) {
+                texture = atlas->getTexture();
+                batch->texture(atlas->getTexture());
+                batch->setRegion(*region);
+                if (autoresize) {
+                    setSize(glm::vec2(
+                        texture->getWidth()*region->getWidth(), 
+                        texture->getHeight()*region->getHeight()));
+                }
+            } else {
+                batch->texture(nullptr);
+            }
+        }
     }
-    batch->texture(texture);
     batch->rect(
         pos.x, pos.y, size.x, size.y, 
         0, 0, 0, UVRegion(), false, true, calcColor()

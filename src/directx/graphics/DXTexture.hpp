@@ -6,6 +6,7 @@
 #include "../../typedefs.hpp"
 #include "../../graphics/core/ImageData.hpp"
 #include "../ShaderTypes.hpp"
+#include "../../maths/UVRegion.hpp"
 
 #include <d3d11_1.h>
 #include <memory>
@@ -30,6 +31,10 @@ public:
 	virtual std::unique_ptr<ImageData> readData();
 	virtual ID3D11Texture2D* getId() const;
 	ID3D11ShaderResourceView* getResourceView() const;
+
+	UVRegion getUVRegion() const {
+        return UVRegion(0.0f, 0.0f, 1.0f, 1.0f);
+    }
 
 	static std::unique_ptr<Texture> from(const ImageData* image);
 

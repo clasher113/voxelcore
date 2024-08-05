@@ -21,6 +21,7 @@
 #include "../../core/Font.hpp"
 #include "../../core/DrawContext.hpp"
 #include "../../core/Shader.hpp"
+#include "../../core/Texture.hpp"
 #include "../../render/BlocksPreview.hpp"
 #include "../GUI.hpp"
 
@@ -120,12 +121,12 @@ void SlotView::draw(const DrawContext* pctx, Assets* assets) {
     itemid_t itemid = bound->getItemId();
     if (itemid != prevItem) {
         if (itemid) {
-            auto def = content->getIndices()->getItemDef(itemid);
+            auto def = content->getIndices()->items.get(itemid);
             tooltip = util::pascal_case(
                 langs::get(util::str2wstr_utf8(def->caption))
             );
         } else {
-            tooltip = L"";
+            tooltip.clear();
         }
     }
     prevItem = itemid;
@@ -155,15 +156,15 @@ void SlotView::draw(const DrawContext* pctx, Assets* assets) {
     
     batch->setColor(glm::vec4(1.0f));
 
-    auto previews = assets->getAtlas("block-previews");
+    auto previews = assets->get<Atlas>("block-previews");
     auto indices = content->getIndices();
 
-    ItemDef* item = indices->getItemDef(stack.getItemId());
+    ItemDef* item = indices->items.get(stack.getItemId());
     switch (item->iconType) {
         case item_icon_type::none:
             break;
         case item_icon_type::block: {
-            const Block& cblock = content->requireBlock(item->icon);
+            const Block& cblock = content->blocks.require(item->icon);
             batch->texture(previews->getTexture());
 
             UVRegion region = previews->get(cblock.name);
@@ -177,10 +178,10 @@ void SlotView::draw(const DrawContext* pctx, Assets* assets) {
             std::string name = item->icon.substr(index+1);
             UVRegion region(0.0f, 0.0, 1.0f, 1.0f);
             if (index == std::string::npos) {
-                batch->texture(assets->getTexture(name));
+                batch->texture(assets->get<Texture>(name));
             } else {
                 std::string atlasname = item->icon.substr(0, index);
-                Atlas* atlas = assets->getAtlas(atlasname);
+                auto atlas = assets->get<Atlas>(atlasname);
                 if (atlas && atlas->has(name)) {
                     region = atlas->get(name);
                     batch->texture(atlas->getTexture());
@@ -194,7 +195,7 @@ void SlotView::draw(const DrawContext* pctx, Assets* assets) {
     }
 
     if (stack.getCount() > 1) {
-        auto font = assets->getFont("normal");
+        auto font = assets->get<Font>("normal");
         std::wstring text = std::to_wstring(stack.getCount());
 
         int x = pos.x+slotSize-text.length()*8;
@@ -267,7 +268,7 @@ void SlotView::clicked(gui::GUI* gui, mousecode button) {
                 stack.setCount(halfremain);
             }
         } else {
-            auto stackDef = content->getIndices()->getItemDef(stack.getItemId());
+            auto stackDef = content->getIndices()->items.get(stack.getItemId());
             if (stack.isEmpty()) {
                 stack.set(grabbed);
                 stack.setCount(1);

@@ -30,8 +30,11 @@ private:
 
 	ID3D11Buffer* m_p_vertexBuffer;
 	ID3D11Buffer* m_p_indexBuffer;
+
+	void releaseResources();
 public:
 	static int meshesCount;
+    static int drawCalls;
 };
 
 #endif // !DX_MESH_HPP

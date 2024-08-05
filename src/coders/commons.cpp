@@ -163,6 +163,28 @@ void BasicParser::goBack(size_t count) {
     }
 }
 
+void BasicParser::reset() {
+    pos = 0;
+}
+
+char BasicParser::peekInLine() {
+    while (hasNext()) {
+        char next = source[pos];
+        if (next == '\n') {
+            return next;
+        }
+        if (is_whitespace(next)) {
+            pos++;
+        } else {
+            break;
+        }
+    }
+    if (pos >= source.length()) {
+        throw error("unexpected end");
+    }
+    return source[pos];
+}
+
 char BasicParser::peek() {
     skipWhitespace();
     if (pos >= source.length()) {
@@ -181,6 +203,14 @@ char BasicParser::peekNoJump() {
 std::string_view BasicParser::readUntil(char c) {
     int start = pos;
     while (hasNext() && source[pos] != c) {
+        pos++;
+    }
+    return source.substr(start, pos-start);
+}
+
+std::string_view BasicParser::readUntilEOL() {
+    int start = pos;
+    while (hasNext() && source[pos] != '\r' && source[pos] != '\n') {
         pos++;
     }
     return source.substr(start, pos-start);
@@ -224,6 +254,19 @@ int64_t BasicParser::parseSimpleInt(int base) {
         pos++;
     }
     return value;
+}
+
+dynamic::Value BasicParser::parseNumber() {
+    switch (peek()) {
+        case '-':
+            skip(1);
+            return parseNumber(-1);
+        case '+':
+            skip(1);
+            return parseNumber(1);
+        default:
+            return parseNumber(1);
+    }
 }
 
 dynamic::Value BasicParser::parseNumber(int sign) {

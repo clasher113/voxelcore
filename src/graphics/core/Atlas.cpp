@@ -19,8 +19,7 @@ Atlas::Atlas(
     }
 }
 
-Atlas::~Atlas() {
-}
+Atlas::~Atlas() = default;
 
 void Atlas::prepare() {
     texture = Texture::from(image.get());
@@ -32,6 +31,14 @@ bool Atlas::has(const std::string& name) const {
 
 const UVRegion& Atlas::get(const std::string& name) const {
     return regions.at(name);
+}
+
+std::optional<UVRegion> Atlas::getIf(const std::string& name) const {
+    const auto& found = regions.find(name);
+    if (found == regions.end()) {
+        return std::nullopt;
+    }
+    return found->second;
 }
 
 Texture* Atlas::getTexture() const {

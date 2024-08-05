@@ -1,53 +1,61 @@
-#include "lua_commons.hpp"
 #include "api_lua.hpp"
-#include "LuaState.hpp"
-#include "../scripting.hpp"
+
 #include "../../../content/Content.hpp"
 #include "../../../items/ItemDef.hpp"
 
-namespace scripting {
-    extern lua::LuaState* state;
-}
-
 using namespace scripting;
 
-static int l_item_name(lua_State* L) {
-    auto indices = scripting::content->getIndices();
-    lua_Number id = lua_tointeger(L, 1);
-    if (static_cast<size_t>(id) >= indices->countItemDefs()) {
-        return 0;
+static ItemDef* get_item_def(lua::State* L, int idx) {
+    auto indices = content->getIndices();
+    auto id = lua::tointeger(L, idx);
+    if (static_cast<size_t>(id) >= indices->items.count()) {
+        return nullptr;
     }
-    auto def = indices->getItemDef(id);
-    lua_pushstring(L, def->name.c_str());
-    return 1;
+    return indices->items.get(id);
 }
 
-static int l_item_index(lua_State* L) {
-    auto name = scripting::state->requireString(1);
-    lua_pushinteger(L, scripting::content->requireItem(name).rt.id);
-    return 1;
-}
-
-static int l_item_stack_size(lua_State* L) {
-    auto indices = scripting::content->getIndices();
-    lua_Integer id = lua_tointeger(L, 1);
-    if (id < 0 || size_t(id) >= indices->countItemDefs()) {
-        return 0;
+static int l_item_name(lua::State* L) {
+    if (auto def = get_item_def(L, 1)) {
+        return lua::pushstring(L, def->name);
     }
-    auto def = indices->getItemDef(id);
-    lua_pushinteger(L, def->stackSize);
-    return 1;
+    return 0;
 }
 
-static int l_item_defs_count(lua_State* L) {
-    lua_pushinteger(L, scripting::indices->countItemDefs());
-    return 1;
+static int l_item_index(lua::State* L) {
+    auto name = lua::require_string(L, 1);
+    return lua::pushinteger(L, content->items.require(name).rt.id);
+}
+
+static int l_item_stack_size(lua::State* L) {
+    if (auto def = get_item_def(L, 1)) {
+        return lua::pushinteger(L, def->stackSize);
+    }
+    return 0;
+}
+
+static int l_item_defs_count(lua::State* L) {
+    return lua::pushinteger(L, indices->items.count());
+}
+
+static int l_item_get_icon(lua::State* L) {
+    if (auto def = get_item_def(L, 1)) {
+        switch (def->iconType) {
+            case item_icon_type::none:
+                return 0;
+            case item_icon_type::sprite:
+                return lua::pushstring(L, def->icon);
+            case item_icon_type::block:
+                return lua::pushstring(L, "block-previews:"+def->icon);
+        }
+    }
+    return 0;
 }
 
 const luaL_Reg itemlib [] = {
-    {"index", lua_wrap_errors<l_item_index>},
-    {"name", lua_wrap_errors<l_item_name>},
-    {"stack_size", lua_wrap_errors<l_item_stack_size>},
-    {"defs_count", lua_wrap_errors<l_item_defs_count>},
+    {"index", lua::wrap<l_item_index>},
+    {"name", lua::wrap<l_item_name>},
+    {"stack_size", lua::wrap<l_item_stack_size>},
+    {"defs_count", lua::wrap<l_item_defs_count>},
+    {"icon", lua::wrap<l_item_get_icon>},
     {NULL, NULL}
 };
