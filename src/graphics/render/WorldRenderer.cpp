@@ -2,6 +2,11 @@
 
 #include "ChunksRenderer.hpp"
 
+#include <algorithm>
+#include <glm/ext.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <memory>
+
 #include "../../assets/Assets.hpp"
 #include "../../content/Content.hpp"
 #include "../../engine.hpp"
@@ -13,8 +18,8 @@
 #include "../../logic/scripting/scripting_hud.hpp"
 #include "../../maths/FrustumCulling.hpp"
 #include "../../maths/voxmaths.hpp"
-#include "../../objects/Player.hpp"
 #include "../../objects/Entities.hpp"
+#include "../../objects/Player.hpp"
 #include "../../settings.hpp"
 #include "../../voxels/Block.hpp"
 #include "../../voxels/Chunk.hpp"
@@ -45,6 +50,7 @@
 #endif // USE_DIRECTX
 
 #include <assert.h>
+#include <GL/glew.h>
 #include <algorithm>
 #include <memory>
 
@@ -54,30 +60,30 @@
 bool WorldRenderer::showChunkBorders = false;
 bool WorldRenderer::showEntitiesDebug = false;
 
-WorldRenderer::WorldRenderer(Engine* engine, LevelFrontend* frontend, Player* player) 
-  : engine(engine), 
-    level(frontend->getLevel()),
-    player(player),
-    frustumCulling(std::make_unique<Frustum>()),
-    lineBatch(std::make_unique<LineBatch>()),
-    modelBatch(std::make_unique<ModelBatch>(20'000, engine->getAssets(), level->chunks.get()))
-{
+WorldRenderer::WorldRenderer(
+    Engine* engine, LevelFrontend* frontend, Player* player
+)
+    : engine(engine),
+      level(frontend->getLevel()),
+      player(player),
+      frustumCulling(std::make_unique<Frustum>()),
+      lineBatch(std::make_unique<LineBatch>()),
+      modelBatch(std::make_unique<ModelBatch>(
+          20'000, engine->getAssets(), level->chunks.get()
+      )) {
     renderer = std::make_unique<ChunksRenderer>(
-        level,
-        frontend->getContentGfxCache(),
-        &engine->getSettings()
+        level, frontend->getContentGfxCache(), &engine->getSettings()
     );
     batch3d = std::make_unique<Batch3D>(4096);
 
     auto& settings = engine->getSettings();
-    level->events->listen(EVT_CHUNK_HIDDEN, 
-        [this](lvl_event_type, Chunk* chunk) {
-            renderer->unload(chunk);
-        }
+    level->events->listen(
+        EVT_CHUNK_HIDDEN,
+        [this](lvl_event_type, Chunk* chunk) { renderer->unload(chunk); }
     );
     auto assets = engine->getAssets();
     skybox = std::make_unique<Skybox>(
-        settings.graphics.skyboxResolution.get(), 
+        settings.graphics.skyboxResolution.get(),
         assets->get<Shader>("skybox_gen")
     );
 }
@@ -85,41 +91,35 @@ WorldRenderer::WorldRenderer(Engine* engine, LevelFrontend* frontend, Player* pl
 WorldRenderer::~WorldRenderer() = default;
 
 bool WorldRenderer::drawChunk(
-    size_t index,
-    Camera* camera, 
-    Shader* shader, 
-    bool culling
-){
+    size_t index, Camera* camera, Shader* shader, bool culling
+) {
     auto chunk = level->chunks->chunks[index];
     if (!chunk->flags.lighted) {
         return false;
     }
     float distance = glm::distance(
-        camera->position, 
-        glm::vec3((chunk->x + 0.5f) * CHUNK_W, 
-                  camera->position.y, 
-                  (chunk->z + 0.5f) * CHUNK_D)
+        camera->position,
+        glm::vec3(
+            (chunk->x + 0.5f) * CHUNK_W,
+            camera->position.y,
+            (chunk->z + 0.5f) * CHUNK_D
+        )
     );
-    auto mesh = renderer->getOrRender(chunk, distance < CHUNK_W*1.5f);
+    auto mesh = renderer->getOrRender(chunk, distance < CHUNK_W * 1.5f);
     if (mesh == nullptr) {
         return false;
     }
-    if (culling){
-        glm::vec3 min(
-            chunk->x * CHUNK_W, 
-            chunk->bottom, 
-            chunk->z * CHUNK_D
-        );
+    if (culling) {
+        glm::vec3 min(chunk->x * CHUNK_W, chunk->bottom, chunk->z * CHUNK_D);
         glm::vec3 max(
-            chunk->x * CHUNK_W + CHUNK_W, 
-            chunk->top, 
+            chunk->x * CHUNK_W + CHUNK_W,
+            chunk->top,
             chunk->z * CHUNK_D + CHUNK_D
         );
 
-        if (!frustumCulling->isBoxVisible(min, max)) 
-            return false;
+        if (!frustumCulling->isBoxVisible(min, max)) return false;
     }
-    glm::vec3 coord(chunk->x*CHUNK_W+0.5f, 0.5f, chunk->z*CHUNK_D+0.5f);
+    glm::vec3 coord(chunk->x * CHUNK_W + 0.5f, 0.5f, chunk->z * CHUNK_D + 0.5f);
     glm::mat4 model = glm::translate(glm::mat4(1.0f), coord);
     shader->uniformMatrix("u_model", model);
 #ifdef USE_DIRECTX
@@ -130,14 +130,17 @@ bool WorldRenderer::drawChunk(
 }
 
 void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
+    auto assets = engine->getAssets();
+    auto atlas = assets->get<Atlas>("blocks");
+    
+    atlas->getTexture()->bind();
     renderer->update();
 
     // [warning] this whole method is not thread-safe for chunks
 
     std::vector<size_t> indices;
-    for (size_t i = 0; i < chunks->volume; i++){
-        if (chunks->chunks[i] == nullptr)
-            continue;
+    for (size_t i = 0; i < chunks->volume; i++) {
+        if (chunks->chunks[i] == nullptr) continue;
         indices.emplace_back(i);
     }
     float px = camera->position.x / (float)CHUNK_W - 0.5f;
@@ -149,20 +152,22 @@ void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
         auto adz = (a->z - pz);
         auto bdx = (b->x - px);
         auto bdz = (b->z - pz);
-        return (adx*adx + adz*adz > bdx*bdx + bdz*bdz);
+        return (adx * adx + adz * adz > bdx * bdx + bdz * bdz);
     });
     bool culling = engine->getSettings().graphics.frustumCulling.get();
     if (culling) {
         frustumCulling->update(camera->getProjView());
     }
     chunks->visible = 0;
-    for (size_t i = 0; i < indices.size(); i++){
+    for (size_t i = 0; i < indices.size(); i++) {
         chunks->visible += drawChunk(indices[i], camera, shader, culling);
     }
 }
 
 void WorldRenderer::setupWorldShader(
-    Shader* shader, Camera* camera, const EngineSettings& settings, 
+    Shader* shader,
+    Camera* camera,
+    const EngineSettings& settings,
     float fogFactor
 ) {
     shader->use();
@@ -184,12 +189,13 @@ void WorldRenderer::setupWorldShader(
     {
         auto inventory = player->getInventory();
         ItemStack& stack = inventory->getSlot(player->getChosenSlot());
-        auto item = indices->items.get(stack.getItemId());
+        auto& item = indices->items.require(stack.getItemId());
         float multiplier = 0.5f;
-        shader->uniform3f("u_torchlightColor",  
-            item->emission[0] / 15.0f * multiplier,
-            item->emission[1] / 15.0f * multiplier,
-            item->emission[2] / 15.0f * multiplier
+        shader->uniform3f(
+            "u_torchlightColor",
+            item.emission[0] / 15.0f * multiplier,
+            item.emission[1] / 15.0f * multiplier,
+            item.emission[2] / 15.0f * multiplier
         );
         shader->uniform1f("u_torchlightDistance", 6.0f);
     }
@@ -197,37 +203,42 @@ void WorldRenderer::setupWorldShader(
 
 void WorldRenderer::renderLevel(
     const DrawContext&,
-    Camera* camera, 
+    Camera* camera,
     const EngineSettings& settings,
     float delta,
     bool pause
 ) {
     auto assets = engine->getAssets();
-    auto atlas = assets->get<Atlas>("blocks");
 
     bool culling = engine->getSettings().graphics.frustumCulling.get();
-    float fogFactor = 15.0f / ((float)settings.chunks.loadDistance.get()-2);
+    float fogFactor = 15.0f / ((float)settings.chunks.loadDistance.get() - 2);
+
+    auto entityShader = assets->get<Shader>("entity");
+    setupWorldShader(entityShader, camera, settings, fogFactor);
+
+#ifdef USE_DIRECTX
+    entityShader->applyChanges();
+#endif  // USE_DIRECTX
+
+    skybox->bind();
+
+    level->entities->render(
+        assets,
+        *modelBatch,
+        culling ? frustumCulling.get() : nullptr,
+        delta,
+        pause
+    );
+    modelBatch->render();
 
     auto shader = assets->get<Shader>("main");
     setupWorldShader(shader, camera, settings, fogFactor);
 
-    skybox->bind();
-    atlas->getTexture()->bind();
-
     drawChunks(level->chunks.get(), camera, shader);
-
-    auto entityShader = assets->get<Shader>("entity");
-    setupWorldShader(entityShader, camera, settings, fogFactor);
-#ifdef USE_DIRECTX
-    entityShader->applyChanges();
-#endif  // USE_DIRECTX
-    level->entities->render(
-        assets, *modelBatch, culling ? frustumCulling.get() : nullptr, delta, pause);
 
     if (!pause) {
         scripting::on_frontend_render();
     }
-    modelBatch->render();
 
     skybox->unbind();
 }
@@ -236,22 +247,26 @@ void WorldRenderer::renderBlockSelection() {
     const auto& selection = player->selection;
     auto indices = level->content->getIndices();
     blockid_t id = selection.vox.id;
-    auto block = indices->blocks.get(id);
+    auto& block = indices->blocks.require(id);
     const glm::ivec3 pos = player->selection.position;
     const glm::vec3 point = selection.hitPosition;
     const glm::vec3 norm = selection.normal;
 
-    const std::vector<AABB>& hitboxes = block->rotatable
-        ? block->rt.hitboxes[selection.vox.state.rotation]
-        : block->hitboxes;
+    const std::vector<AABB>& hitboxes =
+        block.rotatable ? block.rt.hitboxes[selection.vox.state.rotation]
+                        : block.hitboxes;
 
     lineBatch->lineWidth(2.0f);
-    for (auto& hitbox: hitboxes) {
+    for (auto& hitbox : hitboxes) {
         const glm::vec3 center = glm::vec3(pos) + hitbox.center();
         const glm::vec3 size = hitbox.size();
-        lineBatch->box(center, size + glm::vec3(0.02), glm::vec4(0.f, 0.f, 0.f, 0.5f));
+        lineBatch->box(
+            center, size + glm::vec3(0.02), glm::vec4(0.f, 0.f, 0.f, 0.5f)
+        );
         if (player->debug) {
-            lineBatch->line(point, point+norm*0.5f, glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
+            lineBatch->line(
+                point, point + norm * 0.5f, glm::vec4(1.0f, 0.0f, 1.0f, 1.0f)
+            );
         }
     }
     lineBatch->flush();
@@ -269,25 +284,24 @@ void WorldRenderer::renderLines(
         auto ctx = pctx.sub(lineBatch.get());
         bool culling = engine->getSettings().graphics.frustumCulling.get();
         level->entities->renderDebug(
-            *lineBatch, culling ? frustumCulling.get() : nullptr, ctx);
+            *lineBatch, culling ? frustumCulling.get() : nullptr, ctx
+        );
     }
 }
 
 void WorldRenderer::renderDebugLines(
-    const DrawContext& pctx, 
-    Camera* camera,
-    Shader* linesShader
+    const DrawContext& pctx, Camera* camera, Shader* linesShader
 ) {
     DrawContext ctx = pctx.sub(lineBatch.get());
     const auto& viewport = ctx.getViewport();
     uint displayWidth = viewport.getWidth();
     uint displayHeight = viewport.getHeight();
-    
+
     ctx.setDepthTest(true);
 
     linesShader->use();
 
-    if (showChunkBorders){
+    if (showChunkBorders) {
         linesShader->uniformMatrix("u_projview", camera->getProjView());
 #ifdef USE_DIRECTX
         linesShader->applyChanges();
@@ -299,18 +313,29 @@ void WorldRenderer::renderDebugLines(
         int cz = floordiv(static_cast<int>(coord.z), CHUNK_D);
 
         drawBorders(
-            cx * CHUNK_W, 0, cz * CHUNK_D, 
-            (cx + 1) * CHUNK_W, CHUNK_H, (cz + 1) * CHUNK_D
+            cx * CHUNK_W,
+            0,
+            cz * CHUNK_D,
+            (cx + 1) * CHUNK_W,
+            CHUNK_H,
+            (cz + 1) * CHUNK_D
         );
     }
 
     float length = 40.f;
-    glm::vec3 tsl(displayWidth/2, displayHeight/2, 0.f);
+    glm::vec3 tsl(displayWidth / 2, displayHeight / 2, 0.f);
     glm::mat4 model(glm::translate(glm::mat4(1.f), tsl));
-    linesShader->uniformMatrix("u_projview", glm::ortho(
-        0.f, static_cast<float>(displayWidth), 
-        0.f, static_cast<float>(displayHeight),
-        -length, length) * model * glm::inverse(camera->rotation)
+    linesShader->uniformMatrix(
+        "u_projview",
+        glm::ortho(
+            0.f,
+            static_cast<float>(displayWidth),
+            0.f,
+            static_cast<float>(displayHeight),
+            -length,
+            length
+        ) * model *
+            glm::inverse(camera->rotation)
     );
 #ifdef USE_DIRECTX
     linesShader->applyChanges();
@@ -330,24 +355,24 @@ void WorldRenderer::renderDebugLines(
 }
 
 void WorldRenderer::draw(
-    const DrawContext& pctx, 
-    Camera* camera, 
+    const DrawContext& pctx,
+    Camera* camera,
     bool hudVisible,
     bool pause,
     float delta,
     PostProcessing* postProcessing
-){
+) {
     timer += delta * !pause;
     auto world = level->getWorld();
     const Viewport& vp = pctx.getViewport();
     camera->aspect = vp.getWidth() / static_cast<float>(vp.getHeight());
 
     const EngineSettings& settings = engine->getSettings();
-    skybox->refresh(pctx, world->daytime, 1.0f+world->fog*2.0f, 4);
+    skybox->refresh(pctx, world->daytime, 1.0f + world->fog * 2.0f, 4);
 
     auto assets = engine->getAssets();
     auto linesShader = assets->get<Shader>("lines");
-    
+
     // World render scope with diegetic HUD included
     {
         DrawContext wctx = pctx.sub();
@@ -357,7 +382,7 @@ void WorldRenderer::draw(
 
         // Drawing background sky plane
         skybox->draw(pctx, camera, assets, world->daytime, world->fog);
-        
+
         // Actually world render with depth buffer on
         {
             DrawContext ctx = wctx.sub();
@@ -365,7 +390,7 @@ void WorldRenderer::draw(
             ctx.setCullFace(true);
             renderLevel(ctx, camera, settings, delta, pause);
             // Debug lines
-            if (hudVisible){
+            if (hudVisible) {
                 renderLines(camera, linesShader, ctx);
             }
         }
@@ -375,7 +400,7 @@ void WorldRenderer::draw(
         }
     }
 
-    // Rendering fullscreen quad with 
+    // Rendering fullscreen quad with
     auto screenShader = assets->get<Shader>("screen");
     screenShader->use();
     screenShader->uniform1f("u_timer", timer);
@@ -383,40 +408,30 @@ void WorldRenderer::draw(
     postProcessing->render(pctx, screenShader);
 }
 
-void WorldRenderer::drawBorders(int sx, int sy, int sz, int ex, int ey, int ez) {
-    int ww = ex-sx;
-    int dd = ez-sz;
+void WorldRenderer::drawBorders(
+    int sx, int sy, int sz, int ex, int ey, int ez
+) {
+    int ww = ex - sx;
+    int dd = ez - sz;
     /*corner*/ {
-        lineBatch->line(sx, sy, sz,     
-                        sx, ey, sz, 0.8f, 0, 0.8f, 1);
-        lineBatch->line(sx, sy, ez,     
-                        sx, ey, ez, 0.8f, 0, 0.8f, 1);
-        lineBatch->line(ex, sy, sz,     
-                        ex, ey, sz, 0.8f, 0, 0.8f, 1);
-        lineBatch->line(ex, sy, ez,     
-                        ex, ey, ez, 0.8f, 0, 0.8f, 1);
+        lineBatch->line(sx, sy, sz, sx, ey, sz, 0.8f, 0, 0.8f, 1);
+        lineBatch->line(sx, sy, ez, sx, ey, ez, 0.8f, 0, 0.8f, 1);
+        lineBatch->line(ex, sy, sz, ex, ey, sz, 0.8f, 0, 0.8f, 1);
+        lineBatch->line(ex, sy, ez, ex, ey, ez, 0.8f, 0, 0.8f, 1);
     }
-    for (int i = 2; i < ww; i+=2) {
-        lineBatch->line(sx + i, sy, sz,     
-                        sx + i, ey, sz, 0, 0, 0.8f, 1);
-        lineBatch->line(sx + i, sy, ez,     
-                        sx + i, ey, ez, 0, 0, 0.8f, 1);
+    for (int i = 2; i < ww; i += 2) {
+        lineBatch->line(sx + i, sy, sz, sx + i, ey, sz, 0, 0, 0.8f, 1);
+        lineBatch->line(sx + i, sy, ez, sx + i, ey, ez, 0, 0, 0.8f, 1);
     }
-    for (int i = 2; i < dd; i+=2) {
-        lineBatch->line(sx, sy, sz + i, 
-                        sx, ey, sz + i, 0.8f, 0, 0, 1);
-        lineBatch->line(ex, sy, sz + i, 
-                        ex, ey, sz + i, 0.8f, 0, 0, 1);
+    for (int i = 2; i < dd; i += 2) {
+        lineBatch->line(sx, sy, sz + i, sx, ey, sz + i, 0.8f, 0, 0, 1);
+        lineBatch->line(ex, sy, sz + i, ex, ey, sz + i, 0.8f, 0, 0, 1);
     }
-    for (int i = sy; i < ey; i+=2){
-        lineBatch->line(sx, i, sz,
-                        sx, i, ez, 0, 0.8f, 0, 1);
-        lineBatch->line(sx, i, ez,
-                        ex, i, ez, 0, 0.8f, 0, 1);
-        lineBatch->line(ex, i, ez,
-                        ex, i, sz, 0, 0.8f, 0, 1);
-        lineBatch->line(ex, i, sz,
-                        sx, i, sz, 0, 0.8f, 0, 1);
+    for (int i = sy; i < ey; i += 2) {
+        lineBatch->line(sx, i, sz, sx, i, ez, 0, 0.8f, 0, 1);
+        lineBatch->line(sx, i, ez, ex, i, ez, 0, 0.8f, 0, 1);
+        lineBatch->line(ex, i, ez, ex, i, sz, 0, 0.8f, 0, 1);
+        lineBatch->line(ex, i, sz, sx, i, sz, 0, 0.8f, 0, 1);
     }
     lineBatch->flush();
 }
