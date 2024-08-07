@@ -42,7 +42,7 @@ std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<T>& vec, vec_t<T>
 		panel->setColor(glm::vec4(0.f));
 		auto coordsString = [coords](const vec_t<T>& vec) {
 			std::wstring result;
-			for (vec_t<T>::length_type i = 0; i < vec_t<T>::length(); i++) {
+			for (typename vec_t<T>::length_type i = 0; i < vec_t<T>::length(); i++) {
 				result.append(coords[i] + L":" + util::to_wstring(vec[i], 2) + L" ");
 			}
 			return result;
@@ -50,7 +50,7 @@ std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<T>& vec, vec_t<T>
 		auto label = std::make_shared<gui::Label>(coordsString(vec));
 		panel->add(label);
 
-		for (vec_t<T>::length_type i = 0; i < vec_t<T>::length(); i++) {
+		for (typename vec_t<T>::length_type i = 0; i < vec_t<T>::length(); i++) {
 			auto slider = std::make_shared<gui::TrackBar>(min[i], max[i], vec[i], 0.01f, 5);
 			slider->setConsumer([&vec, i, coordsString, callback, label](double value) {
 				vec[i] = static_cast<float>(value);
@@ -63,7 +63,7 @@ std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<T>& vec, vec_t<T>
 	}
 	auto container = std::make_shared<gui::Container>(glm::vec2(0));
 
-	for (vec_t<T>::length_type i = 0; i < vec_t<T>::length(); i++) {
+	for (typename vec_t<T>::length_type i = 0; i <  vec_t<T>::length(); i++) {
 		container->add(createNumTextBox(vec[i], coords[i], min[i], max[i], std::function<void(T)>([callback](T num) { callback(); })));
 	}
 	float size = width / 3;
