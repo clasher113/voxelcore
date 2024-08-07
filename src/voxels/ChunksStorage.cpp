@@ -1,24 +1,25 @@
 #include "ChunksStorage.hpp"
 
-#include <assert.h>
-#include <iostream>
-
 #include "VoxelsVolume.hpp"
 #include "Chunk.hpp"
 #include "Block.hpp"
 #include "../content/Content.hpp"
 #include "../files/WorldFiles.hpp"
+#include "../objects/Entities.hpp"
 #include "../world/Level.hpp"
 #include "../world/World.hpp"
 #include "../maths/voxmaths.hpp"
 #include "../lighting/Lightmap.hpp"
 #include "../items/Inventories.hpp"
 #include "../typedefs.hpp"
+#include "../debug/Logger.hpp"
+
+static debug::Logger logger("chunks-storage");
 
 ChunksStorage::ChunksStorage(Level* level) : level(level) {
 }
 
-void ChunksStorage::store(std::shared_ptr<Chunk> chunk) {
+void ChunksStorage::store(const std::shared_ptr<Chunk>& chunk) {
 	chunksMap[glm::ivec2(chunk->x, chunk->z)] = chunk;
 }
 
@@ -40,11 +41,12 @@ void ChunksStorage::remove(int x, int z) {
 static void verifyLoadedChunk(ContentIndices* indices, Chunk* chunk) {
     for (size_t i = 0; i < CHUNK_VOL; i++) {
         blockid_t id = chunk->voxels[i].id;
-        if (indices->getBlockDef(id) == nullptr) {
-            std::cout << "corruped block detected at " << i << " of chunk ";
-            std::cout << chunk->x << "x" << chunk->z;
-            std::cout << " -> " << (int)id << std::endl;
-            chunk->voxels[i].id = 11;
+        if (indices->blocks.get(id) == nullptr) {
+            auto logline = logger.error();
+            logline << "corruped block detected at " << i << " of chunk ";
+            logline << chunk->x << "x" << chunk->z;
+            logline << " -> " << id;
+            chunk->voxels[i].id = BLOCK_AIR;
         }
     }
 }
@@ -58,9 +60,16 @@ std::shared_ptr<Chunk> ChunksStorage::create(int x, int z) {
 	auto data = regions.getChunk(chunk->x, chunk->z);
 	if (data) {
 		chunk->decode(data.get());
+
 		auto invs = regions.fetchInventories(chunk->x, chunk->z);
 		chunk->setBlockInventories(std::move(invs));
-		chunk->setLoaded(true);
+
+        if (auto map = regions.fetchEntities(chunk->x, chunk->z)) {
+            level->entities->loadEntities(std::move(map));
+            chunk->flags.entities = true;
+        }
+
+        chunk->flags.loaded = true;
 		for(auto& entry : chunk->inventories) {
 			level->inventories->store(entry.second);
 		}
@@ -70,12 +79,13 @@ std::shared_ptr<Chunk> ChunksStorage::create(int x, int z) {
 	auto lights = regions.getLights(chunk->x, chunk->z);
 	if (lights) {
 		chunk->lightmap.set(lights.get());
-		chunk->setLoadedLights(true);
+        chunk->flags.loadedLights = true;
 	}
 	return chunk;
 }
 
 // reduce nesting on next modification
+// 25.06.2024: not now
 void ChunksStorage::getVoxels(VoxelsVolume* volume, bool backlight) const {
 	const Content* content = level->content;
 	auto indices = content->getIndices();
@@ -101,7 +111,7 @@ void ChunksStorage::getVoxels(VoxelsVolume* volume, bool backlight) const {
 	// cw*ch chunks will be scanned
 	for (int cz = scz; cz < scz + ch; cz++) {
 		for (int cx = scx; cx < scx + cw; cx++) {
-			auto found = chunksMap.find(glm::ivec2(cx, cz));
+			const auto& found = chunksMap.find(glm::ivec2(cx, cz));
 			if (found == chunksMap.end()) {
 				// no chunk loaded -> filling with BLOCK_VOID
 				for (int ly = y; ly < y + h; ly++) {
@@ -134,7 +144,7 @@ void ChunksStorage::getVoxels(VoxelsVolume* volume, bool backlight) const {
 							voxels[vidx] = cvoxels[cidx];
 							light_t light = clights[cidx];
 							if (backlight) {
-								const Block* block = indices->getBlockDef(voxels[vidx].id);
+								auto block = indices->blocks.get(voxels[vidx].id);
 								if (block->lightPassing) {
 									light = Lightmap::combine(
 										min(15, Lightmap::extract(light, 0)+1),

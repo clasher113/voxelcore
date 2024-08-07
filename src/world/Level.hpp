@@ -1,7 +1,6 @@
 #ifndef WORLD_LEVEL_HPP_
 #define WORLD_LEVEL_HPP_
 
-#include "../settings.hpp"
 #include "../interfaces/Object.hpp"
 
 #include <memory>
@@ -13,14 +12,15 @@ inline constexpr int DEF_PLAYER_INVENTORY_SIZE = 40;
 
 class Content;
 class World;
-class Player;
 class Chunks;
-class Inventory;
+class Entities;
 class Inventories;
 class LevelEvents;
 class Lighting;
 class PhysicsSolver;
 class ChunksStorage;
+class Camera;
+struct EngineSettings;
 
 /// @brief A level, contains chunks and objects
 class Level {
@@ -35,6 +35,8 @@ public:
     std::unique_ptr<PhysicsSolver> physics;
     std::unique_ptr<Lighting> lighting;
     std::unique_ptr<LevelEvents> events;
+    std::unique_ptr<Entities> entities;
+    std::vector<std::shared_ptr<Camera>> cameras; // move somewhere?
 
     const EngineSettings& settings;
 
@@ -71,6 +73,10 @@ public:
         std::shared_ptr<T> object = std::dynamic_pointer_cast<T>(objects[id]);
         return object; 
     }
+
+    void onSave();
+
+    std::shared_ptr<Camera> getCamera(const std::string& name);
 };
 
 #endif /* WORLD_LEVEL_HPP_ */

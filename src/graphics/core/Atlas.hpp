@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <optional>
 #include <unordered_map>
 #include "../../maths/UVRegion.hpp"
 #include "../../typedefs.hpp"
@@ -31,6 +32,7 @@ public:
 
     bool has(const std::string& name) const;
     const UVRegion& get(const std::string& name) const;
+    std::optional<UVRegion> getIf(const std::string& name) const;
 
     Texture* getTexture() const;
     ImageData* getImage() const;
@@ -46,7 +48,7 @@ class AtlasBuilder {
     std::set<std::string> names;
 public:
     AtlasBuilder() {}
-    void add(std::string name, std::unique_ptr<ImageData> image);
+    void add(const std::string& name, std::unique_ptr<ImageData> image);
     bool has(const std::string& name) const;
     const std::set<std::string>& getNames() { return names; };
 

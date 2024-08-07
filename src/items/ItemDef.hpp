@@ -19,8 +19,7 @@ enum class item_icon_type {
     block, // block preview: icon is string block id
 };
 
-class ItemDef {
-public:
+struct ItemDef {
     /// @brief Item string id (with prefix included)
     std::string const name;
 
@@ -42,9 +41,9 @@ public:
         item_funcs_set funcsset {};
         blockid_t placingBlock;
         bool emissive = false;
-    } rt;
+    } rt {};
 
-    ItemDef(std::string name);
+    ItemDef(const std::string& name);
     ItemDef(const ItemDef&) = delete;
 };
 

@@ -1,12 +1,17 @@
 #include "LevelController.hpp"
+
+#include "../settings.hpp"
 #include "../files/WorldFiles.hpp"
 #include "../debug/Logger.hpp"
 #include "../world/Level.hpp"
 #include "../world/World.hpp"
 #include "../physics/Hitbox.hpp"
+#include "../objects/Entities.hpp"
 
 #include "scripting/scripting.hpp"
 #include "../interfaces/Object.hpp"
+
+#include <algorithm>
 
 static debug::Logger logger("level-control");
 
@@ -20,12 +25,26 @@ LevelController::LevelController(EngineSettings& settings, std::unique_ptr<Level
 }
 
 void LevelController::update(float delta, bool input, bool pause) {
-    player->update(delta, input, pause);
-    glm::vec3 position = player->getPlayer()->hitbox->position;
+    glm::vec3 position = player->getPlayer()->getPosition();
     level->loadMatrix(position.x, position.z, 
         settings.chunks.loadDistance.get() + 
         settings.chunks.padding.get() * 2);
     chunks->update(settings.chunks.loadSpeed.get());
+    
+    if (!pause) {
+        // update all objects that needed
+        for (const auto& obj : level->objects) {
+            if (obj && obj->shouldUpdate) {
+                obj->update(delta);
+            }
+        }
+        blocks->update(delta);
+        player->update(delta, input, pause);
+        level->entities->updatePhysics(delta);
+        level->entities->update(delta);
+    }
+    level->entities->clean();
+    player->postUpdate(delta, input, pause);
 
     // erease null pointers
     level->objects.erase(
@@ -34,22 +53,13 @@ void LevelController::update(float delta, bool input, bool pause) {
             [](auto obj) { return obj == nullptr; }),
         level->objects.end()
     );
-    
-    if (!pause) {
-        // update all objects that needed
-        for (auto obj : level->objects) {
-            if (obj && obj->shouldUpdate) {
-                obj->update(delta);
-            }
-        }
-        blocks->update(delta);
-    }
 }
 
 void LevelController::saveWorld() {
     level->getWorld()->wfile->createDirectories();
     logger.info() << "writing world";
     scripting::on_world_save();
+    level->onSave();
     level->getWorld()->write(level.get());
 }
 

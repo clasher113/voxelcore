@@ -1,43 +1,41 @@
 #ifndef DATA_DYNAMIC_HPP_
 #define DATA_DYNAMIC_HPP_
 
-#include "../typedefs.hpp"
+#include "dynamic_fwd.hpp"
 
-#include <ostream>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <memory>
-#include <variant>
+#include <ostream>
+
 #include <stdexcept>
 #include <unordered_map>
 
 namespace dynamic {
-    class Map;
-    class List;
-
     enum class Type {
         none=0, map, list, string, number, boolean, integer
     };
 
-    using Map_sptr = std::shared_ptr<Map>;
-    using List_sptr = std::shared_ptr<List>;
-
-    struct none {};
-
-    inline constexpr none NONE = {};
-
-    using Value = std::variant<
-        none,
-        Map_sptr,
-        List_sptr,
-        std::string,
-        number_t,
-        bool,
-        integer_t
-    >;
-
+    const std::string& type_name(const Value& value);
     List_sptr create_list(std::initializer_list<Value> values={});
     Map_sptr create_map(std::initializer_list<std::pair<const std::string, Value>> entries={});
+    number_t get_number(const Value& value);
+    integer_t get_integer(const Value& value);
+    
+    inline bool is_numeric(const Value& value) {
+        return std::holds_alternative<number_t>(value) ||
+               std::holds_alternative<integer_t>(value);
+    }
+
+    inline number_t as_number(const Value& value) {
+        if (auto num = std::get_if<number_t>(&value)) {
+            return *num;
+        } else if (auto num = std::get_if<integer_t>(&value)) {
+            return *num;
+        }
+        return NAN;
+    }
 
     class List {
     public:
@@ -49,7 +47,7 @@ namespace dynamic {
         std::string str(size_t index) const;
         number_t num(size_t index) const;
         integer_t integer(size_t index) const;
-        Map* map(size_t index) const;
+        const Map_sptr& map(size_t index) const;
         List* list(size_t index) const;
         bool flag(size_t index) const;
 
@@ -95,7 +93,7 @@ namespace dynamic {
             return get(key, T());
         }
 
-        std::string get(const std::string& key, const std::string def) const;
+        std::string get(const std::string& key, const std::string& def) const;
         number_t get(const std::string& key, double def) const;
         integer_t get(const std::string& key, integer_t def) const;
         bool get(const std::string& key, bool def) const;
@@ -118,8 +116,8 @@ namespace dynamic {
         void num(const std::string& key, uint64_t& dst) const;
         void num(const std::string& key, ubyte& dst) const;
         void num(const std::string& key, double& dst) const;
-        Map* map(const std::string& key) const;
-        List* list(const std::string& key) const;
+        Map_sptr map(const std::string& key) const;
+        List_sptr list(const std::string& key) const;
         void flag(const std::string& key, bool& dst) const;
 
         Map& put(std::string key, std::unique_ptr<Map> value) {
@@ -128,12 +126,36 @@ namespace dynamic {
         Map& put(std::string key, std::unique_ptr<List> value) {
             return put(key, List_sptr(value.release()));
         }
-        Map& put(std::string key, const Value& value);
+        Map& put(std::string key, int value) {
+            return put(key, Value(static_cast<integer_t>(value)));
+        }
+        Map& put(std::string key, unsigned int value) {
+            return put(key, Value(static_cast<integer_t>(value)));
+        }
+        Map& put(std::string key, int64_t value) {
+            return put(key, Value(static_cast<integer_t>(value)));
+        }
+        Map& put(std::string key, uint64_t value) {
+            return put(key, Value(static_cast<integer_t>(value)));
+        }
+        Map& put(std::string key, float value) {
+            return put(key, Value(static_cast<number_t>(value)));
+        }
+        Map& put(std::string key, double value) {
+            return put(key, Value(static_cast<number_t>(value)));
+        }
+        Map& put(std::string key, bool value) {
+            return put(key, Value(static_cast<bool>(value)));
+        }
+        Map& put(std::string key, const char* value) {
+            return put(key, Value(value));
+        }
+        Map& put(const std::string& key, const Value& value);
 
         void remove(const std::string& key);
 
-        List& putList(std::string key);
-        Map& putMap(std::string key);
+        List& putList(const std::string& key);
+        Map& putMap(const std::string& key);
 
         bool has(const std::string& key) const;
         size_t size() const;

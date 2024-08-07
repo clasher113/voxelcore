@@ -8,6 +8,7 @@
 #include "../settings.hpp"
 
 #include <memory>
+#include <utility>
 
 static debug::Logger logger("settings_io");
 
@@ -22,10 +23,10 @@ struct SectionsBuilder {
     }
 
     void section(std::string name) {
-        sections.push_back(Section {name, {}});
+        sections.push_back(Section {std::move(name), {}});
     }
 
-    void add(std::string name, Setting* setting, bool writeable=true) {
+    void add(const std::string& name, Setting* setting, bool writeable=true) {
         Section& section = sections.at(sections.size()-1);
         map[section.name+"."+name] = setting;
         section.keys.push_back(name);
@@ -47,7 +48,7 @@ SettingsHandler::SettingsHandler(EngineSettings& settings) {
     builder.add("width", &settings.display.width);
     builder.add("height", &settings.display.height);
     builder.add("samples", &settings.display.samples);
-    builder.add("vsync", &settings.display.vsync);
+    builder.add("framerate", &settings.display.framerate);
     builder.add("fullscreen", &settings.display.fullscreen);
 
     builder.section("camera");
@@ -55,6 +56,7 @@ SettingsHandler::SettingsHandler(EngineSettings& settings) {
     builder.add("fov", &settings.camera.fov);
     builder.add("fov-effects", &settings.camera.fovEffects);
     builder.add("shaking", &settings.camera.shaking);
+    builder.add("inertia", &settings.camera.inertia);
 
     builder.section("chunks");
     builder.add("load-distance", &settings.chunks.loadDistance);

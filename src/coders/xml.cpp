@@ -5,13 +5,13 @@
 #include <charconv>
 #include <stdexcept>
 #include <sstream>
-#include <algorithm>
+#include <utility>
 
 using namespace xml;
 
 Attribute::Attribute(std::string name, std::string text)
-    : name(name), 
-      text(text) {
+    : name(std::move(name)),
+      text(std::move(text)) {
 }
 
 const std::string& Attribute::getName() const {
@@ -105,18 +105,17 @@ glm::vec4 Attribute::asColor() const {
     }
 }
 
-Node::Node(std::string tag) : tag(tag) {
+Node::Node(std::string tag) : tag(std::move(tag)) {
 }
 
-void Node::add(xmlelement element) {
+void Node::add(const xmlelement& element) {
     elements.push_back(element);
 }
 
 void xml::Node::remove(xmlelement element) {
     elements.erase(std::remove(elements.begin(), elements.end(), element), elements.end());
 }
-
-void Node::set(std::string name, std::string text) {
+void Node::set(const std::string& name, const std::string &text) {
     attrs[name] = Attribute(name, text);
 }
 
@@ -124,7 +123,7 @@ const std::string& Node::getTag() const {
     return tag;
 }
 
-const xmlattribute Node::attr(const std::string& name) const {
+const xmlattribute& Node::attr(const std::string& name) const {
     auto found = attrs.find(name);
     if (found == attrs.end()) {
         throw std::runtime_error("element <"+tag+" ...> missing attribute "+name);
@@ -132,7 +131,7 @@ const xmlattribute Node::attr(const std::string& name) const {
     return found->second;
 }
 
-const xmlattribute Node::attr(const std::string& name, const std::string& def) const {
+xmlattribute Node::attr(const std::string& name, const std::string& def) const {
     auto found = attrs.find(name);
     if (found == attrs.end()) {
         return Attribute(name, def);
@@ -166,11 +165,11 @@ const xmlelements_map& Node::getAttributes() const {
 }
 
 Document::Document(std::string version, std::string encoding)
-    : version(version),
-      encoding(encoding) {
+    : version(std::move(version)),
+      encoding(std::move(encoding)) {
 }
 
-void Document::setRoot(xmlelement element) {
+void Document::setRoot(const xmlelement &element) {
     this->root = element;
 }
 
@@ -345,7 +344,7 @@ xmldocument Parser::parse() {
     return document;
 }
 
-xmldocument xml::parse(std::string filename, std::string source) {
+xmldocument xml::parse(const std::string& filename, const std::string& source) {
     Parser parser(filename, source);
     return parser.parse();
 }
@@ -366,7 +365,7 @@ inline void newline(
 
 static void stringifyElement(
     std::stringstream& ss,
-    const xmlelement element,
+    const xmlelement& element,
     bool nice,
     const std::string& indentStr,
     int indent
@@ -423,7 +422,7 @@ static void stringifyElement(
 }
 
 std::string xml::stringify(
-    const xmldocument document,
+    const xmldocument& document,
     bool nice,
     const std::string& indentStr
 ) {

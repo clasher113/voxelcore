@@ -21,6 +21,8 @@
 #include "menu_workshop.hpp"
 #include "WorkshopPreview.hpp"
 #include "WorkshopUtils.hpp"
+#include "../../content/Content.hpp"
+#include "../../audio/audio.hpp"
 
 #define NOMINMAX
 #include "libs/portable-file-dialogs.h"
@@ -29,7 +31,7 @@
 using namespace workshop;
 
 WorkShopScreen::WorkShopScreen(Engine* engine, const ContentPack& pack) : Screen(engine),
-	swapInterval(engine->getSettings().display.vsync.get()),
+	framerate(engine->getSettings().display.framerate.get()),
 	gui(engine->getGUI()),
 	currentPack(pack)
 {
@@ -37,7 +39,7 @@ WorkShopScreen::WorkShopScreen(Engine* engine, const ContentPack& pack) : Screen
 	uicamera.reset(new Camera(glm::vec3(), static_cast<float>(Window::height)));
 	uicamera->perspective = false;
 	uicamera->flipped = true;
-	engine->getSettings().display.vsync = 1;
+	engine->getSettings().display.framerate = -1;
 
 	if (initialize()) {
 		gui->add(createNavigationPanel());
@@ -80,14 +82,14 @@ void WorkShopScreen::draw(float delta) {
 	Window::setBgColor(glm::vec3(0.2f));
 
 	uicamera->setFov(static_cast<float>(Window::height));
-	Shader* uishader = engine->getAssets()->getShader("ui");
+	Shader* uishader = engine->getAssets()->get<Shader>("ui");
 	uishader->use();
 	uishader->uniformMatrix("u_projview", uicamera->getProjView());
 
 	float width = static_cast<float>(Window::width), height = static_cast<float>(Window::height);
 
 	batch->begin();
-	batch->texture(engine->getAssets()->getTexture("gui/menubg"));
+	batch->texture(engine->getAssets()->get<Texture>("gui/menubg"));
 	batch->rect(0.f, 0.f,
 		width, height, 0.f, 0.f, 0.f,
 		UVRegion(0.f, 0.f, width / 64.f, height / 64.f),
@@ -138,9 +140,9 @@ bool WorkShopScreen::initialize() {
 	indices = content->getIndices();
 	cache.reset(new ContentGfxCache(content, assets));
 	previewAtlas = BlocksPreview::build(cache.get(), assets, content).release();
-	assets->store(previewAtlas, BLOCKS_PREVIEW_ATLAS);
-	itemsAtlas = assets->getAtlas("items");
-	blocksAtlas = assets->getAtlas("blocks");
+	assets->store(std::unique_ptr<Atlas>(previewAtlas), BLOCKS_PREVIEW_ATLAS);
+	itemsAtlas = assets->get<Atlas>("items");
+	blocksAtlas = assets->get<Atlas>("blocks");
 	preview.reset(new Preview(engine, cache.get()));
 
 	if (!fs::is_regular_file(currentPack.getContentFile()))
@@ -165,9 +167,9 @@ bool WorkShopScreen::initialize() {
 
 void WorkShopScreen::exit() {
 	Engine* e = engine;
-	e->getSettings().display.vsync.set(swapInterval);
+	e->getSettings().display.framerate.set(framerate);
 	e->setScreen(std::make_shared<MenuScreen>(e));
-	create_workshop_button(e);
+	create_workshop_button(e, &e->getGUI()->getMenu()->getCurrent());
 	e->getGUI()->getMenu()->setPage("workshop");
 }
 
@@ -383,7 +385,7 @@ void WorkShopScreen::createMaterialsList(bool showAll, unsigned int column, floa
 			if (!showAll && elem.first.substr(0, currentPack.id.length()) != currentPack.id) continue;
 			auto button = std::make_shared<gui::Button>(util::str2wstr_utf8(elem.first), glm::vec4(10.f), [this, &elem, callback](gui::GUI*) {
 				if (callback) callback(elem.first);
-				else createMaterialEditor(const_cast<BlockMaterial&>(elem.second));
+				else createMaterialEditor(const_cast<BlockMaterial&>(*elem.second));
 			});
 			button->setTextAlign(gui::Align::left);
 			panel->add(button);
@@ -397,11 +399,13 @@ void WorkShopScreen::createScriptList(unsigned int column, float posX, const std
 	createPanel([this, callback]() {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
 
-		std::set<fs::path> scripts = getFiles(currentPack.folder / "scripts", true);
+		fs::path scriptsFolder(currentPack.folder / "scripts/");
+		std::set<fs::path> scripts = getFiles(scriptsFolder, true);
 		if (callback) scripts.insert(fs::path());
 
 		for (const auto& elem : scripts) {
-			auto button = std::make_shared<gui::Button>(util::str2wstr_utf8(getScriptName(currentPack, elem.stem().string())), glm::vec4(10.f),
+			fs::path parentDir(fs::relative(elem.parent_path(), scriptsFolder));
+			auto button = std::make_shared<gui::Button>(util::str2wstr_utf8(getScriptName(currentPack, parentDir.string() + "/" + elem.stem().string())), glm::vec4(10.f),
 				[this, elem, callback](gui::GUI*) {
 					if (callback) callback(elem.stem().string());
 					else createScriptInfoPanel(elem);
@@ -462,7 +466,10 @@ void WorkShopScreen::createSoundInfoPanel(const fs::path& file) {
 		panel->add(std::make_shared<gui::Label>("Path: " + fs::relative(file, currentPack.folder).remove_filename().string()));
 		panel->add(std::make_shared<gui::Label>("File: " + fileName + extention));
 
-		assets->getSound(file.stem().string());
+		fs::path parentDir = fs::relative(file.parent_path(), currentPack.folder / SOUNDS_FOLDER);
+
+		//audio::Sound* sound = assets->get<audio::Sound>(parentDir.empty() ? "" : parentDir.string() + "/" + fileName);
+  //      sound->newInstance(0, 0);
 
 		return panel;
 	}, 2);
@@ -590,7 +597,7 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type)
 		});
 		createFullCheckBox(panel, L"Draw grid", preview->drawGrid);
 		createFullCheckBox(panel, L"Show front direction", preview->drawDirection);
-		createFullCheckBox(panel, L"Draw block bounds", preview->drawBlockBounds);
+		createFullCheckBox(panel, L"Draw block size", preview->drawBlockSize);
 		if (type == PrimitiveType::HITBOX)
 			createFullCheckBox(panel, L"Draw current hitbox", preview->drawBlockHitbox);
 		else if (type == PrimitiveType::AABB)

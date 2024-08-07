@@ -53,13 +53,14 @@ namespace workshop {
 		void setUiDocument(const std::shared_ptr<xml::Document> document, std::shared_ptr<int> enviroment, bool forseUpdate = false);
 
 		void setResolution(uint width, uint height);
+		void setBlockSize(glm::i8vec3 size);
 
 		Texture* getTexture();
 
 		bool lockedKeyboardInput = false;
 		bool mouseLocked = false;
 		bool drawGrid = true;
-		bool drawBlockBounds = false;
+		bool drawBlockSize = false;
 		bool drawCurrentAABB = false;
 		bool drawCurrentTetragon = false;
 		bool drawBlockHitbox = false;
@@ -68,8 +69,10 @@ namespace workshop {
 	private:
 		float refillTimer = 0.f;
 		float viewDistance = 2.f;
+		glm::i8vec3 blockSize;
 		glm::vec2 previewRotation{ 225.f, 45.f };
 		glm::vec3 currentTetragon[4]{};
+		glm::vec3 cameraOffset;
 		PrimitiveType primitiveType;
 
 		Engine* engine;
@@ -83,8 +86,9 @@ namespace workshop {
 		Framebuffer framebuffer;
 
 		LevelController controller;
+        std::shared_ptr<Inventory> inventory;
+        std::shared_ptr<Player> player;
 		LevelFrontend frontend;
-		std::shared_ptr<Inventory> inventory;
 		std::shared_ptr<gui::UINode> currentUI;
 		std::shared_ptr<xml::Document> currentDocument;
 		Block* currentBlock = nullptr;
@@ -92,7 +96,7 @@ namespace workshop {
 		LineBatch lineBatch;
 		Batch2D batch2d;
 		Batch3D batch3d;
-		Mesh mesh;
+		std::shared_ptr<Mesh> mesh;
 
 		AABB currentAABB, currentHitbox;
 

@@ -10,14 +10,18 @@
 #include "IncludeCommons.hpp"
 #include "WorkshopScreen.hpp"
 #include "WorkshopSerializer.hpp"
+#include "../../constants.hpp"
+#include "../../graphics/ui/elements/Container.hpp"
 
-void workshop::create_workshop_button(Engine* engine) {
+void workshop::create_workshop_button(Engine* engine, gui::Page* page) {
+    if (page->name != "main") return;
+
 	auto menu = engine->getGUI()->getMenu();
 	auto button = std::make_shared<gui::Button>(L"Workshop", glm::vec4(10.f), [menu](gui::GUI*) {
 		menu->setPage("workshop");
 	});
 
-	auto panel = std::dynamic_pointer_cast<gui::Panel>(menu->getNodes().front());
+	auto panel = std::dynamic_pointer_cast<gui::Panel>(page->panel);
 	if (!panel) return;
 	std::vector<std::shared_ptr<gui::UINode>> nodes = panel->getNodes();
 	panel->clear();
@@ -48,11 +52,11 @@ void workshop::create_workshop_button(Engine* engine) {
 		auto getIcon = [engine, pack]()->std::string {
 			std::string icon = pack.id + ".icon";
 			Assets* assets = engine->getAssets();
-			Texture* iconTex = assets->getTexture(icon);
+			Texture* iconTex = assets->get<Texture>(icon);
 			if (iconTex == nullptr) {
 				auto iconfile = pack.folder / fs::path("icon.png");
 				if (fs::is_regular_file(iconfile)) {
-					assets->store(png::load_texture(iconfile.string()).release(), icon);
+					assets->store(png::load_texture(iconfile.string()), icon);
 				}
 				else return "gui/no_icon";
 			}
@@ -89,7 +93,7 @@ void workshop::create_workshop_button(Engine* engine) {
 			pack.version = "1.0";
 			fs::create_directories(pack.folder / ContentPack::BLOCKS_FOLDER);
 			fs::create_directories(pack.folder / ContentPack::ITEMS_FOLDER);
-			fs::create_directories(pack.folder / TEXTURES_FOLDER);
+            fs::create_directories(pack.folder / TEXTURES_FOLDER);
 			saveContentPack(pack);
 			menu->remove(panel);
 

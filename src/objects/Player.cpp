@@ -8,8 +8,12 @@
 #include "../window/Events.hpp"
 #include "../window/Camera.hpp"
 #include "../items/Inventory.hpp"
+#include "../objects/Entities.hpp"
+#include "../objects/rigging.hpp"
 
+#include <algorithm>
 #include <glm/glm.hpp>
+#include <utility>
 
 const float CROUCH_SPEED_MUL = 0.35f;
 const float RUN_SPEED_MUL = 1.5f;
@@ -19,25 +23,50 @@ const float FLIGHT_SPEED_MUL = 4.0f;
 const float CHEAT_SPEED_MUL = 5.0f;
 const float JUMP_FORCE = 8.0f;
 
-Player::Player(glm::vec3 position, float speed, std::shared_ptr<Inventory> inv) :
+Player::Player(Level* level, glm::vec3 position, float speed, 
+               std::shared_ptr<Inventory> inv, entityid_t eid) :
+    level(level),
     speed(speed),
     chosenSlot(0),
-    inventory(inv),
-    camera(std::make_shared<Camera>(position, glm::radians(90.0f))),
-    spCamera(std::make_shared<Camera>(position, glm::radians(90.0f))),
-    tpCamera(std::make_shared<Camera>(position, glm::radians(90.0f))),
-    currentCamera(camera),
-    hitbox(std::make_unique<Hitbox>(position, glm::vec3(0.3f,0.9f,0.3f)))
+    position(position),
+    inventory(std::move(inv)),
+    eid(eid),
+    camera(level->getCamera("base:first-person")),
+    spCamera(level->getCamera("base:third-person-front")),
+    tpCamera(level->getCamera("base:third-person-back")),
+    currentCamera(camera)
 {
+    camera->setFov(glm::radians(90.0f));
+    spCamera->setFov(glm::radians(90.0f));
+    tpCamera->setFov(glm::radians(90.0f));
 }
 
 Player::~Player() {
 }
 
-void Player::updateInput(
-        Level* level,
-        PlayerInput& input, 
-        float delta) {
+void Player::updateEntity() {
+    if (eid == 0) {
+        auto& def = level->content->entities.require("base:player");
+        eid = level->entities->spawn(def, getPosition());
+    } else if (auto entity = level->entities->get(eid)) {
+        position = entity->getTransform().pos;
+    } else {
+        // TODO: check if chunk loaded
+    }
+}
+
+Hitbox* Player::getHitbox() {
+    if (auto entity = level->entities->get(eid)) {
+        return &entity->getRigidbody().hitbox;
+    }
+    return nullptr;
+}
+
+void Player::updateInput(PlayerInput& input, float delta) {
+    auto hitbox = getHitbox();
+    if (hitbox == nullptr) {
+        return;
+    }
     bool crouch = input.shift && hitbox->grounded && !input.sprint;
     float speed = this->speed;
     if (flight){
@@ -47,6 +76,7 @@ void Player::updateInput(
         speed *= CHEAT_SPEED_MUL;
     }
 
+    hitbox->crouching = crouch;
     if (crouch) {
         speed *= CROUCH_SPEED_MUL;
     } else if (input.sprint) {
@@ -55,42 +85,36 @@ void Player::updateInput(
 
     glm::vec3 dir(0,0,0);
     if (input.moveForward){
-        dir.x += camera->dir.x;
-        dir.z += camera->dir.z;
+        dir += camera->dir;
     }
     if (input.moveBack){
-        dir.x -= camera->dir.x;
-        dir.z -= camera->dir.z;
+        dir -= camera->dir;
     }
     if (input.moveRight){
-        dir.x += camera->right.x;
-        dir.z += camera->right.z;
+        dir += camera->right;
     }
     if (input.moveLeft){
-        dir.x -= camera->right.x;
-        dir.z -= camera->right.z;
+        dir -= camera->right;
     }
     if (glm::length(dir) > 0.0f){
         dir = glm::normalize(dir);
-        hitbox->velocity.x += dir.x * speed * delta * 9;
-        hitbox->velocity.z += dir.z * speed * delta * 9;
+        hitbox->velocity += dir * speed * delta * 9.0f;
     }
 
-    float vel = std::max(glm::length(hitbox->velocity * 0.25f), 1.0f);
-    int substeps = int(delta * vel * 1000);
-    substeps = std::min(100, std::max(1, substeps));
-    level->physics->step(
-        level->chunks.get(), 
-        hitbox.get(), 
-        delta, 
-        substeps, 
-        crouch, 
-        flight ? 0.0f : 1.0f, 
-        !noclip
-    );
-                         
-    if (flight && hitbox->grounded) {
-        flight = false;
+    hitbox->linearDamping = PLAYER_GROUND_DAMPING;
+    hitbox->verticalDamping = flight;
+    hitbox->gravityScale = flight ? 0.0f : 1.0f;
+    if (flight){
+        hitbox->linearDamping = PLAYER_AIR_DAMPING;
+        if (input.jump){
+            hitbox->velocity.y += speed * delta * 9;
+        }
+        if (input.shift){
+            hitbox->velocity.y -= speed * delta * 9;
+        }
+    }
+    if (!hitbox->grounded) {
+        hitbox->linearDamping = PLAYER_AIR_DAMPING;
     }
 
     if (input.jump && hitbox->grounded){
@@ -101,46 +125,62 @@ void Player::updateInput(
         (input.noclip && flight == noclip)){
         flight = !flight;
         if (flight){
-            hitbox->grounded = false;
+            hitbox->velocity.y += 1.0f;
         }
     }
+    hitbox->type = noclip ? BodyType::KINEMATIC : BodyType::DYNAMIC;
     if (input.noclip) {
         noclip = !noclip;
     }
-
-    hitbox->linear_damping = PLAYER_GROUND_DAMPING;
-    if (flight){
-        hitbox->linear_damping = PLAYER_AIR_DAMPING;
-        hitbox->velocity.y *= 1.0f - delta * 9;
-        if (input.jump){
-            hitbox->velocity.y += speed * delta * 9;
-        }
-        if (input.shift){
-            hitbox->velocity.y -= speed * delta * 9;
-        }
-    }
-    if (!hitbox->grounded) {
-        hitbox->linear_damping = PLAYER_AIR_DAMPING;
-    }
-
     input.noclip = false;
     input.flight = false;
+}
 
-    if (spawnpoint.y <= 0.1) {
-        attemptToFindSpawnpoint(level);
+void Player::updateSelectedEntity() {
+    selectedEid = selection.entity;
+}
+
+#include "../window/Window.hpp"
+void Player::postUpdate() {
+    auto entity = level->entities->get(eid);
+    if (!entity.has_value()) {
+        return;
     }
+    auto& hitbox = entity->getRigidbody().hitbox;
+    position = hitbox.position;
+
+    if (flight && hitbox.grounded) {
+        flight = false;
+    }
+    if (spawnpoint.y <= 0.1) {
+        attemptToFindSpawnpoint();
+    }
+
+    auto& skeleton = entity->getSkeleton();
+
+    skeleton.visible = currentCamera != camera;
+
+    size_t bodyIndex = skeleton.config->find("body")->getIndex();
+    size_t headIndex = skeleton.config->find("head")->getIndex();
+
+    skeleton.pose.matrices[bodyIndex] = 
+        glm::rotate(glm::mat4(1.0f), glm::radians(cam.x), glm::vec3(0, 1, 0));
+    skeleton.pose.matrices[headIndex] = glm::rotate(
+        glm::mat4(1.0f), glm::radians(cam.y), glm::vec3(1, 0, 0));
 }
 
 void Player::teleport(glm::vec3 position) {
-    hitbox->position = position;
+    this->position = position;
+    if (auto hitbox = getHitbox()) {
+        hitbox->position = position;
+    }
 }
 
-void Player::attemptToFindSpawnpoint(Level* level) {
-    glm::vec3 ppos = hitbox->position;
+void Player::attemptToFindSpawnpoint() {
     glm::vec3 newpos (
-        ppos.x + (rand() % 200 - 100),
+        position.x + (rand() % 200 - 100),
         rand() % 80 + 100,
-        ppos.z + (rand() % 200 - 100)
+        position.z + (rand() % 200 - 100)
     );
     while (newpos.y > 0 && !level->chunks->isObstacleBlock(newpos.x, newpos.y-2, newpos.z)) {
         newpos.y--;
@@ -148,8 +188,9 @@ void Player::attemptToFindSpawnpoint(Level* level) {
 
     voxel* headvox = level->chunks->get(newpos.x, newpos.y+1, newpos.z);
     if (level->chunks->isObstacleBlock(newpos.x, newpos.y, newpos.z) ||
-        headvox == nullptr || headvox->id != 0)
+        headvox == nullptr || headvox->id != 0) {
         return;
+    }
     spawnpoint = newpos + glm::vec3(0.5f, 0.0f, 0.5f);
     teleport(spawnpoint);
 }
@@ -166,6 +207,34 @@ float Player::getSpeed() const {
     return speed;
 }
 
+bool Player::isFlight() const {
+    return flight;
+}
+
+void Player::setFlight(bool flag) {
+    this->flight = flag;
+}
+
+bool Player::isNoclip() const {
+    return noclip;
+}
+
+void Player::setNoclip(bool flag) {
+    this->noclip = flag;
+}
+
+entityid_t Player::getEntity() const {
+    return eid;
+}
+
+void Player::setEntity(entityid_t eid) {
+    this->eid = eid;
+}
+
+entityid_t Player::getSelectedEntity() const {
+    return selectedEid;
+}
+
 std::shared_ptr<Inventory> Player::getInventory() const {
     return inventory;
 }
@@ -179,7 +248,6 @@ glm::vec3 Player::getSpawnPoint() const {
 }
 
 std::unique_ptr<dynamic::Map> Player::serialize() const {
-    glm::vec3 position = hitbox->position;
     auto root = std::make_unique<dynamic::Map>();
     auto& posarr = root->putList("position");
     posarr.put(position.x);
@@ -189,6 +257,7 @@ std::unique_ptr<dynamic::Map> Player::serialize() const {
     auto& rotarr = root->putList("rotation");
     rotarr.put(cam.x);
     rotarr.put(cam.y);
+    rotarr.put(cam.z);
 
     auto& sparr = root->putList("spawnpoint");
     sparr.put(spawnpoint.x);
@@ -197,14 +266,20 @@ std::unique_ptr<dynamic::Map> Player::serialize() const {
 
     root->put("flight", flight);
     root->put("noclip", noclip);
-    root->put("chosen-slot", static_cast<int64_t>(chosenSlot));
+    root->put("chosen-slot", chosenSlot);
+    root->put("entity", eid);
     root->put("inventory", inventory->serialize());
+    auto found = std::find(
+        level->cameras.begin(), level->cameras.end(), currentCamera);
+    if (found != level->cameras.end()) {
+        root->put("camera", level->content->getIndices(
+            ResourceType::CAMERA).getName(found - level->cameras.begin()));
+    }
     return root;
 }
 
 void Player::deserialize(dynamic::Map *src) {
     auto posarr = src->list("position");
-    glm::vec3& position = hitbox->position;
     position.x = posarr->num(0);
     position.y = posarr->num(1);
     position.z = posarr->num(2);
@@ -213,6 +288,9 @@ void Player::deserialize(dynamic::Map *src) {
     auto rotarr = src->list("rotation");
     cam.x = rotarr->num(0);
     cam.y = rotarr->num(1);
+    if (rotarr->size() > 2) {
+        cam.z = rotarr->num(2);
+    }
 
     if (src->has("spawnpoint")) {
         auto sparr = src->list("spawnpoint");
@@ -228,29 +306,34 @@ void Player::deserialize(dynamic::Map *src) {
     src->flag("flight", flight);
     src->flag("noclip", noclip);
     setChosenSlot(src->get("chosen-slot", getChosenSlot()));
-
-    auto invmap = src->map("inventory");
-    if (invmap) {
-        getInventory()->deserialize(invmap);
+    src->num("entity", eid);
+    
+    if (auto invmap = src->map("inventory")) {
+        getInventory()->deserialize(invmap.get());
+    }
+    
+    if (src->has("camera")) {
+        std::string name;
+        src->str("camera", name);
+        if (auto camera = level->getCamera(name)) {
+            currentCamera = camera;
+        }
     }
 }
-
 
 void Player::convert(dynamic::Map* data, const ContentLUT* lut) {
     auto players = data->list("players");
     if (players) {
         for (uint i = 0; i < players->size(); i++) {
             auto playerData = players->map(i);
-            auto inventory = playerData->map("inventory");
-            if (inventory) {
-                Inventory::convert(inventory, lut);
+            if (auto inventory = playerData->map("inventory")) {
+                Inventory::convert(inventory.get(), lut);
             }
         }
     
     } else {
-        auto inventory = data->map("inventory");
-        if (inventory) {
-            Inventory::convert(inventory, lut);
+        if (auto inventory = data->map("inventory")) {
+            Inventory::convert(inventory.get(), lut);
         }
     }
 }

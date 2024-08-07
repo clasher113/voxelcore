@@ -4,13 +4,13 @@
 #include "../../debug/Logger.hpp"
 
 #include <string>
-#include <iostream>
+#include <utility>
 
 static debug::Logger logger("al-audio");
 
 using namespace audio;
 
-ALSound::ALSound(ALAudio* al, uint buffer, std::shared_ptr<PCM> pcm, bool keepPCM) 
+ALSound::ALSound(ALAudio* al, uint buffer, const std::shared_ptr<PCM>& pcm, bool keepPCM)
 : al(al), buffer(buffer) 
 {
     duration = pcm->getDuration();
@@ -24,20 +24,20 @@ ALSound::~ALSound() {
     buffer = 0;
 }
 
-Speaker* ALSound::newInstance(int priority, int channel) const {
+std::unique_ptr<Speaker> ALSound::newInstance(int priority, int channel) const {
     uint source = al->getFreeSource();
     if (source == 0) {
         return nullptr;
     }
     AL_CHECK(alSourcei(source, AL_BUFFER, buffer));
 
-    auto speaker = new ALSpeaker(al, source, priority, channel);
+    auto speaker = std::make_unique<ALSpeaker>(al, source, priority, channel);
     speaker->duration = duration;
     return speaker;
 }
 
 ALStream::ALStream(ALAudio* al, std::shared_ptr<PCMStream> source, bool keepSource)
-: al(al), source(source), keepSource(keepSource) {
+: al(al), source(std::move(source)), keepSource(keepSource) {
 }
 
 ALStream::~ALStream() {
@@ -67,7 +67,7 @@ bool ALStream::preloadBuffer(uint buffer, bool loop) {
     return true;
 }
 
-Speaker* ALStream::createSpeaker(bool loop, int channel) {
+std::unique_ptr<Speaker> ALStream::createSpeaker(bool loop, int channel) {
     this->loop = loop;
     uint source = al->getFreeSource();
     if (source == 0) {
@@ -80,7 +80,7 @@ Speaker* ALStream::createSpeaker(bool loop, int channel) {
         }
         AL_CHECK(alSourceQueueBuffers(source, 1, &buffer));
     }
-    return new ALSpeaker(al, source, PRIORITY_HIGH, channel);
+    return std::make_unique<ALSpeaker>(al, source, PRIORITY_HIGH, channel);
 }
 
 
@@ -379,18 +379,18 @@ ALAudio::~ALAudio() {
     context = nullptr;
 }
 
-Sound* ALAudio::createSound(std::shared_ptr<PCM> pcm, bool keepPCM) {
+std::unique_ptr<Sound> ALAudio::createSound(std::shared_ptr<PCM> pcm, bool keepPCM) {
     auto format = AL::to_al_format(pcm->channels, pcm->bitsPerSample);
     uint buffer = getFreeBuffer();
     AL_CHECK(alBufferData(buffer, format, pcm->data.data(), pcm->data.size(), pcm->sampleRate));
-    return new ALSound(this, buffer, pcm, keepPCM);
+    return std::make_unique<ALSound>(this, buffer, pcm, keepPCM);
 }
 
-Stream* ALAudio::openStream(std::shared_ptr<PCMStream> stream, bool keepSource) {
-    return new ALStream(this, stream, keepSource);
+std::unique_ptr<Stream> ALAudio::openStream(std::shared_ptr<PCMStream> stream, bool keepSource) {
+    return std::make_unique<ALStream>(this, stream, keepSource);
 }
 
-ALAudio* ALAudio::create() {
+std::unique_ptr<ALAudio> ALAudio::create() {
     ALCdevice* device = alcOpenDevice(nullptr);
     if (device == nullptr)
         return nullptr;
@@ -401,7 +401,7 @@ ALAudio* ALAudio::create() {
     }
     AL_CHECK();
     logger.info() << "initialized";
-    return new ALAudio(device, context);
+    return std::make_unique<ALAudio>(device, context);
 }
 
 uint ALAudio::getFreeSource(){
@@ -458,7 +458,7 @@ std::vector<std::string> ALAudio::getAvailableDevices() const {
 
     const char* ptr = devices;
     do {
-        devicesVec.push_back(std::string(ptr));
+        devicesVec.emplace_back(ptr);
         ptr += devicesVec.back().size() + 1;
     }
     while (ptr[0]);

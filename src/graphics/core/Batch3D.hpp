@@ -1,8 +1,8 @@
 #ifndef GRAPHICS_CORE_BATCH3D_HPP_
 #define GRAPHICS_CORE_BATCH3D_HPP_
 
-#include "../../maths/UVRegion.hpp"
 #include "../../typedefs.hpp"
+#include "commons.hpp"
 
 #include <memory>
 #include <stdlib.h>
@@ -10,30 +10,38 @@
 
 class Mesh;
 class Texture;
+struct UVRegion;
 
-class Batch3D {
-    float* buffer;
+class Batch3D : public Flushable {
+    std::unique_ptr<float[]> buffer;
     size_t capacity;
     std::unique_ptr<Mesh> mesh;
     std::unique_ptr<Texture> blank;
     size_t index;
     
-    Texture* _texture;
+    Texture* currentTexture;
 
-    void vertex(float x, float y, float z,
-                float u, float v,
-                float r, float g, float b, float a);
-    void vertex(glm::vec3 coord,
-            float u, float v,
-            float r, float g, float b, float a);
-    void vertex(glm::vec3 point, glm::vec2 uvpoint,
-                float r, float g, float b, float a);
-
-    void face(const glm::vec3& coord, float w, float h,
+    void vertex(
+        float x, float y, float z,
+        float u, float v,
+        float r, float g, float b, float a
+    );
+    void vertex(
+        glm::vec3 coord,
+        float u, float v,
+        float r, float g, float b, float a
+    );
+    void vertex(
+        glm::vec3 point, glm::vec2 uvpoint,
+        float r, float g, float b, float a
+    );
+    void face(
+        const glm::vec3& coord, float w, float h,
         const glm::vec3& axisX,
         const glm::vec3& axisY,
         const UVRegion& region,
-        const glm::vec4& tint);
+        const glm::vec4& tint
+    );
 
 public:
     Batch3D(size_t capacity);
@@ -47,7 +55,7 @@ public:
     void blockCube(const glm::vec3 size, const UVRegion(&texfaces)[6], const glm::vec4 tint, bool shading=true);
     void point(glm::vec3 pos, glm::vec2 uv, glm::vec4 tint);
     void point(glm::vec3 pos, glm::vec4 tint);
-    void flush();
+    void flush() override;
     void flushPoints();
 };
 

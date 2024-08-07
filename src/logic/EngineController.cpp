@@ -1,5 +1,6 @@
 #include "EngineController.hpp"
 
+#include "../coders/commons.hpp"
 #include "../content/ContentLUT.hpp"
 #include "../debug/Logger.hpp"
 #include "../engine.hpp"
@@ -19,6 +20,7 @@
 
 #include <memory>
 #include <filesystem>
+#include <algorithm>
 
 namespace fs = std::filesystem;
 
@@ -27,7 +29,7 @@ static debug::Logger logger("engine-control");
 EngineController::EngineController(Engine* engine) : engine(engine) {
 }
 
-void EngineController::deleteWorld(std::string name) {
+void EngineController::deleteWorld(const std::string& name) {
     fs::path folder = engine->getPaths()->getWorldFolder(name);
     guiutil::confirm(engine->getGUI(), langs::get(L"delete-confirm", L"world")+
     L" ("+util::str2wstr_utf8(folder.u8string())+L")", [=]() {
@@ -38,10 +40,10 @@ void EngineController::deleteWorld(std::string name) {
 
 std::shared_ptr<Task> create_converter(
     Engine* engine,
-    fs::path folder, 
+    const fs::path& folder,
     const Content* content, 
-    std::shared_ptr<ContentLUT> lut, 
-    runnable postRunnable)
+    const std::shared_ptr<ContentLUT>& lut,
+    const runnable& postRunnable)
 {
     return WorldConverter::startTask(folder, content, lut, [=](){
         auto menu = engine->getGUI()->getMenu();
@@ -56,9 +58,9 @@ std::shared_ptr<Task> create_converter(
 void show_convert_request(
     Engine* engine, 
     const Content* content, 
-    std::shared_ptr<ContentLUT> lut,
-    fs::path folder,
-    runnable postRunnable
+    const std::shared_ptr<ContentLUT>& lut,
+    const fs::path& folder,
+    const runnable& postRunnable
 ) {
     guiutil::confirm(engine->getGUI(), langs::get(L"world.convert-request"), [=]() {
         auto converter = create_converter(engine, folder, content, lut, postRunnable);
@@ -68,7 +70,7 @@ void show_convert_request(
 
 static void show_content_missing(
     Engine* engine,
-    std::shared_ptr<ContentLUT> lut
+    const std::shared_ptr<ContentLUT>& lut
 ) {
     using namespace dynamic;
     auto root = create_map();
@@ -82,29 +84,13 @@ static void show_content_missing(
     menus::show(engine, "reports/missing_content", {root});
 }
 
-static bool loadWorldContent(Engine* engine, fs::path folder) {
-    try {
+static bool loadWorldContent(Engine* engine, const fs::path& folder) {
+    return menus::call(engine, [engine, folder]() {
         engine->loadWorldContent(folder);
-        return true;
-    } catch (const contentpack_error& error) {
-        engine->setScreen(std::make_shared<MenuScreen>(engine));
-        // could not to find or read pack
-        guiutil::alert(
-            engine->getGUI(), langs::get(L"error.pack-not-found")+L": "+
-            util::str2wstr_utf8(error.getPackId())
-        );
-        return false;
-    } catch (const std::runtime_error& error) {
-        engine->setScreen(std::make_shared<MenuScreen>(engine));
-        guiutil::alert(
-            engine->getGUI(), langs::get(L"Content Error", L"menu")+L": "+
-            util::str2wstr_utf8(error.what())
-        );
-        return false;
-    }
+    });
 }
 
-static void loadWorld(Engine* engine, fs::path folder) {
+static void loadWorld(Engine* engine, const fs::path& folder) {
     try {
         auto content = engine->getContent();
         auto& packs = engine->getContentPacks();
@@ -121,7 +107,7 @@ static void loadWorld(Engine* engine, fs::path folder) {
     }
 }
 
-void EngineController::openWorld(std::string name, bool confirmConvert) {
+void EngineController::openWorld(const std::string& name, bool confirmConvert) {
     auto paths = engine->getPaths();
     auto folder = paths->getWorldsFolder()/fs::u8path(name);
     if (!loadWorldContent(engine, folder)) {
@@ -174,29 +160,13 @@ void EngineController::createWorld(
 
     EnginePaths* paths = engine->getPaths();
     auto folder = paths->getWorldsFolder()/fs::u8path(name);
-    try {
+
+    if (!menus::call(engine, [this, paths, folder]() {
         engine->loadContent();
         paths->setWorldFolder(folder);
-    } catch (const contentpack_error& error) {
-        guiutil::alert(
-            engine->getGUI(),
-            langs::get(L"Content Error", L"menu")+L":\n"+
-            util::str2wstr_utf8(
-                std::string(error.what())+
-                "\npack '"+error.getPackId()+"' from "+
-                error.getFolder().u8string()
-            )
-        );
-        return;
-    } catch (const std::runtime_error& error) {
-        guiutil::alert(
-            engine->getGUI(),
-            langs::get(L"Content Error", L"menu")+
-            L": "+util::str2wstr_utf8(error.what())
-        );
+    })) {
         return;
     }
-
     auto level = World::create(
         name, generatorID, folder, seed, 
         engine->getSettings(), 
@@ -215,15 +185,16 @@ void EngineController::reopenWorld(World* world) {
 
 void EngineController::reconfigPacks(
     LevelController* controller,
-    std::vector<std::string> packsToAdd,
-    std::vector<std::string> packsToRemove
+    const std::vector<std::string>& packsToAdd,
+    const std::vector<std::string>& packsToRemove
 ) {
     auto content = engine->getContent();
     bool hasIndices = false;
 
     std::stringstream ss;
     for (const auto& id : packsToRemove) {
-        if (content->getPackRuntime(id)->getStats().hasSavingContent()) {
+        auto runtime = content->getPackRuntime(id);
+        if (runtime && runtime->getStats().hasSavingContent()) {
             if (hasIndices) {
                 ss << ", ";
             }
@@ -234,13 +205,22 @@ void EngineController::reconfigPacks(
 
     runnable removeFunc = [=]() {
         if (controller == nullptr) {
-            auto manager = engine->createPacksManager(fs::path(""));
-            manager.scan();
-            std::vector<std::string> names = engine->getBasePacks();
-            for (auto& name : packsToAdd) {
-                names.push_back(name);
+            try {
+                auto manager = engine->createPacksManager(fs::path(""));
+                manager.scan();
+                std::vector<std::string> names = PacksManager::getNames(engine->getContentPacks());
+                for (const auto& id : packsToAdd) {
+                    names.push_back(id);
+                }
+                for (const auto& id : packsToRemove) {
+                    manager.exclude(id);
+                    names.erase(std::find(names.begin(), names.end(), id));
+                }
+                names = manager.assembly(names);
+                engine->getContentPacks() = manager.getAll(names);
+            } catch (const contentpack_error& err) {
+                throw std::runtime_error(std::string(err.what())+" ["+err.getPackId()+"]");
             }
-            engine->getContentPacks() = manager.getAll(names);
         } else {
             auto world = controller->getLevel()->getWorld();
             auto wfile = world->wfile.get();

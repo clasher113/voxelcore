@@ -2,11 +2,11 @@
 #define WINDOW_EVENTS_HPP_
 
 #include "input.hpp"
+#include "../typedefs.hpp"
 
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "../typedefs.hpp"
 
 inline constexpr short KEYS_BUFFER_SIZE = 1036;
 
@@ -38,9 +38,11 @@ public:
 
     static void toggleCursor();
 
+    static Binding& getBinding(const std::string& name);
     static void bind(const std::string& name, inputtype type, keycode code);
     static void bind(const std::string& name, inputtype type, mousecode code);
     static void bind(const std::string& name, inputtype type, int code);
+    static void rebind(const std::string& name, inputtype type, int code);
     static bool active(const std::string& name);
     static bool jactive(const std::string& name);
 

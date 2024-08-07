@@ -12,20 +12,12 @@
 #include <functional>
 #include <map>
 #include <queue>
+#include <utility>
 
 namespace dynamic {
     class Map;
     class List;
 }
-
-enum class AssetType {
-    texture,
-    shader,
-    font,
-    atlas,
-    layout,
-    sound
-};
 
 class ResPaths;
 class AssetsLoader;
@@ -38,7 +30,7 @@ struct AssetCfg {
 struct LayoutCfg : AssetCfg {
     scriptenv env;
 
-    LayoutCfg(scriptenv env) : env(env) {}
+    LayoutCfg(scriptenv env) : env(std::move(env)) {}
 };
 
 struct SoundCfg : AssetCfg {
@@ -48,7 +40,7 @@ struct SoundCfg : AssetCfg {
 };
 
 using aloader_func = std::function<assetload::postfunc(
-    AssetsLoader*, // redundant?
+    AssetsLoader*,
     const ResPaths*, 
     const std::string&, 
     const std::string&, 
@@ -68,11 +60,11 @@ class AssetsLoader {
     std::queue<aloader_entry> entries;
     const ResPaths* paths;
 
-    void tryAddSound(std::string name);
+    void tryAddSound(const std::string& name);
 
     void processPreload(AssetType tag, const std::string& name, dynamic::Map* map);
     void processPreloadList(AssetType tag, dynamic::List* list);
-    void processPreloadConfig(std::filesystem::path file);
+    void processPreloadConfig(const std::filesystem::path& file);
     void processPreloadConfigs(const Content* content);
 public:
     AssetsLoader(Assets* assets, const ResPaths* paths);
@@ -85,13 +77,15 @@ public:
     /// @param settings asset loading settings (based on asset type)
     void add(
         AssetType tag, 
-        const std::string filename, 
-        const std::string alias, 
+        const std::string& filename,
+        const std::string& alias,
         std::shared_ptr<AssetCfg> settings=nullptr
     );
     
     bool hasNext() const;
-    bool loadNext();
+
+    /// @throws assetload::error
+    void loadNext();
 
     std::shared_ptr<Task> startTask(runnable onDone);
 
@@ -106,7 +100,7 @@ public:
     static bool loadExternalTexture(
         Assets* assets,
         const std::string& name,
-        std::vector<std::filesystem::path> alternatives
+        const std::vector<std::filesystem::path>& alternatives
     );
 };
 

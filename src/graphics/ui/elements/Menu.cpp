@@ -3,6 +3,7 @@
 #include "../../../frontend/workshop/menu_workshop.hpp"
 
 #include <stdexcept>
+#include <utility>
 
 using namespace gui;
 
@@ -14,11 +15,11 @@ bool Menu::has(const std::string& name) {
            pageSuppliers.find(name) != pageSuppliers.end();
 }
 
-void Menu::addPage(std::string name, std::shared_ptr<UINode> panel) {
+void Menu::addPage(const std::string& name, const std::shared_ptr<UINode> &panel) {
     pages[name] = Page{name, panel};
 }
 
-void Menu::addSupplier(std::string name, supplier<std::shared_ptr<UINode>> pageSupplier) {
+void Menu::addSupplier(const std::string &name, const supplier<std::shared_ptr<UINode>> &pageSupplier) {
     pageSuppliers[name] = pageSupplier;
 }
 
@@ -40,7 +41,7 @@ std::shared_ptr<UINode> Menu::fetchPage(const std::string& name) {
     }
 }
 
-void Menu::setPage(std::string name, bool history) {
+void Menu::setPage(const std::string &name, bool history) {
     Page page {name, fetchPage(name)};
     if (page.panel == nullptr) {
         throw std::runtime_error("no page found");
@@ -49,16 +50,16 @@ void Menu::setPage(std::string name, bool history) {
 }
 
 void Menu::setPage(Page page, bool history) {
+    workshop::create_workshop_button(scripting::engine, &page);
     if (current.panel) {
         Container::remove(current.panel);
         if (history) {
             pageStack.push(current);
         }
     }
-    current = page;
+    current = std::move(page);
     Container::add(current.panel);
     setSize(current.panel->getSize());
-    if (page.name == "main") workshop::create_workshop_button(scripting::engine);
 }
 
 void Menu::back() {
@@ -76,7 +77,7 @@ void Menu::back() {
 }
 
 void Menu::setPageLoader(page_loader_func loader) {
-    pagesLoader = loader;
+    pagesLoader = std::move(loader);
 }
 
 Page& Menu::getCurrent() {

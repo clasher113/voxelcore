@@ -54,16 +54,25 @@ namespace gui {
     /// @brief The main UI controller
     class GUI {
         std::shared_ptr<Container> container;
-        std::shared_ptr<UINode> hover = nullptr;
-        std::shared_ptr<UINode> pressed = nullptr;
-        std::shared_ptr<UINode> focus = nullptr;
+        std::shared_ptr<UINode> hover;
+        std::shared_ptr<UINode> pressed;
+        std::shared_ptr<UINode> focus;
+        std::shared_ptr<UINode> tooltip;
         std::unordered_map<std::string, std::shared_ptr<UINode>> storage;
 
         std::unique_ptr<Camera> uicamera;
         std::shared_ptr<Menu> menu;
         std::queue<runnable> postRunnables;
-        void actMouse();
+
+        float tooltipTimer = 0.0f;
+        float doubleClickTimer = 0.0f;
+        float doubleClickDelay = 0.5f;
+        bool doubleClicked = false;
+
+        void actMouse(float delta);
         void actFocused();
+        void updateTooltip(float delta);
+        void resetTooltip();
     public:
         GUI();
         ~GUI();
@@ -99,16 +108,16 @@ namespace gui {
         /// (does not add node to the main container)
         /// @param name node key
         /// @param node target node
-        void store(std::string name, std::shared_ptr<UINode> node);
+        void store(const std::string& name, std::shared_ptr<UINode> node);
 
         /// @brief Get node from the GUI nodes dictionary 
         /// @param name node key
         /// @return stored node or nullptr
-        std::shared_ptr<UINode> get(std::string name) noexcept;
+        std::shared_ptr<UINode> get(const std::string& name) noexcept;
 
         /// @brief Remove node from the GUI nodes dictionary
         /// @param name node key 
-        void remove(std::string name) noexcept;
+        void remove(const std::string& name) noexcept;
 
         /// @brief Set node as focused 
         /// @param node new focused node or nullptr to remove focus
@@ -120,7 +129,10 @@ namespace gui {
 
         void onAssetsLoad(Assets* assets);
 
-        void postRunnable(runnable callback);
+        void postRunnable(const runnable& callback);
+
+        void setDoubleClickDelay(float delay);
+        float getDoubleClickDelay() const;
     };
 }
 

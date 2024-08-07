@@ -25,7 +25,9 @@ namespace menus {
         std::vector<dynamic::Value> args
     );
 
-    void show_process_panel(Engine* engine, std::shared_ptr<Task> task, std::wstring text=L"");
+    void show_process_panel(Engine* engine, const std::shared_ptr<Task>& task, const std::wstring& text=L"");
+
+    bool call(Engine* engine, runnable func);
 }
 
 #endif // FRONTEND_MENU_MENU_HPP_

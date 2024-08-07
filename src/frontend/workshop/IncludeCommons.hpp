@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../engine.hpp"
+#include "../../voxels/Block.hpp"
 #include "../../graphics/ui/elements/Button.hpp"
 #include "../../graphics/ui/elements/CheckBox.hpp"
 #include "../../graphics/ui/elements/Image.hpp"

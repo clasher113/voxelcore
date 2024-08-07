@@ -2,7 +2,6 @@
 #define WORLD_WORLD_HPP_
 
 #include "../typedefs.hpp"
-#include "../settings.hpp"
 #include "../util/timeutil.hpp"
 #include "../data/dynamic.hpp"
 #include "../interfaces/Serializable.hpp"
@@ -17,12 +16,13 @@ class Content;
 class WorldFiles;
 class Level;
 class ContentLUT;
+struct EngineSettings;
 
 namespace fs = std::filesystem;
 
 class world_load_error : public std::runtime_error {
 public:
-    world_load_error(std::string message);
+    world_load_error(const std::string &message);
 };
 
 /// @brief holds all world data except the level (chunks and objects)
@@ -30,11 +30,12 @@ class World : Serializable {
     std::string name;
     std::string generator;
     uint64_t seed;
-    EngineSettings& settings;
     const Content* const content;
     std::vector<ContentPack> packs;
 
     int64_t nextInventoryId = 0;
+
+    void writeResources(const Content* content);
 public:
     std::unique_ptr<WorldFiles> wfile;
 
@@ -44,19 +45,24 @@ public:
     float daytime = timeutil::time_value(10, 00, 00);
 
     // looking bad
-    float daytimeSpeed = 1.0f/60.0f/24.0f;
+    float daytimeSpeed = 1.0f;
     
     /// @brief total time passed in the world (not depending on daytimeSpeed)
     double totalTime = 0.0;
 
+    /// @brief will be replaced with weather in future 
+    float fog = 0.0f;
+
+    entityid_t nextEntityId = 0;
+
     World(
         std::string name, 
         std::string generator,
-        fs::path directory, 
+        const fs::path& directory,
         uint64_t seed, 
         EngineSettings& settings,
         const Content* content,
-        std::vector<ContentPack> packs
+        const std::vector<ContentPack>& packs
     );
 
     ~World();
@@ -87,9 +93,9 @@ public:
     /// @param packs vector of all world content-packs
     /// @return Level instance containing World instance
     static std::unique_ptr<Level> create(
-        std::string name, 
-        std::string generator,
-        fs::path directory, 
+        const std::string& name,
+        const std::string& generator,
+        const fs::path& directory,
         uint64_t seed, 
         EngineSettings& settings, 
         const Content* content,
@@ -105,7 +111,7 @@ public:
     /// @return Level instance containing World instance
     /// @throws world_load_error on world.json load error
     static std::unique_ptr<Level> load(
-        fs::path directory,
+        const fs::path& directory,
         EngineSettings& settings,
         const Content* content,
         const std::vector<ContentPack>& packs

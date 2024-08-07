@@ -1,5 +1,7 @@
 #include "UINode.hpp"
 
+#include <utility>
+
 #include "Container.hpp"
 #include "../../core/Batch2D.hpp"
 
@@ -13,6 +15,9 @@ UINode::~UINode() {
 }
 
 bool UINode::isVisible() const {
+    if (visible && parent) {
+        return parent->isVisible();
+    }
     return visible;
 }
 
@@ -59,8 +64,13 @@ UINode* UINode::getParent() const {
     return parent;
 }
 
-UINode* UINode::listenAction(onaction action) {
-    actions.push_back(action);
+UINode* UINode::listenAction(const onaction& action) {
+    actions.listen(action);
+    return this;
+}
+
+UINode* UINode::listenDoubleClick(const onaction& action) {
+    doubleClickCallbacks.listen(action);
     return this;
 }
 
@@ -68,12 +78,17 @@ void UINode::click(GUI*, int, int) {
     pressed = true;
 }
 
+void UINode::doubleClick(GUI* gui, int x, int y) {
+    pressed = true;
+    if (isInside(glm::vec2(x, y))) {
+        doubleClickCallbacks.notify(gui);
+    }
+}
+
 void UINode::mouseRelease(GUI* gui, int x, int y) {
     pressed = false;
     if (isInside(glm::vec2(x, y))) {
-        for (auto callback : actions) {
-            callback(gui);
-        }
+        actions.notify(gui);
     }
 }
 
@@ -97,10 +112,10 @@ bool UINode::isInside(glm::vec2 point) {
 }
 
 std::shared_ptr<UINode> UINode::getAt(glm::vec2 point, std::shared_ptr<UINode> self) {
-    if (!interactive || !enabled) {
+    if (!isInteractive() || !enabled) {
         return nullptr;
     }
-    return isInside(point) ? self : nullptr;
+    return isInside(point) ? std::move(self) : nullptr;
 }
 
 bool UINode::isInteractive() const {
@@ -117,6 +132,22 @@ void UINode::setResizing(bool flag) {
 
 bool UINode::isResizing() const {
     return resizing;
+}
+
+void UINode::setTooltip(const std::wstring& text) {
+    this->tooltip = text;
+}
+
+const std::wstring& UINode::getTooltip() const {
+    return tooltip;
+}
+
+void UINode::setTooltipDelay(float delay) {
+    tooltipDelay = delay;
+}
+
+float UINode::getTooltipDelay() const {
+    return tooltipDelay;
 }
 
 glm::vec2 UINode::calcPos() const {
@@ -212,8 +243,8 @@ int UINode::getZIndex() const {
 }
 
 void UINode::moveInto(
-    std::shared_ptr<UINode> node,
-    std::shared_ptr<Container> dest
+    const std::shared_ptr<UINode>& node,
+    const std::shared_ptr<Container>& dest
 ) {
     auto parent = node->getParent();
     if (auto container = dynamic_cast<Container*>(parent)) {
@@ -230,7 +261,7 @@ vec2supplier UINode::getPositionFunc() const {
 }
 
 void UINode::setPositionFunc(vec2supplier func) {
-    positionfunc = func;
+    positionfunc = std::move(func);
 }
 
 vec2supplier UINode::getSizeFunc() const {
@@ -238,7 +269,7 @@ vec2supplier UINode::getSizeFunc() const {
 }
 
 void UINode::setSizeFunc(vec2supplier func) {
-    sizefunc = func;
+    sizefunc = std::move(func);
 }
 
 void UINode::setId(const std::string& id) {
@@ -305,8 +336,18 @@ void UINode::setGravity(Gravity gravity) {
     }
 }
 
+bool UINode::isSubnodeOf(const UINode* node) {
+    if (parent == nullptr) {
+        return false;
+    }
+    if (parent == node) {
+        return true;
+    }
+    return parent->isSubnodeOf(node);
+}
+
 void UINode::getIndices(
-    std::shared_ptr<UINode> node,
+    const std::shared_ptr<UINode>& node,
     std::unordered_map<std::string, std::shared_ptr<UINode>>& map
 ) {
     const std::string& id = node->getId();
@@ -315,8 +356,24 @@ void UINode::getIndices(
     }
     auto container = std::dynamic_pointer_cast<gui::Container>(node);
     if (container) {
-        for (auto subnode : container->getNodes()) {
+        for (const auto& subnode : container->getNodes()) {
             getIndices(subnode, map);
         }
     }
+}
+std::shared_ptr<UINode> UINode::find(
+    const std::shared_ptr<UINode>& node,
+    const std::string& id
+) {
+    if (node->getId() == id) {
+        return node;
+    }
+    if (auto container = std::dynamic_pointer_cast<Container>(node)) {
+        for (const auto& subnode : container->getNodes()) {
+            if (auto found = UINode::find(subnode, id)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
 }

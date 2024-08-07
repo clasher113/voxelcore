@@ -5,7 +5,6 @@
 
 #include <string>
 #include <vector>
-#include <stdexcept>
 
 namespace util {
     /// @brief Function used for string serialization in text formats 
@@ -19,11 +18,11 @@ namespace util {
 
     uint encode_utf8(uint32_t c, ubyte* bytes);
     uint32_t decode_utf8(uint& size, const char* bytes);
-    std::string wstr2str_utf8(const std::wstring ws);
-    std::wstring str2wstr_utf8(const std::string s);
-    bool is_integer(std::string text);
-    bool is_integer(std::wstring text);
-    bool is_valid_filename(std::wstring name);
+    std::string wstr2str_utf8(const std::wstring &ws);
+    std::wstring str2wstr_utf8(const std::string &s);
+    bool is_integer(const std::string& text);
+    bool is_integer(const std::wstring& text);
+    bool is_valid_filename(const std::wstring &name);
 
     void ltrim(std::string &s);
     void rtrim(std::string &s);
@@ -58,6 +57,8 @@ namespace util {
     std::vector<std::wstring> split(const std::wstring& str, char delimiter);
 
     std::string format_data_size(size_t size);
+
+    std::pair<std::string, std::string> split_at(std::string_view view, char c);
 }
 
 #endif // UTIL_STRINGUTIL_HPP_

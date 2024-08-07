@@ -21,6 +21,25 @@ namespace gui {
 
     using onaction = std::function<void(GUI*)>;
     using onnumberchange = std::function<void(GUI*, double)>;
+
+    class ActionsSet {
+        std::unique_ptr<std::vector<onaction>> callbacks;
+    public:
+        void listen(const onaction& callback) {
+            if (callbacks == nullptr) {
+                callbacks = std::make_unique<std::vector<onaction>>();
+            }
+            callbacks->push_back(callback);
+        }
+
+        void notify(GUI* gui) {
+            if (callbacks) {
+                for (auto& callback : *callbacks) {
+                    callback(gui);
+                }
+            }
+        }
+    };
     
     enum class Align {
         left, center, right,
@@ -87,7 +106,13 @@ namespace gui {
         /// @brief size supplier for the element (called on parent element size update)
         vec2supplier sizefunc = nullptr;
         /// @brief 'onclick' callbacks
-        std::vector<onaction> actions;
+        ActionsSet actions;
+        /// @brief 'ondoubleclick' callbacks
+        ActionsSet doubleClickCallbacks;
+        /// @brief element tooltip text
+        std::wstring tooltip;
+        /// @brief element tooltip delay
+        float tooltipDelay = 0.5f;
 
         UINode(glm::vec2 size);
     public:
@@ -137,9 +162,11 @@ namespace gui {
         /// @brief Get element z-index
         int getZIndex() const;
 
-        virtual UINode* listenAction(onaction action);
+        virtual UINode* listenAction(const onaction &action);
+        virtual UINode* listenDoubleClick(const onaction &action);
 
         virtual void onFocus(GUI*) {focused = true;}
+        virtual void doubleClick(GUI*, int x, int y);
         virtual void click(GUI*, int x, int y);
         virtual void clicked(GUI*, mousecode button) {}
         virtual void mouseMove(GUI*, int x, int y) {};
@@ -174,6 +201,12 @@ namespace gui {
         virtual void setResizing(bool flag);
         virtual bool isResizing() const;
 
+        virtual void setTooltip(const std::wstring& text);
+        virtual const std::wstring& getTooltip() const;
+
+        virtual void setTooltipDelay(float delay);
+        virtual float getTooltipDelay() const;
+
         virtual glm::vec4 calcColor() const;
 
         /// @brief Get inner content offset. Used for scroll
@@ -194,8 +227,8 @@ namespace gui {
             }
         };
         static void moveInto(
-            std::shared_ptr<UINode> node,
-            std::shared_ptr<Container> dest
+            const std::shared_ptr<UINode>& node,
+            const std::shared_ptr<Container>& dest
         );
 
         virtual vec2supplier getPositionFunc() const;
@@ -212,10 +245,17 @@ namespace gui {
 
         virtual void setGravity(Gravity gravity);
 
+        bool isSubnodeOf(const UINode* node);
+
         /// @brief collect all nodes having id
         static void getIndices(
-            std::shared_ptr<UINode> node,
+            const std::shared_ptr<UINode>& node,
             std::unordered_map<std::string, std::shared_ptr<UINode>>& map
+        );
+
+        static std::shared_ptr<UINode> find(
+            const std::shared_ptr<UINode>& node,
+            const std::string& id
         );
     };
 }

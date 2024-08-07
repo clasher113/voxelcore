@@ -3,6 +3,7 @@
 #include "../../../assets/Assets.hpp"
 #include "../../../graphics/core/Atlas.hpp"
 #include "../IncludeCommons.hpp"
+#include "../../../constants.hpp"
 
 void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int column, DefType type, float posX, bool showAll,
 	const std::function<void(const std::string&)>& callback)
@@ -29,7 +30,7 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 				if (showAll) panel->add(removeList.emplace_back(std::make_shared<gui::Label>(elem.first)));
 				for (const auto& defPath : defPaths) {
 					if (!fs::exists(defPath.first)) continue;
-					Atlas* atlas = assets->getAtlas(getDefFolder(defPath.second));
+					Atlas* atlas = assets->get<Atlas>(getDefFolder(defPath.second));
 					for (const auto& entry : fs::directory_iterator(defPath.first)) {
 						std::string file = entry.path().stem().string();
 						if (!searchName.empty()) {

@@ -2,10 +2,11 @@
 #define WORLD_WORLDGENERATORS_HPP_
 
 #include "../voxels/WorldGenerator.hpp"
-#include "../content/Content.hpp"
 #include <map>
 #include <vector>
 #include <string>
+
+class Content;
 
 typedef WorldGenerator* (*gen_constructor) (const Content*);
 
@@ -22,7 +23,7 @@ public:
     static std::string getDefaultGeneratorID();
 
     static std::unique_ptr<WorldGenerator> createGenerator(
-        std::string id, const Content* content
+        const std::string &id, const Content *content
     );
 };
 

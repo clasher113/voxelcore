@@ -4,6 +4,7 @@
 #include "../IncludeCommons.hpp"
 #include "../WorkshopPreview.hpp"
 #include "../WorkshopSerializer.hpp"
+#include "../../../content/Content.hpp"
 
 void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 	createPanel([this, &block]() {
@@ -15,21 +16,24 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 
 		panel->add(std::make_shared<gui::Label>(actualName));
 
-		//createTextBox(panel, block.caption, L"Example Block");
+		panel->add(std::make_shared<gui::Label>("Caption"));
+		createTextBox(panel, block.caption, L"Example block");
 
-		createFullCheckBox(panel, L"Light passing", block.lightPassing);
-		createFullCheckBox(panel, L"Sky light passing", block.skyLightPassing);
-		createFullCheckBox(panel, L"Obstacle", block.obstacle);
-		createFullCheckBox(panel, L"Selectable", block.selectable);
-		createFullCheckBox(panel, L"Replaceable", block.replaceable);
-		createFullCheckBox(panel, L"Breakable", block.breakable);
-		createFullCheckBox(panel, L"Grounded", block.grounded);
-		createFullCheckBox(panel, L"Hidden", block.hidden);
+		createFullCheckBox(panel, L"Light passing", block.lightPassing, L"Does the block passing lights into itself");
+		createFullCheckBox(panel, L"Sky light passing", block.skyLightPassing, L"Does the block passing top-down sky lights into itself");
+		createFullCheckBox(panel, L"Obstacle", block.obstacle, L"Is the block a physical obstacle");
+		createFullCheckBox(panel, L"Selectable", block.selectable, L"Can the block be selected");
+		createFullCheckBox(panel, L"Replaceable", block.replaceable, L"Can the block be replaced with other. \n Examples of replaceable blocks: air, flower, water");
+		createFullCheckBox(panel, L"Shadeless", block.shadeless, L"Does block model have shading");
+		createFullCheckBox(panel, L"Ambient Occlusion", block.ambientOcclusion, L"Does block model have vertex-based AO effect");
+		createFullCheckBox(panel, L"Breakable", block.breakable, L"Can player destroy the block");
+		createFullCheckBox(panel, L"Grounded", block.grounded, L"Can the block exist without physical support be a solid block below");
+		createFullCheckBox(panel, L"Hidden", block.hidden, L"Turns off block item generation");
 
 		panel->add(std::make_shared<gui::Label>(L"Picking item"));
 		auto pickingItemPanel = std::make_shared<gui::Panel>(glm::vec2(panel->getSize().x, 35.f));
 		auto item = [this](std::string pickingItem) {
-			return (content->findItem(pickingItem) == nullptr ? content->findItem("core:empty") : content->findItem(pickingItem));
+			return (content->items.find(pickingItem) == nullptr ? content->items.find("core:empty") : content->items.find(pickingItem));
 		};
 		auto atlas = [this, item, &block](std::string pickingItem) {
 			ItemDef* i = item(pickingItem);
@@ -57,7 +61,6 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		texturePanel->setColor(glm::vec4(0.f));
 		panel->add(texturePanel);
 
-		const char* models[] = { "none", "block", "X", "aabb", "custom" };
 		auto processModelChange = [this, texturePanel](Block& block) {
 			clearRemoveList(texturePanel);
 			if (block.model == BlockModel::custom) {
@@ -71,12 +74,12 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 			preview->updateMesh();
 		};
 
-		auto button = std::make_shared<gui::Button>(L"Model: " + util::str2wstr_utf8(models[static_cast<size_t>(block.model)]), glm::vec4(10.f), gui::onaction());
-		button->listenAction([&block, button, models, processModelChange](gui::GUI*) {
-			size_t index = static_cast<size_t>(block.model) + 1;
-			if (index >= std::size(models)) index = 0;
-			button->setText(L"Model: " + util::str2wstr_utf8(models[index]));
-			block.model = static_cast<BlockModel>(index);
+		auto button = std::make_shared<gui::Button>(L"Model: " + util::str2wstr_utf8(to_string(block.model)), glm::vec4(10.f), gui::onaction());
+		button->listenAction([&block, button, processModelChange](gui::GUI*) {
+			BlockModel model = incrementEnumClass(block.model, 1);
+			if (model > BlockModel::custom) model = BlockModel::none;
+			block.model = model;
+			button->setText(L"Model: " + util::str2wstr_utf8(to_string(block.model)));
 			processModelChange(block);
 		});
 		panel->add(button);
@@ -105,9 +108,14 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		});
 		panel->add(button);
 
-		panel->add(std::make_shared<gui::Label>("Draw group"));
+		panel->add(std::make_shared<gui::Label>("Draw group (0 - 255)"));
 		panel->add(createNumTextBox<ubyte>(block.drawGroup, L"0", 0, 255));
 		createEmissionPanel(panel, block.emission);
+
+		panel->add(std::make_shared<gui::Label>("Block size (0 - 5)"));
+		panel->add(createVectorPanel(block.size, glm::i8vec3(0), glm::i8vec3(5), panel->getSize().x, 1, [processModelChange, &block](){
+			processModelChange(block);
+		}));
 
 		panel->add(std::make_shared<gui::Label>("Script file"));
 		button = std::make_shared<gui::Button>(util::str2wstr_utf8(getScriptName(currentPack, block.scriptName)), glm::vec4(10.f), gui::onaction());
@@ -144,7 +152,10 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		panel->add(button);
 
 		panel->add(std::make_shared<gui::Label>("Inventory size"));
-		panel->add(createNumTextBox<uint>(block.inventorySize, L"0 (no inventory)", 0, 64));
+		panel->add(createNumTextBox<uint>(block.inventorySize, L"0 - no inventory", 0, std::numeric_limits<decltype(block.inventorySize)>::max()));
+
+		panel->add(std::make_shared<gui::Label>("Tick interval (1 - 20)"));
+		panel->add(createNumTextBox<uint>(block.tickInterval, L"1 - 20tps, 2 - 10tps", 1, 20));
 
 		panel->add(std::make_shared<gui::Button>(L"Save", glm::vec4(10.f), [this, &block, actualName](gui::GUI*) {
 			saveBlock(block, currentPack.folder, actualName);

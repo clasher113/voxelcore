@@ -1,12 +1,13 @@
 #ifndef GRAPHICS_UI_ELEMENTS_CHECKBOX_HPP_
 #define GRAPHICS_UI_ELEMENTS_CHECKBOX_HPP_
 
+#include <utility>
+
 #include "Panel.hpp"
 
 namespace gui {
     class CheckBox : public UINode {
     protected:
-        glm::vec4 hoverColor {0.05f, 0.1f, 0.2f, 0.75f};
         glm::vec4 checkColor {1.0f, 1.0f, 1.0f, 0.4f};
         boolsupplier supplier = nullptr;
         boolconsumer consumer = nullptr;
@@ -34,14 +35,14 @@ namespace gui {
     protected:
         std::shared_ptr<CheckBox> checkbox;
     public:
-        FullCheckBox(std::wstring text, glm::vec2 size, bool checked=false);
+        FullCheckBox(const std::wstring& text, glm::vec2 size, bool checked=false);
 
         virtual void setSupplier(boolsupplier supplier) {
-            checkbox->setSupplier(supplier);
+            checkbox->setSupplier(std::move(supplier));
         }
 
         virtual void setConsumer(boolconsumer consumer) {
-            checkbox->setConsumer(consumer);
+            checkbox->setConsumer(std::move(consumer));
         }
 
         virtual void setChecked(bool flag) {
@@ -50,6 +51,11 @@ namespace gui {
 
         virtual bool isChecked() const {
             return checkbox->isChecked();
+        }
+
+        virtual void setTooltip(const std::wstring& text) override {
+            Panel::setTooltip(text);
+            checkbox->setTooltip(text);
         }
     };
 }

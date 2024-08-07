@@ -1,0 +1,22 @@
+{
+    "sounds": [
+        "blocks/door_open",
+        "blocks/door_close",
+        "events/pickup"
+    ],
+    "models": [
+        "drop-item"
+    ],
+    "shaders": [
+        "ui3d",
+        "entity",
+        "screen",
+        "background",
+        "skybox_gen"
+    ],
+    "textures": [
+        "misc/moon",
+        "misc/sun",
+        "gui/crosshair"
+    ]
+}

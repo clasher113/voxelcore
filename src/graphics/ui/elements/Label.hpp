@@ -24,6 +24,8 @@ namespace gui {
 
     class Label : public UINode {
         LabelCache cache;
+
+        glm::vec2 calcSize();
     protected:
         std::wstring text;
         std::string fontName;
@@ -47,11 +49,14 @@ namespace gui {
 
         /// @brief Text line height multiplied by line interval
         int totalLineHeight = 1;
-    public:
-        Label(std::string text, std::string fontName="normal");
-        Label(std::wstring text, std::string fontName="normal");
 
-        virtual void setText(std::wstring text);
+        /// @brief Auto resize label to fit text
+        bool autoresize = false;
+    public:
+        Label(const std::string& text, std::string fontName="normal");
+        Label(const std::wstring& text, std::string fontName="normal");
+
+        virtual void setText(const std::wstring& text);
         const std::wstring& getText() const;
 
         virtual void setFontName(std::string name);
@@ -94,6 +99,9 @@ namespace gui {
         virtual void draw(const DrawContext* pctx, Assets* assets) override;
 
         virtual void textSupplier(wstringsupplier supplier);
+
+        virtual void setAutoResize(bool flag);
+        virtual bool isAutoResize() const;
 
         virtual void setMultiline(bool multiline);
         virtual bool isMultiline() const;

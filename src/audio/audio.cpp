@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <stdexcept>
+#include <utility>
 
 namespace audio {
     static speakerid_t nextId = 1;
@@ -19,7 +20,7 @@ namespace audio {
 
 using namespace audio;
 
-Channel::Channel(std::string name) : name(name) {
+Channel::Channel(std::string name) : name(std::move(name)) {
 }
 
 float Channel::getVolume() const {
@@ -147,16 +148,16 @@ public:
 
 void audio::initialize(bool enabled) {
     if (enabled) {
-        backend = ALAudio::create();
+        backend = ALAudio::create().release();
     }
     if (backend == nullptr) {
         std::cerr << "could not to initialize audio" << std::endl;
-        backend = NoAudio::create();
+        backend = NoAudio::create().release();
     }
     create_channel("master");
 }
 
-PCM* audio::load_PCM(const fs::path& file, bool headerOnly) {
+std::unique_ptr<PCM> audio::load_PCM(const fs::path& file, bool headerOnly) {
     if (!fs::exists(file)) {
         throw std::runtime_error("file not found '"+file.u8string()+"'");
     }
@@ -169,16 +170,16 @@ PCM* audio::load_PCM(const fs::path& file, bool headerOnly) {
     throw std::runtime_error("unsupported audio format");
 }
 
-Sound* audio::load_sound(const fs::path& file, bool keepPCM) {
-    std::shared_ptr<PCM> pcm(load_PCM(file, !keepPCM && backend->isDummy()));
+std::unique_ptr<Sound> audio::load_sound(const fs::path& file, bool keepPCM) {
+    std::shared_ptr<PCM> pcm(load_PCM(file, !keepPCM && backend->isDummy()).release());
     return create_sound(pcm, keepPCM);
 }
 
-Sound* audio::create_sound(std::shared_ptr<PCM> pcm, bool keepPCM) {
-    return backend->createSound(pcm, keepPCM);
+std::unique_ptr<Sound> audio::create_sound(std::shared_ptr<PCM> pcm, bool keepPCM) {
+    return backend->createSound(std::move(pcm), keepPCM);
 }
 
-PCMStream* audio::open_PCM_stream(const fs::path& file) {
+std::unique_ptr<PCMStream> audio::open_PCM_stream(const fs::path& file) {
     std::string ext = file.extension().u8string();
     if (ext == ".wav" || ext == ".WAV") {
         return wav::create_stream(file);
@@ -188,7 +189,7 @@ PCMStream* audio::open_PCM_stream(const fs::path& file) {
     throw std::runtime_error("unsupported audio stream format");
 }
 
-Stream* audio::open_stream(const fs::path& file, bool keepSource) {
+std::unique_ptr<Stream> audio::open_stream(const fs::path& file, bool keepSource) {
     if (!keepSource && backend->isDummy()) {
         auto header = load_PCM(file, true);
         // using void source sized as audio instead of actual audio file
@@ -203,8 +204,8 @@ Stream* audio::open_stream(const fs::path& file, bool keepSource) {
     );
 }
 
-Stream* audio::open_stream(std::shared_ptr<PCMStream> stream, bool keepSource) {
-    return backend->openStream(stream, keepSource);
+std::unique_ptr<Stream> audio::open_stream(std::shared_ptr<PCMStream> stream, bool keepSource) {
+    return backend->openStream(std::move(stream), keepSource);
 }
 
 
@@ -255,16 +256,17 @@ speakerid_t audio::play(
             sound = sound->variants.at(index).get();
         }
     }
-    Speaker* speaker = sound->newInstance(priority, channel);
-    if (speaker == nullptr) {
+    auto speaker_ptr = sound->newInstance(priority, channel);
+    if (speaker_ptr == nullptr) {
         remove_lower_priority_speaker(priority);
-        speaker = sound->newInstance(priority, channel);
+        speaker_ptr = sound->newInstance(priority, channel);
     }
-    if (speaker == nullptr) {
+    if (speaker_ptr == nullptr) {
         return 0;
     }
+    auto speaker = speaker_ptr.get();
     speakerid_t id = nextId++;
-    speakers.emplace(id, speaker);
+    speakers.emplace(id, std::move(speaker_ptr));
     speaker->setPosition(position);
     speaker->setVolume(volume);
     speaker->setPitch(pitch);
@@ -275,7 +277,7 @@ speakerid_t audio::play(
 }
 
 speakerid_t audio::play(
-    std::shared_ptr<Stream> stream,
+    const std::shared_ptr<Stream>& stream,
     glm::vec3 position,
     bool relative,
     float volume,
@@ -283,17 +285,18 @@ speakerid_t audio::play(
     bool loop,
     int channel
 ) {
-    Speaker* speaker = stream->createSpeaker(loop, channel);
-    if (speaker == nullptr) {
+    auto speaker_ptr = stream->createSpeaker(loop, channel);
+    if (speaker_ptr == nullptr) {
         remove_lower_priority_speaker(PRIORITY_HIGH);
-        speaker = stream->createSpeaker(loop, channel);
+        speaker_ptr = stream->createSpeaker(loop, channel);
     }
-    if (speaker == nullptr) {
+    if (speaker_ptr == nullptr) {
         return 0;
     }
+    auto speaker = speaker_ptr.get();
     speakerid_t id = nextId++;
     streams.emplace(id, stream);
-    speakers.emplace(id, speaker);
+    speakers.emplace(id, std::move(speaker_ptr));
     stream->bindSpeaker(id);
 
     speaker->setPosition(position);
@@ -331,7 +334,7 @@ int audio::create_channel(const std::string& name) {
     if (index != -1) {
         return index;
     }
-    channels.emplace_back(new Channel(name));
+    channels.emplace_back(std::make_unique<Channel>(name));
     return channels.size()-1;
 }
 

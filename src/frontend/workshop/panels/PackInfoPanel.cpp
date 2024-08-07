@@ -35,14 +35,14 @@ namespace workshop {
 			});
 
 			auto button = std::make_shared<gui::Button>(L"Level: " + levels.at(elem.level), glm::vec4(10.f), gui::onaction());
-			//button->listenAction([&dependencies, dependencyIndex, levels, button](gui::GUI*) {
-			//	DependencyLevel& level = dependencies[dependencyIndex].level;
-			//	size_t index = static_cast<size_t>(level) + 1;
-			//	if (index >= levels.size()) index = 0;
-			//	level = static_cast<DependencyLevel>(index);
-			//	button->setText(L"Level: " + levels.at(level));
-			//});
-			auto image = std::make_shared<gui::Image>(engine->getAssets()->getTexture("gui/delete_icon"));
+			button->listenAction([&pack, dependencyIndex, levels, button](gui::GUI*) {
+				DependencyLevel& level = pack.dependencies[dependencyIndex].level;
+				size_t index = static_cast<size_t>(level) + 1;
+				if (index >= levels.size()) index = 0;
+				level = static_cast<DependencyLevel>(index);
+				button->setText(L"Level: " + levels.at(level));
+			});
+			auto image = std::make_shared<gui::Image>(engine->getAssets()->get<Texture>("gui/delete_icon"));
 			auto imageContainer = std::make_shared<gui::Container>(image->getSize());
 
 			float interval = textbox->getPadding().x + textbox->getMargin().x;
@@ -76,15 +76,15 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 
 		auto loadIcon = [this]() {
 			std::string icon = currentPack.id + ".icon";
-			Texture* iconTex = assets->getTexture(icon);
+			Texture* iconTex = assets->get<Texture>(icon);
 			if (iconTex == nullptr) {
 				auto iconfile = currentPack.folder / fs::path("icon.png");
 				if (fs::is_regular_file(iconfile)) {
-					assets->store(png::load_texture(iconfile.string()).release(), icon);
-					return assets->getTexture(icon);
+					assets->store(png::load_texture(iconfile.string()), icon);
+					return assets->get<Texture>(icon);
 				}
 				else {
-					return assets->getTexture("gui/no_icon");
+					return assets->get<Texture>("gui/no_icon");
 				}
 			}
 			return iconTex;
@@ -112,7 +112,7 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 			fs::path iconFile(currentPack.folder / "icon.png");
 			if (fs::is_regular_file(iconFile)) {
 				createFileDeletingConfirmationPanel(iconFile, 2, [this, iconImage, loadIcon]() {
-					assets->store(static_cast<Texture*>(nullptr), currentPack.id + ".icon");
+					assets->store(std::make_unique<Texture*>(nullptr), currentPack.id + ".icon");
 					iconImage->setTexture(loadIcon());
 				});
 			}

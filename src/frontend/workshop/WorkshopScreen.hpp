@@ -19,7 +19,7 @@ class Camera;
 class Content;
 class ContentIndices;
 class ContentGfxCache;
-class ItemDef;
+struct ItemDef;
 struct BlockMaterial;
 namespace gui {
 	class Panel;
@@ -84,7 +84,7 @@ namespace workshop {
 		void createBlockPreview(unsigned int column, PrimitiveType primitiveType);
 		void createUIPreview();
 
-		int swapInterval;
+		int framerate;
 		gui::GUI* gui;
 		std::map<unsigned int, std::shared_ptr<gui::Panel>> panels;
 		std::unordered_map<std::string, std::shared_ptr<xml::Document>> xmlDocs;

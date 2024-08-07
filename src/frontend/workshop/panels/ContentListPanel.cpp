@@ -19,12 +19,12 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 			}));
 		}
 		auto createList = [this, panel, type, showAll, callback](const std::string& searchName) {
-			size_t size = (type == DefType::BLOCK ? indices->countBlockDefs() : indices->countItemDefs());
+			size_t size = (type == DefType::BLOCK ? indices->blocks.count() : indices->items.count());
 			std::vector<std::pair<std::string, std::string>> sorted;
 			for (size_t i = 0; i < size; i++) {
 				std::string fullName, actualName;
-				if (type == DefType::ITEM) fullName = indices->getItemDef(static_cast<itemid_t>(i))->name;
-				else if (type == DefType::BLOCK) fullName = indices->getBlockDef(static_cast<blockid_t>(i))->name;
+				if (type == DefType::ITEM) fullName = indices->items.get(static_cast<itemid_t>(i))->name;
+				else if (type == DefType::BLOCK) fullName = indices->blocks.get(static_cast<blockid_t>(i))->name;
 
 				if (!showAll && fullName.substr(0, currentPack.id.length()) != currentPack.id) continue;
 				actualName = fullName.substr(std::min(fullName.length(), currentPack.id.length() + 1));
@@ -47,8 +47,8 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 			for (const auto& elem : sorted) {
 				Atlas* contentAtlas = previewAtlas;
 				std::string textureName("core:air");
-				ItemDef& item = *content->findItem(elem.first);
-				Block& block = *content->findBlock(elem.first);
+				ItemDef& item = *content->items.find(elem.first);
+				Block& block = *content->blocks.find(elem.first);
 				if (type == DefType::BLOCK) {
 					textureName = elem.first;
 				}
@@ -69,7 +69,7 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 					button->listenAction([this, elem, &block, callback](gui::GUI*) {
 						if (callback) callback(elem.first);
 						else {
-							preview->setBlock(content->findBlock(elem.first));
+							preview->setBlock(content->blocks.find(elem.first));
 							createBlockEditor(block);
 						}
 					});

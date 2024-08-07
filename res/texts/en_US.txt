@@ -8,7 +8,13 @@ world.delete-confirm=Do you want to delete world forever?
 world.generators.default=Default
 world.generators.flat=Flat
 
+# Tooltips
+graphics.gamma.tooltip=Lighting brightness curve
+graphics.backlight.tooltip=Backlight to prevent total darkness
+
 # Bindings
+chunks.reload=Reload Chunks
+devtools.console=Console
 movement.forward=Forward
 movement.back=Back
 movement.left=Left
@@ -23,5 +29,6 @@ player.attack=Attack / Break
 player.build=Place Block
 player.flight=Flight
 player.noclip=No-clip
+player.drop=Drop Item
 camera.zoom=Zoom
 camera.mode=Switch Camera Mode

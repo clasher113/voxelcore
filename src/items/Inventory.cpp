@@ -54,7 +54,7 @@ void Inventory::deserialize(dynamic::Map* src) {
     auto slotsarr = src->list("slots");
     size_t slotscount = slotsarr->size();
     while (slots.size() < slotscount) {
-        slots.push_back(ItemStack());
+        slots.emplace_back();
     }
     for (size_t i = 0; i < slotscount; i++) {
         auto item = slotsarr->map(i);
@@ -89,8 +89,8 @@ void Inventory::convert(dynamic::Map* data, const ContentLUT* lut) {
     for (size_t i = 0; i < slotsarr->size(); i++) {
         auto item = slotsarr->map(i);
         itemid_t id = item->get("id", ITEM_EMPTY);
-        itemid_t replacement = lut->getItemId(id);
-        item->put("id", static_cast<int64_t>(replacement));
+        itemid_t replacement = lut->items.getId(id);
+        item->put("id", replacement);
         if (replacement == 0 && item->has("count")) {
             item->remove("count");
         }

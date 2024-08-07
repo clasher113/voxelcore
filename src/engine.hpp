@@ -2,11 +2,10 @@
 #define ENGINE_HPP_
 
 #include "delegates.hpp"
-#include "settings.hpp"
 #include "typedefs.hpp"
 
 #include "assets/Assets.hpp"
-#include "content/Content.hpp"
+#include "content/content_fwd.hpp"
 #include "content/ContentPack.hpp"
 #include "content/PacksManager.hpp"
 #include "files/engine_paths.hpp"
@@ -27,11 +26,16 @@ class ResPaths;
 class Batch2D;
 class EngineController;
 class SettingsHandler;
+struct EngineSettings;
 
 namespace fs = std::filesystem;
 
 namespace gui {
     class GUI;
+}
+
+namespace cmd {
+    class CommandsInterpreter;
 }
 
 class initialize_error : public std::runtime_error {
@@ -44,15 +48,16 @@ class Engine : public util::ObjectsKeeper {
     SettingsHandler& settingsHandler;
     EnginePaths* paths;
 
-    std::unique_ptr<Assets> assets = nullptr;
-    std::shared_ptr<Screen> screen = nullptr;
+    std::unique_ptr<Assets> assets;
+    std::shared_ptr<Screen> screen;
     std::vector<ContentPack> contentPacks;
-    std::unique_ptr<Content> content = nullptr;
-    std::unique_ptr<ResPaths> resPaths = nullptr;
+    std::unique_ptr<Content> content;
+    std::unique_ptr<ResPaths> resPaths;
     std::queue<runnable> postRunnables;
     std::recursive_mutex postRunnablesMutex;
     std::unique_ptr<EngineController> controller;
-    std::vector<std::string> basePacks {"base"};
+    std::unique_ptr<cmd::CommandsInterpreter> interpreter;
+    std::vector<std::string> basePacks;
 
     uint64_t frame = 0;
     double lastTime = 0.0;
@@ -60,6 +65,7 @@ class Engine : public util::ObjectsKeeper {
 
     std::unique_ptr<gui::GUI> gui;
     
+    void loadControls();
     void loadSettings();
     void saveSettings();
     void updateTimers();
@@ -131,11 +137,12 @@ public:
     std::shared_ptr<Screen> getScreen();
 
     /// @brief Enqueue function call to the end of current frame in draw thread
-    void postRunnable(runnable callback);
+    void postRunnable(const runnable& callback);
 
     void saveScreenshot();
 
     EngineController* getController();
+    cmd::CommandsInterpreter* getCommandsInterpreter();
 
     PacksManager createPacksManager(const fs::path& worldFolder);
 

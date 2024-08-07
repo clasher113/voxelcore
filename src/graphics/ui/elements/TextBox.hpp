@@ -20,12 +20,14 @@ namespace gui {
         wstringconsumer consumer = nullptr;
         wstringchecker validator = nullptr;
         runnable onEditStart = nullptr;
+        runnable onUpPressed;
+        runnable onDownPressed;
         bool valid = true;
         /// @brief text input pointer, value may be greather than text length
-        uint caret = 0;
+        size_t caret = 0;
         /// @brief actual local (line) position of the caret on vertical move
-        uint maxLocalCaret = 0;
-        uint textOffset = 0;
+        size_t maxLocalCaret = 0;
+        size_t textOffset = 0;
         int textInitX;
         /// @brief last time of the caret was moved (used for blink animation)
         double caretLastMove = 0.0;
@@ -37,16 +39,22 @@ namespace gui {
 
         bool multiline = false;
         bool editable = true;
+        bool autoresize = false;
+
+        void stepLeft(bool shiftPressed, bool breakSelection);
+        void stepRight(bool shiftPressed, bool breakSelection);
+        void stepDefaultDown(bool shiftPressed, bool breakSelection);
+        void stepDefaultUp(bool shiftPressed, bool breakSelection);
 
         size_t normalizeIndex(int index);
 
         int calcIndexAt(int x, int y) const;
-        void paste(const std::wstring& text);
         void setTextOffset(uint x);
         void erase(size_t start, size_t length);
         bool eraseSelected();
         void resetSelection();
         void extendSelection(int index);
+        void tokenSelectAt(int index);
         size_t getLineLength(uint line) const;
 
         /// @brief Get total length of the selection 
@@ -56,12 +64,16 @@ namespace gui {
         void resetMaxLocalCaret();
 
         void performEditingKeyboardEvents(keycode key);
+
+        void refreshLabel();
     public:
         TextBox(
             std::wstring placeholder, 
             glm::vec4 padding=glm::vec4(4.0f)
         );
-
+        
+        void paste(const std::wstring& text);
+            
         virtual void setTextSupplier(wstringsupplier supplier);
 
         /// @brief Consumer called on stop editing text (textbox defocus)
@@ -88,7 +100,7 @@ namespace gui {
         virtual std::wstring getInput() const;
 
         /// @brief Set TextBox content text
-        virtual void setText(std::wstring value);
+        virtual void setText(const std::wstring &value);
 
         /// @brief Get text placeholder
         virtual std::wstring getPlaceholder() const;
@@ -102,11 +114,15 @@ namespace gui {
 
         /// @brief Get current caret position in text
         /// @return integer in range [0, text.length()]
-        virtual uint getCaret() const;
+        virtual size_t getCaret() const;
 
         /// @brief Set caret position in the text
         /// @param position integer in range [0, text.length()]
-        virtual void setCaret(uint position);
+        virtual void setCaret(size_t position);
+
+        /// @brief Set caret position in the text
+        /// @param position integer in range [-text.length(), text.length()]
+        virtual void setCaret(ptrdiff_t position);
 
         /// @brief Select part of the text
         /// @param start index of the first selected character
@@ -141,8 +157,12 @@ namespace gui {
         /// @brief Set runnable called on textbox focus
         virtual void setOnEditStart(runnable oneditstart);
 
+        virtual void setAutoResize(bool flag);
+        virtual bool isAutoResize() const;
+
         virtual void onFocus(GUI*) override;
         virtual void refresh() override;
+        virtual void doubleClick(GUI*, int x, int y) override;
         virtual void click(GUI*, int, int) override;
         virtual void mouseMove(GUI*, int x, int y) override;
         virtual bool isFocuskeeper() const override {return true;}
@@ -151,6 +171,8 @@ namespace gui {
         virtual void typed(unsigned int codepoint) override; 
         virtual void keyPressed(keycode key) override;
         virtual std::shared_ptr<UINode> getAt(glm::vec2 pos, std::shared_ptr<UINode> self) override;
+        virtual void setOnUpPressed(const runnable &callback);
+        virtual void setOnDownPressed(const runnable &callback);
     };
 }
 

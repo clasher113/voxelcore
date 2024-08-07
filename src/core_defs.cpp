@@ -2,14 +2,17 @@
 
 #include "items/ItemDef.hpp"
 #include "content/Content.hpp"
+#include "content/ContentBuilder.hpp"
+#include "files/files.hpp"
+#include "files/engine_paths.hpp"
 #include "window/Window.hpp"
 #include "window/Events.hpp"
 #include "window/input.hpp"
 #include "voxels/Block.hpp"
 
 // All in-game definitions (blocks, items, etc..)
-void corecontent::setup(ContentBuilder* builder) {
-    Block& block = builder->createBlock("core:air");
+void corecontent::setup(EnginePaths* paths, ContentBuilder* builder) {
+    Block& block = builder->blocks.create("core:air");
     block.replaceable = true;
     block.drawGroup = 1;
     block.lightPassing = true;
@@ -19,25 +22,13 @@ void corecontent::setup(ContentBuilder* builder) {
     block.model = BlockModel::none;
     block.pickingItem = "core:empty";
 
-    ItemDef& item = builder->createItem("core:empty");
+    ItemDef& item = builder->items.create("core:empty");
     item.iconType = item_icon_type::none;
-}
 
-void corecontent::setup_bindings() {
-    Events::bind(BIND_MOVE_FORWARD, inputtype::keyboard, keycode::W);
-    Events::bind(BIND_MOVE_BACK, inputtype::keyboard, keycode::S);
-    Events::bind(BIND_MOVE_RIGHT, inputtype::keyboard, keycode::D);
-    Events::bind(BIND_MOVE_LEFT, inputtype::keyboard, keycode::A);
-    Events::bind(BIND_MOVE_JUMP, inputtype::keyboard, keycode::SPACE);
-    Events::bind(BIND_MOVE_SPRINT, inputtype::keyboard, keycode::LEFT_CONTROL);
-    Events::bind(BIND_MOVE_CROUCH, inputtype::keyboard, keycode::LEFT_SHIFT);
-    Events::bind(BIND_MOVE_CHEAT, inputtype::keyboard, keycode::R);
-    Events::bind(BIND_CAM_ZOOM, inputtype::keyboard, keycode::C);
-    Events::bind(BIND_CAM_MODE, inputtype::keyboard, keycode::F4);
-    Events::bind(BIND_PLAYER_NOCLIP, inputtype::keyboard, keycode::N);
-    Events::bind(BIND_PLAYER_FLIGHT, inputtype::keyboard, keycode::F);
-    Events::bind(BIND_PLAYER_ATTACK, inputtype::mouse, mousecode::BUTTON_1);
-    Events::bind(BIND_PLAYER_BUILD, inputtype::mouse, mousecode::BUTTON_2);
-    Events::bind(BIND_PLAYER_PICK, inputtype::mouse, mousecode::BUTTON_3);
-    Events::bind(BIND_HUD_INVENTORY, inputtype::keyboard, keycode::TAB);
+    auto bindsFile = paths->getResources()/fs::path("bindings.toml");
+    if (fs::is_regular_file(bindsFile)) {
+        Events::loadBindings(
+            bindsFile.u8string(), files::read_string(bindsFile)
+        );
+    }
 }

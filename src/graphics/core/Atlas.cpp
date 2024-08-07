@@ -34,6 +34,14 @@ const UVRegion& Atlas::get(const std::string& name) const {
     return regions.at(name);
 }
 
+std::optional<UVRegion> Atlas::getIf(const std::string& name) const {
+    const auto& found = regions.find(name);
+    if (found == regions.end()) {
+        return std::nullopt;
+    }
+    return found->second;
+}
+
 Texture* Atlas::getTexture() const {
     return texture.get();
 }
@@ -42,7 +50,7 @@ ImageData* Atlas::getImage() const {
     return image.get();
 }
 
-void AtlasBuilder::add(std::string name, std::unique_ptr<ImageData> image) {
+void AtlasBuilder::add(const std::string& name, std::unique_ptr<ImageData> image) {
     entries.push_back(atlasentry{name, std::shared_ptr<ImageData>(image.release())});
     names.insert(name);
 }

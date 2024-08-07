@@ -1,68 +1,100 @@
 #ifndef SRC_OBJECTS_PLAYER_HPP_
 #define SRC_OBJECTS_PLAYER_HPP_
 
+#include "../settings.hpp"
 #include "../data/dynamic.hpp"
 #include "../voxels/voxel.hpp"
-#include "../settings.hpp"
 #include "../interfaces/Serializable.hpp"
 #include "../interfaces/Object.hpp"
 
 #include <memory>
+#include <optional>
 #include <glm/glm.hpp>
 
 class Camera;
-class Hitbox;
 class Inventory;
 class ContentLUT;
-class PhysicsSolver;
-class Chunks;
 class Level;
+struct Hitbox;
+struct EngineSettings;
 
 struct PlayerInput {
-    bool zoom;
-    bool cameraMode;
-    bool moveForward;
-    bool moveBack;
-    bool moveRight;
-    bool moveLeft;
-    bool sprint;
-    bool shift;
-    bool cheat;
-    bool jump;
-    bool noclip;
-    bool flight;
+    bool zoom : 1;
+    bool cameraMode : 1;
+    bool moveForward : 1;
+    bool moveBack : 1;
+    bool moveRight : 1;
+    bool moveLeft : 1;
+    bool sprint : 1;
+    bool shift : 1;
+    bool cheat : 1;
+    bool jump : 1;
+    bool noclip : 1;
+    bool flight : 1;
+};
+
+struct CursorSelection {
+    voxel vox {BLOCK_VOID, {}};
+    glm::ivec3 position {};
+    glm::ivec3 actualPosition {};
+    glm::ivec3 normal {};
+    glm::vec3 hitPosition;
+    entityid_t entity = ENTITY_NONE;
 };
 
 class Player : public Object, public Serializable {
+    Level* level;
     float speed;
     int chosenSlot;
+    glm::vec3 position;
     glm::vec3 spawnpoint {};
     std::shared_ptr<Inventory> inventory;
+    bool flight = false;
+    bool noclip = false;
+    entityid_t eid;
+    entityid_t selectedEid;
 public:
     std::shared_ptr<Camera> camera, spCamera, tpCamera;
     std::shared_ptr<Camera> currentCamera;
-    std::unique_ptr<Hitbox> hitbox;
-    bool flight = false;
-    bool noclip = false;
     bool debug = false;
-    voxel selectedVoxel {0, 0};
+    glm::vec3 cam {};
+    CursorSelection selection {};
 
-    glm::vec2 cam = {};
-
-    Player(glm::vec3 position, float speed, std::shared_ptr<Inventory> inv);
+    Player(Level* level, glm::vec3 position, float speed, 
+           std::shared_ptr<Inventory> inv, entityid_t eid);
     ~Player();
 
     void teleport(glm::vec3 position);
-    void updateInput(Level* level, PlayerInput& input, float delta);
+    void updateEntity();
+    void updateInput(PlayerInput& input, float delta);
+    void updateSelectedEntity();
+    void postUpdate();
 
-    void attemptToFindSpawnpoint(Level* level);
+    void attemptToFindSpawnpoint();
 
     void setChosenSlot(int index);
 
     int getChosenSlot() const;
     float getSpeed() const;
+
+    bool isFlight() const;
+    void setFlight(bool flag);
+
+    bool isNoclip() const;
+    void setNoclip(bool flag);
+
+    entityid_t getEntity() const;
+    void setEntity(entityid_t eid);
+
+    entityid_t getSelectedEntity() const;
     
     std::shared_ptr<Inventory> getInventory() const;
+
+    glm::vec3 getPosition() const {
+        return position;
+    }
+
+    Hitbox* getHitbox();
 
     void setSpawnPoint(glm::vec3 point);
     glm::vec3 getSpawnPoint() const;
@@ -77,4 +109,4 @@ public:
     }
 };
 
-#endif /* SRC_OBJECTS_PLAYER_HPP_ */
+#endif // SRC_OBJECTS_PLAYER_HPP_

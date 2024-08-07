@@ -9,6 +9,8 @@
 #include "coders/imageio.hpp"
 #include "coders/json.hpp"
 #include "coders/toml.hpp"
+#include "content/Content.hpp"
+#include "content/ContentBuilder.hpp"
 #include "content/ContentLoader.hpp"
 #include "core_defs.hpp"
 #include "files/files.hpp"
@@ -22,7 +24,9 @@
 #include "graphics/core/ImageData.hpp"
 #include "graphics/core/Shader.hpp"
 #include "graphics/ui/GUI.hpp"
+#include "objects/rigging.hpp"
 #include "logic/EngineController.hpp"
+#include "logic/CommandsInterpreter.hpp"
 #include "logic/scripting/scripting.hpp"
 #include "util/listutil.hpp"
 #include "util/platform.hpp"
@@ -33,41 +37,63 @@
 #include "window/input.hpp"
 #include "window/Window.hpp"
 #include "world/WorldGenerators.hpp"
+#include "settings.hpp"
 
 #include <iostream>
 #include <assert.h>
 #include <glm/glm.hpp>
 #include <unordered_set>
 #include <functional>
+#include <utility>
 
 static debug::Logger logger("engine");
 
 namespace fs = std::filesystem;
 
-void addWorldGenerators() {
+static void add_world_generators() {
     WorldGenerators::addGenerator<DefaultWorldGenerator>("core:default");
     WorldGenerators::addGenerator<FlatWorldGenerator>("core:flat");
 }
 
-inline void create_channel(Engine* engine, std::string name, NumberSetting& setting) {
+static void create_channel(Engine* engine, std::string name, NumberSetting& setting) {
     if (name != "master") {
         audio::create_channel(name);
     }
     engine->keepAlive(setting.observe([=](auto value) {
         audio::get_channel(name)->setVolume(value*value);
-    }));
+    }, true));
+}
+
+static std::unique_ptr<ImageData> load_icon(const fs::path& resdir) {
+    try {
+        auto file = resdir / fs::u8path("textures/misc/icon.png");
+        if (fs::exists(file)) {
+            return imageio::read(file.u8string());
+        }
+    } catch (const std::exception& err) {
+        logger.error() << "could not load window icon: " << err.what();
+    }
+    return nullptr;
 }
 
 Engine::Engine(EngineSettings& settings, SettingsHandler& settingsHandler, EnginePaths* paths) 
-    : settings(settings), settingsHandler(settingsHandler), paths(paths) 
+    : settings(settings), settingsHandler(settingsHandler), paths(paths),
+      interpreter(std::make_unique<cmd::CommandsInterpreter>())
 {
-    corecontent::setup_bindings();
+    paths->prepare();
     loadSettings();
+
+    auto resdir = paths->getResources();
 
     controller = std::make_unique<EngineController>(this);
     if (Window::initialize(&this->settings.display)){
         throw initialize_error("could not initialize window");
     }
+    if (auto icon = load_icon(resdir)) {
+        icon->flipY();
+        Window::setIcon(icon.get());
+    }
+    loadControls();
     audio::initialize(settings.audio.enabled.get());
     create_channel(this, "master", settings.audio.volumeMaster);
     create_channel(this, "regular", settings.audio.volumeRegular);
@@ -88,9 +114,10 @@ Engine::Engine(EngineSettings& settings, SettingsHandler& settingsHandler, Engin
     keepAlive(settings.ui.language.observe([=](auto lang) {
         setLanguage(lang);
     }, true));
-    addWorldGenerators();
+    add_world_generators();
     
     scripting::initialize(this);
+    basePacks = files::read_list(resdir/fs::path("config/builtins.list"));
 }
 
 void Engine::loadSettings() {
@@ -100,6 +127,9 @@ void Engine::loadSettings() {
         std::string text = files::read_string(settings_file);
         toml::parse(settingsHandler, settings_file.string(), text);
     }
+}
+
+void Engine::loadControls() {
     fs::path controls_file = paths->getControlsFile();
     if (fs::is_regular_file(controls_file)) {
         logger.info() << "loading controls";
@@ -109,6 +139,7 @@ void Engine::loadSettings() {
 }
 
 void Engine::onAssetsLoaded() {
+    assets->setup();
     gui->onAssetsLoad(assets.get());
 }
 
@@ -156,7 +187,8 @@ void Engine::mainloop() {
         if (!Window::isIconified()) {
             renderFrame(batch);
         }
-        Window::swapInterval(Window::isIconified() ? 1 : settings.display.vsync.get());
+        Window::setFramerate(Window::isIconified() ? 20 : 
+                             settings.display.framerate.get());
 
         processPostRunnables();
 
@@ -198,6 +230,7 @@ Engine::~Engine() {
     }
     content.reset();
     assets.reset();
+    interpreter.reset();
     gui.reset();
     logger.info() << "gui finished";
     audio::close();
@@ -209,6 +242,10 @@ Engine::~Engine() {
 
 EngineController* Engine::getController() {
     return controller.get();
+}
+
+cmd::CommandsInterpreter* Engine::getCommandsInterpreter() {
+    return interpreter.get();
 }
 
 PacksManager Engine::createPacksManager(const fs::path& worldFolder) {
@@ -229,31 +266,47 @@ void Engine::loadAssets() {
     AssetsLoader loader(new_assets.get(), resPaths.get());
     AssetsLoader::addDefaults(loader, content.get());
 
+    // no need
+    // correct log messages order is more useful
     bool threading = false;
     if (threading) {
         auto task = loader.startTask([=](){});
         task->waitForEnd();
     } else {
-        while (loader.hasNext()) {
-            if (!loader.loadNext()) {
-                new_assets.reset();
-                throw std::runtime_error("could not to load assets");
+        try {
+            while (loader.hasNext()) {
+                loader.loadNext();
             }
+        } catch (const assetload::error& err) {
+            new_assets.reset();
+            throw;
         }
     }
-    assets.reset(new_assets.release());
+    assets = std::move(new_assets);
+}
+
+static void load_configs(const fs::path& root) {
+    auto configFolder = root/fs::path("config");
+    auto bindsFile = configFolder/fs::path("bindings.toml");
+    if (fs::is_regular_file(bindsFile)) {
+        Events::loadBindings(
+            bindsFile.u8string(), files::read_string(bindsFile)
+        );
+    }
 }
 
 void Engine::loadContent() {
     auto resdir = paths->getResources();
-    ContentBuilder contentBuilder;
-    corecontent::setup(&contentBuilder);
-    paths->setContentPacks(&contentPacks);
 
     std::vector<std::string> names;
     for (auto& pack : contentPacks) {
         names.push_back(pack.id);
     }
+
+    ContentBuilder contentBuilder;
+    corecontent::setup(paths, &contentBuilder);
+
+    paths->setContentPacks(&contentPacks);
     PacksManager manager = createPacksManager(paths->getWorldFolder());
     manager.scan();
     names = manager.assembly(names);
@@ -262,11 +315,12 @@ void Engine::loadContent() {
     std::vector<PathsRoot> resRoots;
     for (auto& pack : contentPacks) {
         resRoots.push_back({pack.id, pack.folder});
+        ContentLoader(&pack, contentBuilder).load();
+        load_configs(pack.folder);
+    } 
+    load_configs(paths->getResources());
 
-        ContentLoader loader(&pack);
-        loader.load(contentBuilder);
-    }
-    content.reset(contentBuilder.build());
+    content = contentBuilder.build();
     resPaths = std::make_unique<ResPaths>(resdir, resRoots);
 
     langs::setup(resdir, langs::current->getId(), contentPacks);
@@ -275,10 +329,18 @@ void Engine::loadContent() {
 }
 
 void Engine::resetContent() {
+    auto resdir = paths->getResources();
+    resPaths = std::make_unique<ResPaths>(resdir, std::vector<PathsRoot>());
+    contentPacks.clear();
+    content.reset();
+
+    langs::setup(resdir, langs::current->getId(), contentPacks);
+    loadAssets();
+    onAssetsLoaded();
+
     auto manager = createPacksManager(fs::path());
     manager.scan();
     contentPacks = manager.getAll(basePacks);
-    loadContent();
 }
 
 void Engine::loadWorldContent(const fs::path& folder) {
@@ -310,11 +372,11 @@ double Engine::getDelta() const {
 void Engine::setScreen(std::shared_ptr<Screen> screen) {
     audio::reset_channel(audio::get_channel_index("regular"));
     audio::reset_channel(audio::get_channel_index("ambient"));
-    this->screen = screen;
+    this->screen = std::move(screen);
 }
 
 void Engine::setLanguage(std::string locale) {
-    langs::setup(paths->getResources(), locale, contentPacks);
+    langs::setup(paths->getResources(), std::move(locale), contentPacks);
     gui->getMenu()->setPageLoader(menus::create_page_loader(this));
 }
 
@@ -354,7 +416,7 @@ std::shared_ptr<Screen> Engine::getScreen() {
     return screen;
 }
 
-void Engine::postRunnable(runnable callback) {
+void Engine::postRunnable(const runnable& callback) {
     std::lock_guard<std::recursive_mutex> lock(postRunnablesMutex);
     postRunnables.push(callback);
 }

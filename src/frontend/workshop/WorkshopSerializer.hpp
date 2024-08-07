@@ -5,7 +5,7 @@
 #include <string>
 
 class Block;
-class ItemDef;
+struct ItemDef;
 struct ContentPack;
 namespace xml {
 	class Document;

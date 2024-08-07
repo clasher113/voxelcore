@@ -3,10 +3,16 @@
 
 #include "../../typedefs.hpp"
 #include "../../delegates.hpp"
+#include "../../data/dynamic.hpp"
+
+#include <glm/glm.hpp>
+#include <string>
 
 #include <string>
 
 namespace scripting {
+    using common_func = std::function<dynamic::Value(const std::vector<dynamic::Value>&)>;
+
     runnable create_runnable(
         const scriptenv& env,
         const std::string& src,
@@ -64,6 +70,12 @@ namespace scripting {
     vec2supplier create_vec2_supplier(
         const scriptenv& env,
         const std::string& src, 
+        const std::string& file="<string>"
+    );
+
+    dynamic::to_string_func create_tostring(
+        const scriptenv& env,
+        const std::string& src,
         const std::string& file="<string>"
     );
 }

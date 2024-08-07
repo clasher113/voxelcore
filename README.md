@@ -1,13 +1,14 @@
-# Run with compiled executable file:
+# Latest release
 
-[Download | Скачать](https://github.com/MihailRis/VoxelEngine-Cpp/releases/latest)
+- [Download | Скачать](https://github.com/MihailRis/VoxelEngine-Cpp/releases/latest)
+- [Documentation |](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.22/doc/en/main-page.md) [Документация](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.22/doc/ru/main-page.md)
 
-
-# Controls:
+# Controls
 - <kbd>**Esc**</kbd> - pause
 - <kbd>**Tab**</kbd> - open inventory
 - <kbd>**W**</kbd> <kbd>**A**</kbd> <kbd>**S**</kbd> <kbd>**D**</kbd> - movement
 - <kbd>**Space**</kbd> - jump
+- <kbd>**Q**</kbd> - drop item
 - <kbd>**LMB**</kbd> - remove block
 - <kbd>**RMB**</kbd> - place block
 - <kbd>**F**</kbd> - toggle flight mode
@@ -27,7 +28,15 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build .
 ```
 
-## Install libs:
+## Install libraries
+
+#### Install EnTT
+```sh
+git clone https://github.com/skypjack/entt.git
+cd entt/build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+sudo make install
+```
 
 #### Debian-based distro:
 ```sh
@@ -59,7 +68,7 @@ sudo pacman -S glfw-wayland glew glm libpng libvorbis openal luajit
 #### macOS:
 
 ```
-brew install glfw3 glew glm libpng libvorbis lua luajit openal-soft
+brew install glfw3 glew glm libpng libvorbis lua luajit openal-soft skypjack/entt/entt
 ```
 
 If homebrew for some reason could not install the necessary packages: ```lua luajit openal-soft```, then download, install and compile them manually (Lua, LuaJIT and OpenAL).

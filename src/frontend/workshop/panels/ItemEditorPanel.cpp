@@ -21,6 +21,9 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 			}));
 			return panel;
 		}
+		panel->add(std::make_shared<gui::Label>("Caption"));
+		createTextBox(panel, item.caption, L"Example item");
+
 		panel->add(std::make_shared<gui::Label>(L"Stack size:"));
 		panel->add(createNumTextBox<uint32_t>(item.stackSize, L"1", 1, 64));
 		createEmissionPanel(panel, item.emission);

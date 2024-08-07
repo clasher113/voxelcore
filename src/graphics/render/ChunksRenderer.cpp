@@ -41,7 +41,7 @@ ChunksRenderer::ChunksRenderer(
         "chunks-render-pool",
         [=](){return std::make_shared<RendererWorker>(level, cache, settings);}, 
         [=](RendererResult& mesh){
-            meshes[mesh.key].reset(mesh.renderer->createMesh());
+            meshes[mesh.key] = mesh.renderer->createMesh();
             inwork.erase(mesh.key);
         })
 {
@@ -50,25 +50,23 @@ ChunksRenderer::ChunksRenderer(
     renderer = std::make_unique<BlocksRenderer>(
         RENDERER_CAPACITY, level->content, cache, settings
     );
+    logger.info() << "created " << threadPool.getWorkersCount() << " workers";
 }
 
 ChunksRenderer::~ChunksRenderer() {
 }
 
-std::shared_ptr<Mesh> ChunksRenderer::render(std::shared_ptr<Chunk> chunk, bool important) {
-    chunk->setModified(false);
-
+std::shared_ptr<Mesh> ChunksRenderer::render(const std::shared_ptr<Chunk>& chunk, bool important) {
+    chunk->flags.modified = false;
     if (important) {
-        std::shared_ptr<Mesh> mesh (renderer->render(chunk.get(), level->chunksStorage.get()));
+        auto mesh = renderer->render(chunk.get(), level->chunksStorage.get());
         meshes[glm::ivec2(chunk->x, chunk->z)] = mesh;
         return mesh;
     }
-
     glm::ivec2 key(chunk->x, chunk->z);
     if (inwork.find(key) != inwork.end()) {
         return nullptr;
     }
-
     inwork[key] = true;
     threadPool.enqueueJob(chunk);
     return nullptr;
@@ -81,12 +79,12 @@ void ChunksRenderer::unload(const Chunk* chunk) {
     }
 }
 
-std::shared_ptr<Mesh> ChunksRenderer::getOrRender(std::shared_ptr<Chunk> chunk, bool important) {
+std::shared_ptr<Mesh> ChunksRenderer::getOrRender(const std::shared_ptr<Chunk>& chunk, bool important) {
     auto found = meshes.find(glm::ivec2(chunk->x, chunk->z));
     if (found == meshes.end()) {
         return render(chunk, important);
     }
-    if (chunk->isModified()) {
+    if (chunk->flags.modified) {
         render(chunk, important);
     }
     return found->second;

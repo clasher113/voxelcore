@@ -55,9 +55,9 @@ integer_t List::integer(size_t index) const {
     }
 }
 
-Map* List::map(size_t index) const {
+const Map_sptr& List::map(size_t index) const {
     if (auto* val = std::get_if<Map_sptr>(&values[index])) {
-        return val->get();
+        return *val;
     } else {
         throw std::runtime_error("type error");
     }
@@ -110,7 +110,7 @@ void Map::str(const std::string& key, std::string& dst) const {
     dst = get(key, dst);
 }
 
-std::string Map::get(const std::string& key, const std::string def) const {
+std::string Map::get(const std::string& key, const std::string& def) const {
     auto found = values.find(key);
     if (found == values.end())
         return def;
@@ -192,20 +192,20 @@ void Map::num(const std::string& key, uint& dst) const {
     dst = get(key, static_cast<integer_t>(dst));
 }
 
-Map* Map::map(const std::string& key) const {
+Map_sptr Map::map(const std::string& key) const {
     auto found = values.find(key);
     if (found != values.end()) {
         if (auto* val = std::get_if<Map_sptr>(&found->second)) {
-            return val->get();
+            return *val;
         }
     }
     return nullptr;
 }
 
-List* Map::list(const std::string& key) const {
+List_sptr Map::list(const std::string& key) const {
     auto found = values.find(key);
     if (found != values.end())
-        return std::get<List_sptr>(found->second).get();
+        return std::get<List_sptr>(found->second);
     return nullptr;
 }
 
@@ -213,8 +213,8 @@ void Map::flag(const std::string& key, bool& dst) const {
     dst = get(key, dst);
 }
 
-Map& Map::put(std::string key, const Value& value) {
-    values.emplace(key, value);
+Map& Map::put(const std::string& key, const Value& value) {
+    values[key] = value;
     return *this;
 }
 
@@ -222,13 +222,13 @@ void Map::remove(const std::string& key) {
     values.erase(key);
 }
 
-List& Map::putList(std::string key) {
+List& Map::putList(const std::string& key) {
     auto arr = create_list();
     put(key, arr);
     return *arr;
 }
 
-Map& Map::putMap(std::string key) {
+Map& Map::putMap(const std::string& key) {
     auto obj = create_map();
     put(key, obj);
     return *obj;
@@ -242,10 +242,40 @@ size_t Map::size() const {
     return values.size();
 }
 
+static const std::string TYPE_NAMES[] {
+    "none",
+    "map",
+    "list",
+    "string",
+    "number",
+    "bool",
+    "integer",
+};
+
+const std::string& dynamic::type_name(const Value& value) {
+    return TYPE_NAMES[value.index()];
+}
+
 List_sptr dynamic::create_list(std::initializer_list<Value> values) {
     return std::make_shared<List>(values);
 }
 
 Map_sptr dynamic::create_map(std::initializer_list<std::pair<const std::string, Value>> entries) {
     return std::make_shared<Map>(entries);
+}
+
+number_t dynamic::get_number(const Value& value) {
+    if (auto num = std::get_if<number_t>(&value)) {
+        return *num;
+    } else if (auto num = std::get_if<integer_t>(&value)) {
+        return *num;
+    }
+    throw std::runtime_error("cannot cast "+type_name(value)+" to number");
+}
+
+integer_t dynamic::get_integer(const Value& value) {
+    if (auto num = std::get_if<integer_t>(&value)) {
+        return *num;
+    }
+    throw std::runtime_error("cannot cast "+type_name(value)+" to integer");
 }

@@ -52,13 +52,17 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 	if (temp.grounded != block.grounded) root.put("grounded", block.grounded);
 	if (temp.drawGroup != block.drawGroup) root.put("draw-group", static_cast<int64_t>(block.drawGroup));
 	if (temp.hidden != block.hidden) root.put("hidden", block.hidden);
+	if (temp.ambientOcclusion != block.ambientOcclusion) root.put("ambient-occlusion", block.ambientOcclusion);
+	if (temp.shadeless != block.shadeless) root.put("shadeless", block.shadeless);
+	if (temp.tickInterval != block.tickInterval) root.put("tick-interval", block.tickInterval);
+	if (temp.inventorySize != block.inventorySize) root.put("inventory-size", static_cast<int64_t>(block.inventorySize));
+	if (temp.model != block.model) root.put("model", to_string(block.model));
+	if (block.rotatable) root.put("rotation", block.rotations.name);
 
 	if (block.pickingItem != block.name + BLOCK_ITEM_SUFFIX) {
 		root.put("picking-item", block.pickingItem);
 	}
 
-	const std::string models[] = { "none", "block", "X", "aabb", "custom" };
-	if (temp.model != block.model) root.put("model", models[static_cast<size_t>(block.model)]);
 	if (block.emission[0] || block.emission[1] || block.emission[2]) {
 		auto& emissionarr = root.putList("emission");
 		emissionarr.multiline = false;
@@ -66,9 +70,7 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 			emissionarr.put(static_cast<int64_t>(block.emission[i]));
 		}
 	}
-	if (block.rotatable) {
-		root.put("rotation", block.rotations.name);
-	}
+
 	auto putVec3 = [](dynamic::List& list, const glm::vec3& vector) {
 		list.put(vector.x); list.put(vector.y); list.put(vector.z);
 	};
@@ -76,6 +78,11 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 		aabb.b -= aabb.a;
 		putVec3(list, aabb.a); putVec3(list, aabb.b);
 	};
+	if (temp.size != block.size){
+		dynamic::List& sizeList = root.putList("size");
+		sizeList.multiline = false;
+		putVec3(sizeList, block.size);
+	}
 	if (block.hitboxes.size() == 1) {
 		const AABB& hitbox = block.hitboxes.front();
 		AABB aabb;
@@ -127,7 +134,6 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 	}
 	if (block.scriptName != actualName) root.put("script-name", block.scriptName);
 	if (block.material != DEFAULT_MATERIAL) root.put("material", block.material);
-	if (block.inventorySize != 0) root.put("inventory-size", static_cast<int64_t>(block.inventorySize));
 	if (block.uiLayout != block.name) root.put("ui-layout", block.uiLayout);
 
 	json::precision = 3;

@@ -19,15 +19,15 @@
 #include <memory>
 #include <iostream>
 
-const uint MAX_WORK_PER_FRAME = 64;
+const uint MAX_WORK_PER_FRAME = 128;
 const uint MIN_SURROUNDING = 9;
 
 ChunksController::ChunksController(Level* level, uint padding) 
-    : level(level), 
-      chunks(level->chunks.get()), 
-      lighting(level->lighting.get()), 
-      padding(padding), 
-      generator(WorldGenerators::createGenerator(level->getWorld()->getGenerator(), level->content)) {
+  : level(level), 
+    chunks(level->chunks.get()), 
+    lighting(level->lighting.get()), 
+    padding(padding), 
+    generator(WorldGenerators::createGenerator(level->getWorld()->getGenerator(), level->content)) {
 }
 
 ChunksController::~ChunksController(){
@@ -59,9 +59,9 @@ bool ChunksController::loadVisible(){
     for (uint z = padding; z < d-padding; z++){
         for (uint x = padding; x < w-padding; x++){
             int index = z * w + x;
-            auto chunk = chunks->chunks[index];
+            auto& chunk = chunks->chunks[index];
             if (chunk != nullptr){
-                if (chunk->isLoaded() && !chunk->isLighted()) {
+                if (chunk->flags.loaded && !chunk->flags.lighted) {
                     if (buildLights(chunk)) {
                         return true;
                     }
@@ -79,7 +79,7 @@ bool ChunksController::loadVisible(){
         }
     }
 
-    auto chunk = chunks->chunks[nearZ * w + nearX];
+    const auto& chunk = chunks->chunks[nearZ * w + nearX];
     if (chunk != nullptr) {
         return false;
     }
@@ -90,7 +90,7 @@ bool ChunksController::loadVisible(){
     return true;
 }
 
-bool ChunksController::buildLights(std::shared_ptr<Chunk> chunk) {
+bool ChunksController::buildLights(const std::shared_ptr<Chunk>& chunk) {
     int surrounding = 0;
     for (int oz = -1; oz <= 1; oz++){
         for (int ox = -1; ox <= 1; ox++){
@@ -99,12 +99,12 @@ bool ChunksController::buildLights(std::shared_ptr<Chunk> chunk) {
         }
     }
     if (surrounding == MIN_SURROUNDING) {
-        bool lightsCache = chunk->isLoadedLights();
+        bool lightsCache = chunk->flags.loadedLights;
         if (!lightsCache) {
             lighting->buildSkyLight(chunk->x, chunk->z);
         }
         lighting->onChunkLoaded(chunk->x, chunk->z, !lightsCache);
-        chunk->setLighted(true);
+        chunk->flags.lighted = true;
         return true;
     }
     return false;
@@ -114,20 +114,20 @@ void ChunksController::createChunk(int x, int z) {
     auto chunk = level->chunksStorage->create(x, z);
     chunks->putChunk(chunk);
 
-    if (!chunk->isLoaded()) {
+    if (!chunk->flags.loaded) {
         generator->generate(
             chunk->voxels, x, z, 
             level->getWorld()->getSeed()
         );
-        chunk->setUnsaved(true);
+        chunk->flags.unsaved = true;
     }
     chunk->updateHeights();
 
-    if (!chunk->isLoadedLights()) {
+    if (!chunk->flags.loadedLights) {
         Lighting::prebuildSkyLight(
             chunk.get(), level->content->getIndices()
         );
     }
-    chunk->setLoaded(true);
-    chunk->setReady(true);
+    chunk->flags.loaded = true;
+    chunk->flags.ready = true;
 }

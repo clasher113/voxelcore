@@ -5,6 +5,7 @@
 #include "../WorkshopPreview.hpp"
 #include "../WorkshopScreen.hpp"
 #include "../WorkshopSerializer.hpp"
+#include "../../../content/Content.hpp"
 
 void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const std::string& fullName, const std::string& actualName,
 	std::vector<size_t> docPath)

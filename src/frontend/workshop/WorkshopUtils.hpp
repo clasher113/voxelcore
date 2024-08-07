@@ -10,7 +10,7 @@
 class Assets;
 class Atlas;
 class Block;
-class ItemDef;
+struct ItemDef;
 struct ContentPack;
 namespace gui {
 	class Image;
@@ -80,5 +80,10 @@ namespace workshop {
 
 	extern std::set<std::filesystem::path> getFiles(const std::filesystem::path& folder, bool recursive);
 	extern void openPath(const std::filesystem::path& path);
+
+	template<typename T>
+	extern T incrementEnumClass(T enumClass, int factor){
+		return static_cast<T>(static_cast<int>(enumClass) + factor);
+	}
 }
 #endif // !FRONTEND_MENU_WORKSHOP_UTILS_HPP

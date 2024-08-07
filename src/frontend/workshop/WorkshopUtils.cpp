@@ -10,6 +10,7 @@
 #include "../../maths/UVRegion.hpp"
 #include "../../voxels/Block.hpp"
 #include "IncludeCommons.hpp"
+#include "../UiDocument.hpp"
 
 #include <iostream>
 
@@ -46,10 +47,10 @@ std::string workshop::getTexName(const std::string& fullName) {
 Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName) {
 	size_t pos = fullName.find(':');
 	if (pos != std::string::npos) {
-		Atlas* atlas = assets->getAtlas(fullName.substr(0, pos));
+		Atlas* atlas = assets->get<Atlas>(fullName.substr(0, pos));
 		if (atlas) return atlas;
 	}
-	return assets->getAtlas(BLOCKS_PREVIEW_ATLAS);
+	return assets->get<Atlas>(BLOCKS_PREVIEW_ATLAS);
 }
 
 std::string workshop::getDefName(DefType type) {
@@ -111,7 +112,7 @@ void workshop::setSelectable(std::shared_ptr<gui::Panel> panel) {
 }
 
 void workshop::validateBlock(Assets* assets, Block& block) {
-	Atlas* blocksAtlas = assets->getAtlas("blocks");
+	Atlas* blocksAtlas = assets->get<Atlas>("blocks");
 	auto checkTextures = [&block, blocksAtlas](std::string* begin, std::string* end) {
 		for (std::string* it = begin; it != end; it++) {
 			if (blocksAtlas->has(*it)) continue;
@@ -194,12 +195,12 @@ void workshop::openPath(const std::filesystem::path& path) {
 std::string workshop::getScriptName(const ContentPack& pack, const std::string& scriptName) {
 	if (scriptName.empty()) return NOT_SET;
 	else if (fs::is_regular_file(pack.folder / ("scripts/" + scriptName + ".lua")))
-		return scriptName;
+		return fs::path(scriptName).stem().string();
 	return NOT_SET;
 }
 
 std::string workshop::getUILayoutName(Assets* assets, const std::string& layoutName) {
 	if (layoutName.empty()) return NOT_SET;
-	if (assets->getLayout(layoutName)) return layoutName;
+	if (assets->get<UiDocument>(layoutName)) return layoutName;
 	return NOT_SET;
 }

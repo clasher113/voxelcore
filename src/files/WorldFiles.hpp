@@ -5,7 +5,6 @@
 
 #include "files.hpp"
 #include "../typedefs.hpp"
-#include "../settings.hpp"
 #include "../content/ContentPack.hpp"
 #include "../voxels/Chunk.hpp"
 
@@ -24,6 +23,7 @@ class Player;
 class Content;
 class ContentIndices;
 class World;
+struct DebugSettings;
 
 namespace fs = std::filesystem;
 
@@ -41,14 +41,16 @@ class WorldFiles {
     void writeWorldInfo(const World* world);
     void writeIndices(const ContentIndices* indices);
 public:
-    WorldFiles(fs::path directory);
-    WorldFiles(fs::path directory, const DebugSettings& settings);
+    WorldFiles(const fs::path &directory);
+    WorldFiles(const fs::path &directory, const DebugSettings& settings);
     ~WorldFiles();
 
     fs::path getPlayerFile() const;
+    fs::path getResourcesFile() const;
     void createDirectories();
 
     bool readWorldInfo(World* world);
+    bool readResourcesData(const Content* content);
 
     /// @brief Write all unsaved data to world files
     /// @param world target world

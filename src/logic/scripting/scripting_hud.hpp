@@ -14,15 +14,16 @@ namespace scripting {
     extern Hud* hud;
 
     void on_frontend_init(Hud* hud);
+    void on_frontend_render();
     void on_frontend_close();
 
     /** 
-     * Load package-specific hud script 
+     * Load package-specific hud script
      * @param env environment id
      * @param packid content-pack id
      * @param file script file path
      */
-    void load_hud_script(scriptenv env, std::string packid, fs::path file);
+    void load_hud_script(const scriptenv &env, const std::string &packid, const fs::path &file);
 }
 
 #endif // LOGIC_SCRIPTING_SCRIPTING_HUD_HPP_

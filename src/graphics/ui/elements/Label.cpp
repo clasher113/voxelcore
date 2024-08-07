@@ -1,4 +1,6 @@
 #include "Label.hpp"
+
+#include <utility>
 #include "../../core/DrawContext.hpp"
 #include "../../core/Batch2D.hpp"
 #include "../../core/Font.hpp"
@@ -45,31 +47,47 @@ void LabelCache::update(const std::wstring& text, bool multiline, bool wrap) {
     }
 }
 
-Label::Label(std::string text, std::string fontName) 
+Label::Label(const std::string& text, std::string fontName)
   : UINode(glm::vec2(text.length() * 8, 15)),
     text(util::str2wstr_utf8(text)), 
-    fontName(fontName) 
+    fontName(std::move(fontName))
 {
     setInteractive(false);
     cache.update(this->text, multiline, textWrap);
 }
 
 
-Label::Label(std::wstring text, std::string fontName) 
+Label::Label(const std::wstring& text, std::string fontName)
   : UINode(glm::vec2(text.length() * 8, 15)), 
     text(text), 
-    fontName(fontName) 
+    fontName(std::move(fontName))
 {
     setInteractive(false);
     cache.update(this->text, multiline, textWrap);
 }
 
-void Label::setText(std::wstring text) {
+glm::vec2 Label::calcSize() {
+    auto font = cache.font;
+    uint lineHeight = font->getLineHeight();
+    if (cache.lines.size() > 1) {
+        lineHeight *= lineInterval;
+    }
+    return glm::vec2 (
+        cache.font->calcWidth(text), 
+        lineHeight * cache.lines.size() + font->getYOffset()
+    );
+}
+
+void Label::setText(const std::wstring& text) {
     if (text == this->text && !cache.resetFlag) {
         return;
     }
     this->text = text;
     cache.update(this->text, multiline, textWrap);
+
+    if (cache.font && autoresize) {
+        setSize(calcSize());
+    }
 }
 
 const std::wstring& Label::getText() const {
@@ -77,7 +95,7 @@ const std::wstring& Label::getText() const {
 }
 
 void Label::setFontName(std::string name) {
-    this->fontName = name;
+    this->fontName = std::move(name);
 }
 
 const std::string& Label::getFontName() const {
@@ -140,7 +158,7 @@ uint Label::getLinesNumber() const {
 
 void Label::draw(const DrawContext* pctx, Assets* assets) {
     auto batch = pctx->getBatch2D();
-    auto font = assets->getFont(fontName);
+    auto font = assets->get<Font>(fontName);
     cache.prepare(font, static_cast<size_t>(glm::abs(getSize().x)));
 
     if (supplier) {
@@ -156,10 +174,10 @@ void Label::draw(const DrawContext* pctx, Assets* assets) {
         lineHeight *= lineInterval;
     }
     glm::vec2 size = getSize();
-    glm::vec2 newsize (
-        font->calcWidth(text), 
-        lineHeight * cache.lines.size() + font->getYOffset()
-    );
+    glm::vec2 newsize = calcSize();
+    if (autoresize) {
+        setSize(newsize);
+    }
 
     glm::vec2 pos = calcPos();
     switch (align) {
@@ -191,9 +209,16 @@ void Label::draw(const DrawContext* pctx, Assets* assets) {
 }
 
 void Label::textSupplier(wstringsupplier supplier) {
-    this->supplier = supplier;
+    this->supplier = std::move(supplier);
 }
 
+void Label::setAutoResize(bool flag) {
+    this->autoresize = flag;
+}
+
+bool Label::isAutoResize() const {
+    return autoresize;
+}
 
 void Label::setMultiline(bool multiline) {
     if (multiline != this->multiline) {

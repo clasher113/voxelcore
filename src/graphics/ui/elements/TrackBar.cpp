@@ -1,5 +1,7 @@
 #include "TrackBar.hpp"
 
+#include <utility>
+
 #include "../../core/DrawContext.hpp"
 #include "../../core/Batch2D.hpp"
 #include "../../../assets/Assets.hpp"
@@ -41,11 +43,15 @@ void TrackBar::draw(const DrawContext* pctx, Assets*) {
 }
 
 void TrackBar::setSupplier(doublesupplier supplier) {
-    this->supplier = supplier;
+    this->supplier = std::move(supplier);
 }
 
 void TrackBar::setConsumer(doubleconsumer consumer) {
-    this->consumer = consumer;
+    this->consumer = std::move(consumer);
+}
+
+void TrackBar::setSubConsumer(doubleconsumer consumer) {
+    this->subconsumer = std::move(consumer);
 }
 
 void TrackBar::mouseMove(GUI*, int x, int) {
@@ -58,11 +64,19 @@ void TrackBar::mouseMove(GUI*, int x, int) {
     value = (value < min) ? min : value;
     value = (int64_t)round(value / step) * step;
 
-    if (consumer) {
+    if (consumer && !changeOnRelease) {
         consumer(value);
+    }
+    if (subconsumer) {
+        subconsumer(value);
     }
 }
 
+void TrackBar::mouseRelease(GUI*, int, int) {
+    if (consumer && changeOnRelease) {
+        consumer(value);
+    }
+}
 
 double TrackBar::getValue() const {
     return value;
@@ -88,6 +102,10 @@ glm::vec4 TrackBar::getTrackColor() const {
     return trackColor;
 }
 
+bool TrackBar::isChangeOnRelease() const {
+    return changeOnRelease;
+}
+
 void TrackBar::setValue(double x) {
     value = x;
 }
@@ -110,4 +128,8 @@ void TrackBar::setTrackWidth(int width) {
 
 void TrackBar::setTrackColor(glm::vec4 color) {
     trackColor = color;
+}
+
+void TrackBar::setChangeOnRelease(bool flag) {
+    changeOnRelease = flag;
 }

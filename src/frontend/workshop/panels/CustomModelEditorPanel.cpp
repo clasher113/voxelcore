@@ -3,12 +3,17 @@
 #include "../IncludeCommons.hpp"
 #include "../WorkshopPreview.hpp"
 
+#include <algorithm>
+
 void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t index, PrimitiveType type) {
+
+	preview->setBlockSize(block.size);
+
 	createPanel([this, &block, index, type]() mutable {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
 		createBlockPreview(4, type);
 
-		std::vector<AABB>& aabbArr = (type == PrimitiveType::AABB ?block.modelBoxes :block.hitboxes);
+		std::vector<AABB>& aabbArr = (type == PrimitiveType::AABB ? block.modelBoxes :block.hitboxes);
 		const std::wstring primitives[] = { L"AABB", L"Tetragon", L"Hitbox" };
 		const std::wstring editorModes[] = { L"Custom model", L"Custom model", L"Hitbox" };
 		const glm::vec3 tetragonTemplate[] = { glm::vec3(0.f, 0.f, 0.5f), glm::vec3(1.f, 0.f, 0.5f), glm::vec3(1.f, 1.f, 0.5f), glm::vec3(0.f, 1.f, 0.5f) };
@@ -133,7 +138,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 				for (size_t i = 0; i < 4; i++) {
 					if (i == 2) continue;
 					glm::vec3* vec = &block.modelExtraPoints[index * 4];
-					inputPanel->add(removeList.emplace_back(createVectorPanel(vec[i], 0.f, 1.f, panel->getSize().x, type,
+					inputPanel->add(removeList.emplace_back(createVectorPanel(vec[i], glm::vec3(0.f), glm::vec3(block.size), panel->getSize().x, type,
 						[this, updateTetragon, vec]() {
 							updateTetragon(vec);
 							preview->setCurrentTetragon(vec);
@@ -147,11 +152,11 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 			AABB& aabb = aabbArr[index];
 			preview->setCurrentAABB(aabb, type);
 
-			createInput = [this, &aabb, inputPanel, panel, type](unsigned int inputType) {
+			createInput = [this, &aabb, inputPanel, panel, type, &block](unsigned int inputType) {
 				clearRemoveList(inputPanel);
-				inputPanel->add(removeList.emplace_back(createVectorPanel(aabb.a, 0.f, 1.f, panel->getSize().x, inputType,
+				inputPanel->add(removeList.emplace_back(createVectorPanel(aabb.a, glm::vec3(0.f), glm::vec3(block.size), panel->getSize().x, inputType,
 					[this, &aabb, type]() { preview->setCurrentAABB(aabb, type); preview->updateMesh(); })));
-				inputPanel->add(removeList.emplace_back(createVectorPanel(aabb.b, 0.f, 1.f, panel->getSize().x, inputType,
+				inputPanel->add(removeList.emplace_back(createVectorPanel(aabb.b, glm::vec3(0.f), glm::vec3(block.size), panel->getSize().x, inputType,
 					[this, &aabb, type]() { preview->setCurrentAABB(aabb, type); preview->updateMesh(); })));
 			};
 			textures = block.modelTextures.data() + index * 6;
@@ -163,6 +168,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 			createTexturesPanel(texturePanel, 35.f, textures, (type == PrimitiveType::AABB ? BlockModel::aabb : BlockModel::xsprite));
 			panel->add(texturePanel);
 		}
+
 		return panel;
 	}, 3);
 }

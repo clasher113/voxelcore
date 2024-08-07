@@ -1,7 +1,9 @@
 #include "InventoryView.hpp"
+
 #include "../../../assets/Assets.hpp"
 #include "../../../content/Content.hpp"
 #include "../../../frontend/LevelFrontend.hpp"
+#include "../../../frontend/locale.hpp"
 #include "../../../items/Inventories.hpp"
 #include "../../../items/Inventory.hpp"
 #include "../../../items/ItemDef.hpp"
@@ -19,11 +21,12 @@
 #include "../../core/Font.hpp"
 #include "../../core/DrawContext.hpp"
 #include "../../core/Shader.hpp"
+#include "../../core/Texture.hpp"
 #include "../../render/BlocksPreview.hpp"
 #include "../GUI.hpp"
 
-#include <iostream>
 #include <glm/glm.hpp>
+#include <utility>
 
 using namespace gui;
 
@@ -39,9 +42,9 @@ SlotLayout::SlotLayout(
     position(position),
     background(background),
     itemSource(itemSource),
-    updateFunc(updateFunc),
-    shareFunc(shareFunc),
-    rightClick(rightClick) {}
+    updateFunc(std::move(updateFunc)),
+    shareFunc(std::move(shareFunc)),
+    rightClick(std::move(rightClick)) {}
 
 InventoryBuilder::InventoryBuilder() {
     view = std::make_shared<InventoryView>();
@@ -52,7 +55,7 @@ void InventoryBuilder::addGrid(
     glm::vec2 pos, 
     int padding,
     bool addpanel,
-    SlotLayout slotLayout
+    const SlotLayout& slotLayout
 ) {
     const int slotSize = InventoryView::SLOT_SIZE;
     const int interval = InventoryView::SLOT_INTERVAL;
@@ -94,7 +97,7 @@ void InventoryBuilder::addGrid(
     }
 }
 
-void InventoryBuilder::add(SlotLayout layout) {
+void InventoryBuilder::add(const SlotLayout& layout) {
     view->add(view->addSlot(layout), layout.position);
 }
 
@@ -105,14 +108,28 @@ std::shared_ptr<InventoryView> InventoryBuilder::build() {
 SlotView::SlotView(
     SlotLayout layout
 ) : UINode(glm::vec2(InventoryView::SLOT_SIZE)),
-    layout(layout)
+    layout(std::move(layout))
 {
     setColor(glm::vec4(0, 0, 0, 0.2f));
+    setTooltipDelay(0.05f);
 }
 
 void SlotView::draw(const DrawContext* pctx, Assets* assets) {
-    if (bound == nullptr)
+    if (bound == nullptr) {
         return;
+    }
+    itemid_t itemid = bound->getItemId();
+    if (itemid != prevItem) {
+        if (itemid) {
+            auto def = content->getIndices()->items.get(itemid);
+            tooltip = util::pascal_case(
+                langs::get(util::str2wstr_utf8(def->caption))
+            );
+        } else {
+            tooltip = L"";
+        }
+    }
+    prevItem = itemid;
 
     const int slotSize = InventoryView::SLOT_SIZE;
 
@@ -139,15 +156,15 @@ void SlotView::draw(const DrawContext* pctx, Assets* assets) {
     
     batch->setColor(glm::vec4(1.0f));
 
-    auto previews = assets->getAtlas("block-previews");
+    auto previews = assets->get<Atlas>("block-previews");
     auto indices = content->getIndices();
 
-    ItemDef* item = indices->getItemDef(stack.getItemId());
+    ItemDef* item = indices->items.get(stack.getItemId());
     switch (item->iconType) {
         case item_icon_type::none:
             break;
         case item_icon_type::block: {
-            const Block& cblock = content->requireBlock(item->icon);
+            const Block& cblock = content->blocks.require(item->icon);
             batch->texture(previews->getTexture());
 
             UVRegion region = previews->get(cblock.name);
@@ -161,10 +178,10 @@ void SlotView::draw(const DrawContext* pctx, Assets* assets) {
             std::string name = item->icon.substr(index+1);
             UVRegion region(0.0f, 0.0, 1.0f, 1.0f);
             if (index == std::string::npos) {
-                batch->texture(assets->getTexture(name));
+                batch->texture(assets->get<Texture>(name));
             } else {
                 std::string atlasname = item->icon.substr(0, index);
-                Atlas* atlas = assets->getAtlas(atlasname);
+                auto atlas = assets->get<Atlas>(atlasname);
                 if (atlas && atlas->has(name)) {
                     region = atlas->get(name);
                     batch->texture(atlas->getTexture());
@@ -178,7 +195,7 @@ void SlotView::draw(const DrawContext* pctx, Assets* assets) {
     }
 
     if (stack.getCount() > 1) {
-        auto font = assets->getFont("normal");
+        auto font = assets->get<Font>("normal");
         std::wstring text = std::to_wstring(stack.getCount());
 
         int x = pos.x+slotSize-text.length()*8;
@@ -251,11 +268,12 @@ void SlotView::clicked(gui::GUI* gui, mousecode button) {
                 stack.setCount(halfremain);
             }
         } else {
+            auto stackDef = content->getIndices()->items.get(stack.getItemId());
             if (stack.isEmpty()) {
                 stack.set(grabbed);
                 stack.setCount(1);
                 grabbed.setCount(grabbed.getCount()-1);
-            } else if (stack.accepts(grabbed)){
+            } else if (stack.accepts(grabbed) && stack.getCount() < stackDef->stackSize){
                 stack.setCount(stack.getCount()+1);
                 grabbed.setCount(grabbed.getCount()-1);
             }
@@ -268,6 +286,14 @@ void SlotView::clicked(gui::GUI* gui, mousecode button) {
 
 void SlotView::onFocus(gui::GUI* gui) {
     clicked(gui, mousecode::BUTTON_1);
+}
+
+const std::wstring& SlotView::getTooltip() const {
+    const auto& str = UINode::getTooltip();
+    if (!str.empty() || tooltip.empty()) {
+        return str;
+    }
+    return tooltip;
 }
 
 void SlotView::bind(
@@ -295,7 +321,7 @@ InventoryView::InventoryView() : Container(glm::vec2()) {
 InventoryView::~InventoryView() {}
 
 
-std::shared_ptr<SlotView> InventoryView::addSlot(SlotLayout layout) {
+std::shared_ptr<SlotView> InventoryView::addSlot(const SlotLayout& layout) {
     uint width =  InventoryView::SLOT_SIZE + layout.padding;
     uint height = InventoryView::SLOT_SIZE + layout.padding;
 
@@ -327,7 +353,7 @@ size_t InventoryView::getSlotsCount() const {
 }
 
 void InventoryView::bind(
-    std::shared_ptr<Inventory> inventory,
+    const std::shared_ptr<Inventory>& inventory,
     const Content* content
 ) {
     this->inventory = inventory;
