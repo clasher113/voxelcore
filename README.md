@@ -1,7 +1,6 @@
 # Latest release
 
-- [Download | Скачать](https://github.com/MihailRis/VoxelEngine-Cpp/releases/latest)
-- [Documentation |](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.22/doc/en/main-page.md) [Документация](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.22/doc/ru/main-page.md)
+[Download | Скачать](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod)
 
 # Controls
 - <kbd>**Esc**</kbd> - pause
