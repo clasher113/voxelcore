@@ -146,7 +146,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 						})));
 				}
 			};
-			textures =block.modelTextures.data() +block.modelBoxes.size() * 6 + index;
+			textures = block.modelTextures.data() +block.modelBoxes.size() * 6 + index;
 		}
 		else {
 			AABB& aabb = aabbArr[index];

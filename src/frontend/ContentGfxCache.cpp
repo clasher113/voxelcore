@@ -26,6 +26,7 @@ void ContentGfxCache::refresh(const Content* content, Assets* assets) {
     
     for (uint i = 0; i < indices->blocks.count(); i++) {
         Block* def = indices->blocks.get(i);
+        def->modelUVs.clear();
         for (uint side = 0; side < 6; side++) {
             const std::string& tex = def->textureFaces[side];
             if (atlas->has(tex)) {
