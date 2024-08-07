@@ -35,13 +35,12 @@ namespace workshop {
 			});
 
 			auto button = std::make_shared<gui::Button>(L"Level: " + levels.at(elem.level), glm::vec4(10.f), gui::onaction());
-			button->listenAction([&pack, dependencyIndex, levels, button](gui::GUI*) {
-				DependencyLevel& level = pack.dependencies[dependencyIndex].level;
-				size_t index = static_cast<size_t>(level) + 1;
-				if (index >= levels.size()) index = 0;
-				level = static_cast<DependencyLevel>(index);
-				button->setText(L"Level: " + levels.at(level));
-			});
+			//button->listenAction([&levelRef = pack.dependencies[dependencyIndex].level, levels, button](gui::GUI*) {
+			//	DependencyLevel level = incrementEnumClass(levelRef, 1);
+			//	if (level > DependencyLevel::weak) level = DependencyLevel::required;
+			//	levelRef = level;
+			//	button->setText(L"Level: " + levels.at(level));
+			//});
 			auto image = std::make_shared<gui::Image>(engine->getAssets()->get<Texture>("gui/delete_icon"));
 			auto imageContainer = std::make_shared<gui::Container>(image->getSize());
 
@@ -112,7 +111,7 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 			fs::path iconFile(currentPack.folder / "icon.png");
 			if (fs::is_regular_file(iconFile)) {
 				createFileDeletingConfirmationPanel(iconFile, 2, [this, iconImage, loadIcon]() {
-					assets->store(std::make_unique<Texture*>(nullptr), currentPack.id + ".icon");
+					assets->store(std::unique_ptr<Texture>(nullptr), currentPack.id + ".icon");
 					iconImage->setTexture(loadIcon());
 				});
 			}

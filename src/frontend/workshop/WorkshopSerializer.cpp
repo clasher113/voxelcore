@@ -12,17 +12,18 @@
 
 void workshop::saveContentPack(const ContentPack& pack) {
 	dynamic::Map root;
-	root.put("id", pack.id);
-	root.put("title", pack.title);
-	root.put("version", pack.version);
-	root.put("creator", pack.creator);
-	root.put("description", pack.description);
+	if (!pack.id.empty()) root.put("id", pack.id);
+	if (!pack.title.empty()) root.put("title", pack.title);
+	if (!pack.version.empty()) root.put("version", pack.version);
+	if (!pack.creator.empty()) root.put("creator", pack.creator);
+	if (!pack.description.empty()) root.put("description", pack.description);
 
 	if (!pack.dependencies.empty()) {
 		auto& dependencies = root.putList("dependencies");
 		for (const auto& elem : pack.dependencies) {
 			if (!elem.id.empty()) dependencies.put(elem.id);
 		}
+		if (dependencies.size() == 0) root.remove("dependencies");
 	}
 	files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, &root);
 }

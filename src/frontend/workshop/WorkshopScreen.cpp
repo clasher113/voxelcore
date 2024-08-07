@@ -100,7 +100,6 @@ void WorkShopScreen::draw(float delta) {
 bool WorkShopScreen::initialize() {
 	auto& packs = engine->getContentPacks();
 	packs.clear();
-	packs.emplace_back(currentPack);
 
 	std::vector<ContentPack> scanned;
 	ContentPack::scanFolder(engine->getPaths()->getResources() / "content", scanned);
@@ -111,6 +110,7 @@ bool WorkShopScreen::initialize() {
 		});
 		if (it != scanned.end()) packs.emplace_back(*it);
 	}
+	packs.emplace_back(currentPack);
 
 	for (size_t i = 0; i < packs.size(); i++) {
 		for (size_t j = 0; j < packs[i].dependencies.size(); j++) {
