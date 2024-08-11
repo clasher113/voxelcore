@@ -137,7 +137,7 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 	if (block.material != DEFAULT_MATERIAL) root.put("material", block.material);
 	if (block.uiLayout != block.name) root.put("ui-layout", block.uiLayout);
 
-	json::precision = 3;
+	json::precision = 5;
 	std::filesystem::path path = packFolder / ContentPack::BLOCKS_FOLDER;
 	if (!std::filesystem::is_directory(path)) std::filesystem::create_directories(path);
 	files::write_json(path / std::filesystem::path(actualName + ".json"), &root);

@@ -542,11 +542,10 @@ void workshop::WorkShopScreen::createFileDeletingConfirmationPanel(const std::fi
 	createPanel([this, file, column, callback]() {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
 
-		auto label = std::make_shared<gui::Label>("Are you sure you want to permanently delete this file?" + file.string());
-		//label->setTextWrapping(false);
-		//label->setMultiline(true);
-		//label->setVerticalAlign(gui::Align::top);
-		//label->setSize(glm::vec2(panel->getSize().x, 400));
+		auto label = std::make_shared<gui::Label>("Are you sure you want to permanently delete this file?\n File: " + fs::relative(file, currentPack.folder).string());
+		label->setTextWrapping(true);
+		label->setMultiline(true);
+		label->setSize(panel->getSize());
 		panel->add(label);
 
 		panel->add(std::make_shared<gui::Button>(L"Confirm", glm::vec4(10.f), [this, file, column, callback](gui::GUI*) {

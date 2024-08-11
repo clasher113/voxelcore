@@ -4,6 +4,7 @@
 #include "../../../graphics/ui/elements/Container.hpp"
 
 class Atlas;
+class Texture;
 
 namespace gui {
 	class Image;
@@ -11,10 +12,12 @@ namespace gui {
 
 	class IconButton : public Container {
 	public:
+		IconButton(glm::vec2 size, const std::string& text, Texture* texture, const std::string& additionalText = "");
 		IconButton(glm::vec2 size, const std::string& text, Atlas* atlas, const std::string& textureName, const std::string& additionalText = "");
 		~IconButton();
 
 		void setIcon(Atlas* atlas, const std::string& textureName);
+		void setIcon(Texture* texture);
 		void setText(const std::string& text);
 
 	private:

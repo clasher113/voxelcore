@@ -42,7 +42,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 				for (size_t i = 0; i < 4; i++) {
 					block.modelExtraPoints.emplace_back(tetragonTemplate[i]);
 				}
-				index =block.modelExtraPoints.size() / 4;
+				index = block.modelExtraPoints.size() / 4;
 			}
 			else {
 				if (type == PrimitiveType::AABB)

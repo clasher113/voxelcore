@@ -68,6 +68,7 @@ void Preview::update(float delta) {
 }
 
 void Preview::updateMesh() {
+	if (currentBlock == nullptr) return;
 	bool rotatable = currentBlock->rotatable;
 	currentBlock->rotatable = false;
 	mesh = blockRenderer.render(chunk, level->chunksStorage.get());

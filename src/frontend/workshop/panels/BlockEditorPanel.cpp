@@ -5,6 +5,7 @@
 #include "../WorkshopPreview.hpp"
 #include "../WorkshopSerializer.hpp"
 #include "../../../content/Content.hpp"
+#include "../BlockModelConverter.hpp"
 
 void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 	createPanel([this, &block]() {
@@ -61,10 +62,13 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		texturePanel->setColor(glm::vec4(0.f));
 		panel->add(texturePanel);
 
-		auto processModelChange = [this, texturePanel](Block& block) {
+		auto processModelChange = [this, texturePanel, panel](Block& block) {
 			clearRemoveList(texturePanel);
 			if (block.model == BlockModel::custom) {
 				createCustomModelEditor(block, 0, PrimitiveType::AABB);
+				texturePanel->add(removeList.emplace_back(std::make_shared<gui::Button>(L"Import model", glm::vec4(10), [this, panel, &block](gui::GUI*){
+					createBlockConverterPanel(block, panel->getPos().x + panel->getSize().x);
+				})));
 			}
 			else {
 				createCustomModelEditor(block, 0, PrimitiveType::HITBOX);

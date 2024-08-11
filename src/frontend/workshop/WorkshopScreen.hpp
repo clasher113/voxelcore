@@ -77,6 +77,7 @@ namespace workshop {
 		void createItemEditor(ItemDef& item);
 		void createUILayoutEditor(const std::filesystem::path& path, const std::string& fullName, const std::string& actualName, std::vector<size_t> docPath);
 		void createMaterialEditor(BlockMaterial& material);
+		void createBlockConverterPanel(Block& block, float posX);
 
 		void createDefActionPanel(DefAction action, DefType type, const std::string& name = std::string(), bool reInitialize = true);
 		void createImportPanel(DefType type = DefType::BLOCK, std::string mode = "copy");
