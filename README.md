@@ -1,6 +1,6 @@
 # Latest release
 
-[Download | Скачать](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod-0.22.2)
+[Download | Скачать](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod-0.22.2-block-model-converter)
 
 # Controls
 - <kbd>**Esc**</kbd> - pause
