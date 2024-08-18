@@ -36,7 +36,7 @@ namespace workshop {
 	public:
 		Preview(Engine* engine, ContentGfxCache* cache);
 
-		void update(float delta);
+		void update(float delta, float sensitivity);
 		void updateMesh();
 		void updateCache();
 
@@ -53,12 +53,12 @@ namespace workshop {
 		void setUiDocument(const std::shared_ptr<xml::Document> document, std::shared_ptr<int> enviroment, bool forseUpdate = false);
 
 		void setResolution(uint width, uint height);
-		void setBlockSize(glm::i8vec3 size);
+		void setBlockSize(const glm::i8vec3& size);
 
 		Texture* getTexture();
 
 		bool lockedKeyboardInput = false;
-		bool mouseLocked = false;
+		bool lmb = false, rmb = false;
 		bool drawGrid = true;
 		bool drawBlockSize = false;
 		bool drawCurrentAABB = false;
@@ -72,7 +72,7 @@ namespace workshop {
 		glm::i8vec3 blockSize;
 		glm::vec2 previewRotation{ 225.f, 45.f };
 		glm::vec3 currentTetragon[4]{};
-		glm::vec3 cameraOffset;
+		glm::vec3 cameraOffset, cameraPosition;
 		PrimitiveType primitiveType;
 
 		Engine* engine;

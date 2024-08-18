@@ -23,6 +23,7 @@
 #include "WorkshopUtils.hpp"
 #include "../../content/Content.hpp"
 #include "../../audio/audio.hpp"
+#include "WorkshopSerializer.hpp"
 
 #define NOMINMAX
 #include "libs/portable-file-dialogs.h"
@@ -39,10 +40,26 @@ WorkShopScreen::WorkShopScreen(Engine* engine, const ContentPack& pack) : Screen
 	uicamera.reset(new Camera(glm::vec3(), static_cast<float>(Window::height)));
 	uicamera->perspective = false;
 	uicamera->flipped = true;
-	engine->getSettings().display.framerate = -1;
 
+	if (framerate > 60) {
+		engine->getSettings().display.framerate.set(-1);
+	}
 	if (initialize()) {
 		gui->add(createNavigationPanel());
+	}
+	if (fs::exists(SETTINGS_FILE)) {
+		dynamic::Map_sptr settingsMap = files::read_json(SETTINGS_FILE);
+		if (settingsMap->has("sensitivity")) settings.previewSensitivity = settingsMap->get<float>("sensitivity");
+		dynamic::List_sptr list = settingsMap->list("customModelInputRange");
+		if (list && list->size() == 2){
+			settings.customModelRange.x = list->num(0);
+			settings.customModelRange.y = list->num(1);
+		}
+		if (settingsMap->has("contentListWidth")) settings.contentListWidth = settingsMap->get<float>("contentListWidth");
+		if (settingsMap->has("blockEditorWidth")) settings.blockEditorWidth = settingsMap->get<float>("blockEditorWidth");
+		if (settingsMap->has("customModelEditorWidth")) settings.customModelEditorWidth = settingsMap->get<float>("customModelEditorWidth");
+		if (settingsMap->has("itemEditorWidth")) settings.itemEditorWidth = settingsMap->get<float>("itemEditorWidth");
+		if (settingsMap->has("textureListWidth")) settings.textureListWidth = settingsMap->get<float>("textureListWidth");
 	}
 }
 
@@ -50,31 +67,42 @@ WorkShopScreen::~WorkShopScreen() {
 	for (const auto& elem : panels) {
 		gui->remove(elem.second);
 	}
+
+	dynamic::Map settingsMap;
+	settingsMap.put("sensitivity", settings.previewSensitivity);
+	settingsMap.put("contentListWidth", settings.contentListWidth);
+	settingsMap.put("blockEditorWidth", settings.blockEditorWidth);
+	settingsMap.put("customModelEditorWidth", settings.customModelEditorWidth);
+	settingsMap.put("itemEditorWidth", settings.itemEditorWidth);
+	settingsMap.put("textureListWidth", settings.textureListWidth);
+	dynamic::List& list = settingsMap.putList("customModelInputRange");
+	list.put(settings.customModelRange.x);
+	list.put(settings.customModelRange.y);
+	files::write_json(SETTINGS_FILE, &settingsMap);
 }
 
 void WorkShopScreen::update(float delta) {
-	if (Events::jpressed(keycode::ESCAPE)) {
-		if (panels.size() < 2) {
+	if (Events::jpressed(keycode::ESCAPE) && !preview->lockedKeyboardInput) {
+		if (panels.size() < 2 && !checkUnsaved()) {
 			exit();
 		}
-		else removePanel(panels.rbegin()->first);
+		else if (panels.size() > 1) removePanel(panels.rbegin()->first);
 		return;
 	}
 
 	for (const auto& elem : panels) {
-		elem.second->act(delta);
-		elem.second->setSize(glm::vec2(elem.second->getSize().x, Window::height - 4.f));
+		elem.second->UINode::setSize(glm::vec2(elem.second->getSize().x, Window::height - 4.f));
 	}
 	if (preview) {
-		preview->lockedKeyboardInput = false;
 		for (const auto& elem : panels) {
-			if (hasFocusedTextbox(elem.second)) {
+			if (hasFocusedTextbox(*elem.second)) {
 				preview->lockedKeyboardInput = true;
 				break;
 			}
 		}
-		preview->update(delta);
+		preview->update(delta, settings.previewSensitivity);
 	}
+	preview->lockedKeyboardInput = false;
 }
 
 void WorkShopScreen::draw(float delta) {
@@ -153,13 +181,15 @@ bool WorkShopScreen::initialize() {
 	if (contentList->has("blocks")) {
 		auto blocks = contentList->list("blocks");
 		for (size_t i = 0; i < blocks->size(); i++) {
-			blocksList.insert(blocks->str(i));
+			std::string blockName(blocks->str(i));
+			blocksList[blockName] = stringify(*content->blocks.find(currentPack.id + ':' + blockName), blockName, false);
 		}
 	}
 	if (contentList->has("items")) {
 		auto items = contentList->list("items");
 		for (size_t i = 0; i < items->size(); i++) {
-			itemsList.insert(items->str(i));
+			std::string itemName(items->str(i));
+			itemsList[items->str(i)] = stringify(*content->items.find(currentPack.id + ':' + itemName), itemName, false);;
 		}
 	}
 	return 1;
@@ -174,7 +204,7 @@ void WorkShopScreen::exit() {
 }
 
 std::shared_ptr<gui::Panel> WorkShopScreen::createNavigationPanel() {
-	auto panel = std::make_shared<gui::Panel>(glm::vec2(250.f));
+	auto panel = std::make_shared<gui::Panel>(glm::vec2(200.f));
 
 	panels.emplace(0, panel);
 	panel->setPos(glm::vec2(2.f));
@@ -202,20 +232,24 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createNavigationPanel() {
 	panel->add(std::make_shared<gui::Button>(L"UI Layouts", glm::vec4(10.f), [this](gui::GUI*) {
 		createUILayoutList();
 	}));
+	setSelectable<gui::Button>(*panel);
 	auto button = std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [this](gui::GUI*) {
-		exit();
+		if (!checkUnsaved()) exit();
 	});
 	panel->add(button);
 
-	setSelectable<gui::Button>(panel);
 	createPackInfoPanel();
 
 	auto container = std::make_shared<gui::Container>(panel->getSize());
-	container->listenInterval(0.1f, [panel, button, container]() {
-		container->setSize(glm::vec2(panel->getSize().x, Window::height - (button->calcPos().y + (button->getSize().y + 10.f) * 2)));
+	container->listenInterval(0.01f, [panel, button, container]() {
+		panel->refresh();
+		container->setSize(glm::vec2(panel->getSize().x, Window::height - (button->calcPos().y + (button->getSize().y + 7.f) * 3)));
 	});
 	panel->add(container);
 
+	panel->add(button = std::make_shared<gui::Button>(L"Settings", glm::vec4(10.f), [this](gui::GUI*) {
+		createSettingsPanel();
+	}));
 	panel->add(button = std::make_shared<gui::Button>(L"Open Pack Folder", glm::vec4(10.f), [this](gui::GUI*) {
 		openPath(currentPack.folder);
 	}));
@@ -281,6 +315,7 @@ void WorkShopScreen::createPanel(std::function<std::shared_ptr<gui::Panel>()> la
 		float x = 2.f;
 		for (const auto& elem : panels) {
 			elem.second->setPos(glm::vec2(x, 2.f));
+			elem.second->act(0.1f);
 			x += elem.second->getSize().x;
 		}
 	}
@@ -290,8 +325,8 @@ void WorkShopScreen::createPanel(std::function<std::shared_ptr<gui::Panel>()> la
 	gui->add(panel);
 }
 
-std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(std::shared_ptr<gui::Panel> panel, float iconSize, std::string* textures, BlockModel model) {
-	panel->setColor(glm::vec4(0.f));
+void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model) {
+	panel.setColor(glm::vec4(0.f));
 
 	const char* faces[] = { "East:", "West:", "Bottom:", "Top:", "South:", "North:" };
 
@@ -305,10 +340,10 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(std::shared_ptr<
 	case BlockModel::xsprite: buttonsNum = 1;
 		break;
 	}
-	if (buttonsNum == 0) return panel;
-	panel->add(removeList.emplace_back(std::make_shared<gui::Label>(buttonsNum == 1 ? L"Texture" : L"Texture faces")));
+	if (buttonsNum == 0) return;
+	panel.add(removeList.emplace_back(std::make_shared<gui::Label>(buttonsNum == 1 ? L"Texture" : L"Texture faces")));
 	for (size_t i = 0; i < buttonsNum; i++) {
-		auto button = std::make_shared<gui::IconButton>(glm::vec2(panel->getSize().x, iconSize), textures[i], blocksAtlas, textures[i],
+		auto button = std::make_shared<gui::IconButton>(glm::vec2(panel.getSize().x, iconSize), textures[i], blocksAtlas, textures[i],
 			(buttonsNum == 6 ? faces[i] : ""));
 		button->listenAction([this, button, model, textures, iconSize, i](gui::GUI*) {
 			createTextureList(35.f, 5, DefType::BLOCK, button->calcPos().x + button->getSize().x, true,
@@ -322,25 +357,23 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(std::shared_ptr<
 					preview->updateCache();
 			});
 		});
-		panel->add(removeList.emplace_back(button));
+		panel.add(removeList.emplace_back(button));
 	}
 
 	setSelectable<gui::IconButton>(panel);
-
-	return panel;
 }
 
-std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(std::shared_ptr<gui::Panel> panel, float iconSize, std::string& texture, item_icon_type iconType) {
-	panel->setColor(glm::vec4(0.f));
-	if (iconType == item_icon_type::none) return panel;
+void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, item_icon_type iconType) {
+	panel.setColor(glm::vec4(0.f));
+	if (iconType == item_icon_type::none) return;
 
 	auto texName = [this, iconType, &texture]() {
 		if (iconType == item_icon_type::sprite) return getTexName(texture);
 		return texture;
 	};
 
-	auto button = std::make_shared<gui::IconButton>(glm::vec2(panel->getSize().x, iconSize), texName(), getAtlas(assets, texture), texName());
-	button->listenAction([this, button, texName, panel, &texture, iconSize, iconType](gui::GUI*) {
+	auto button = std::make_shared<gui::IconButton>(glm::vec2(panel.getSize().x, iconSize), texName(), getAtlas(assets, texture), texName());
+	button->listenAction([this, button, texName, &panel, &texture, iconSize, iconType](gui::GUI*) {
 		auto& nodes = button->getNodes();
 		auto callback = [this,button, nodes, texName, iconSize, &texture](const std::string& textureName) {
 			texture = textureName;
@@ -357,9 +390,7 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createTexturesPanel(std::shared_ptr<
 		button->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
 		button->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
 	});
-	panel->add(removeList.emplace_back(button));
-
-	return panel;
+	panel.add(removeList.emplace_back(button));
 }
 
 void WorkShopScreen::createAddingUIElementPanel(float posX, const std::function<void(const std::string&)>& callback, unsigned int filter) {
@@ -400,21 +431,23 @@ void WorkShopScreen::createScriptList(unsigned int column, float posX, const std
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
 
 		fs::path scriptsFolder(currentPack.folder / "scripts/");
-		std::set<fs::path> scripts = getFiles(scriptsFolder, true);
-		if (callback) scripts.insert(fs::path());
+		std::vector<fs::path> scripts = getFiles(scriptsFolder, true);
+		if (callback) scripts.emplace(scripts.begin(), fs::path());
 
 		for (const auto& elem : scripts) {
 			fs::path parentDir(fs::relative(elem.parent_path(), scriptsFolder));
-			auto button = std::make_shared<gui::Button>(util::str2wstr_utf8(getScriptName(currentPack, parentDir.string() + "/" + elem.stem().string())), glm::vec4(10.f),
-				[this, elem, callback](gui::GUI*) {
-					if (callback) callback(elem.stem().string());
+			std::string fullScriptName = parentDir.string() + "/" + elem.stem().string();
+			std::string scriptName = fs::path(getScriptName(currentPack, fullScriptName)).stem().string();
+			auto button = std::make_shared<gui::Button>(util::str2wstr_utf8(scriptName), glm::vec4(10.f),
+				[this, elem, fullScriptName, callback](gui::GUI*) {
+					if (callback) callback(fullScriptName);
 					else createScriptInfoPanel(elem);
 				});
 			button->setTextAlign(gui::Align::left);
 			panel->add(button);
 		}
 
-		setSelectable<gui::Button>(panel);
+		setSelectable<gui::Button>(*panel);
 
 		return panel;
 	}, column, posX);
@@ -442,7 +475,7 @@ void WorkShopScreen::createSoundList() {
 	createPanel([this]() {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
 
-		std::set<fs::path> sounds = getFiles(currentPack.folder / SOUNDS_FOLDER, true);
+		std::vector<fs::path> sounds = getFiles(currentPack.folder / SOUNDS_FOLDER, true);
 
 		for (const auto& elem : sounds) {
 			auto button = std::make_shared<gui::Button>(util::str2wstr_utf8(elem.stem().string()), glm::vec4(10.f), [this, elem](gui::GUI*) {
@@ -475,6 +508,38 @@ void WorkShopScreen::createSoundInfoPanel(const fs::path& file) {
 	}, 2);
 }
 
+void workshop::WorkShopScreen::createSettingsPanel() {
+	createPanel([this]() {
+		auto panel = std::make_shared<gui::Panel>(glm::vec2(300));
+
+		panel->add(std::make_shared<gui::Label>(L"Custom model input range"));
+		panel->add(createNumTextBox(settings.customModelRange.x, L"Min", -FLT_MAX, FLT_MAX));
+		panel->add(createNumTextBox(settings.customModelRange.y, L"Max", -FLT_MAX, FLT_MAX));
+
+		panel->add(std::make_shared<gui::Label>(L"Content list with"));
+		panel->add(createNumTextBox(settings.contentListWidth, L"", 100.f, 1000.f));
+		panel->add(std::make_shared<gui::Label>(L"Block editor with"));
+		panel->add(createNumTextBox(settings.blockEditorWidth, L"", 100.f, 1000.f));
+		panel->add(std::make_shared<gui::Label>(L"Custom model editor with"));
+		panel->add(createNumTextBox(settings.customModelEditorWidth, L"", 100.f, 1000.f));
+		panel->add(std::make_shared<gui::Label>(L"Item editor with"));
+		panel->add(createNumTextBox(settings.itemEditorWidth, L"", 100.f, 1000.f));
+		panel->add(std::make_shared<gui::Label>(L"Texture list with"));
+		panel->add(createNumTextBox(settings.textureListWidth, L"", 100.f, 1000.f));
+
+		auto label = std::make_shared<gui::Label>(L"Preview sensitivity: " + util::to_wstring(settings.previewSensitivity, 2));
+		panel->add(label);
+		auto trackBar = std::make_shared<gui::TrackBar>(0.1, 5.0, settings.previewSensitivity, 0.01);
+		trackBar->setConsumer([this, label](double num) {
+			settings.previewSensitivity = num;
+			label->setText(L"Preview window sensitivity: " + util::to_wstring(settings.previewSensitivity, 2));
+		});
+		panel->add(trackBar);
+
+		return panel;
+	}, 1);
+}
+
 void WorkShopScreen::createTextureInfoPanel(const std::string& texName, DefType type) {
 	createPanel([this, texName, type]() {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(350));
@@ -493,6 +558,7 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, DefType 
 		panel->add(std::make_shared<gui::Label>(L"Height: " + std::to_wstring(size.y)));
 		panel->add(std::make_shared<gui::Label>(L"Texture type: " + util::str2wstr_utf8(getDefName(type))));
 		panel->add(std::make_shared<gui::Button>(L"Delete", glm::vec4(10.f), [this, texName, type](gui::GUI*) {
+			if (checkUnsaved()) return;
 			createFileDeletingConfirmationPanel(currentPack.folder / TEXTURES_FOLDER / getDefFolder(type) / std::string(getTexName(texName) + ".png"),
 			3, [this]() {
 					initialize();
@@ -519,6 +585,7 @@ void WorkShopScreen::createImportPanel(DefType type, std::string mode) {
 			else if (mode == "move") createImportPanel(type, "copy");
 		}));
 		panel->add(std::make_shared<gui::Button>(L"Select files", glm::vec4(10.f), [this, type, mode](gui::GUI*) {
+			if (checkUnsaved()) return;
 			auto files = pfd::open_file("", "", { "(.png)", "*.png" }, pfd::opt::multiselect).result();
 			if (files.empty()) return;
 			fs::path path(currentPack.folder / TEXTURES_FOLDER / getDefFolder(type));
@@ -549,6 +616,7 @@ void workshop::WorkShopScreen::createFileDeletingConfirmationPanel(const std::fi
 		panel->add(label);
 
 		panel->add(std::make_shared<gui::Button>(L"Confirm", glm::vec4(10.f), [this, file, column, callback](gui::GUI*) {
+			if (checkUnsaved()) return;
 			std::filesystem::remove(file);
 			removePanel(column);
 			if (callback) callback();
@@ -585,13 +653,14 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type)
 		panel->add(image);
 		panel->listenInterval(0.01f, [this, panel, image]() {
 			if (panel->isHover() && image->isInside(Events::cursor)) {
-				if (Events::jclicked(mousecode::BUTTON_1)) preview->mouseLocked = true;
+				if (Events::jclicked(mousecode::BUTTON_1)) preview->lmb = true;
+				if (Events::jclicked(mousecode::BUTTON_2)) preview->rmb = true;
 				if (Events::scroll) preview->scale(-Events::scroll / 10.f);
 			}
 			panel->setSize(glm::vec2(Window::width - panel->calcPos().x - 2.f, Window::height));
-			image->setSize(glm::vec2(image->getSize().x, Window::height / 2.f));
-			preview->drawBlock();
+			image->setSize(glm::vec2(panel->getSize().x, Window::height / 2.f));
 			preview->setResolution(static_cast<uint>(image->getSize().x), static_cast<uint>(image->getSize().y));
+			preview->drawBlock();
 			image->setTexture(preview->getTexture());
 		});
 		createFullCheckBox(panel, L"Draw grid", preview->drawGrid);
@@ -604,7 +673,9 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type)
 		else if (type == PrimitiveType::TETRAGON)
 			createFullCheckBox(panel, L"Highlight current Tetragon", preview->drawCurrentTetragon);
 		panel->add(std::make_shared<gui::Label>(""));
-		panel->add(std::make_shared<gui::Label>("Rotate: W,S,A,D or mouse"));
+		panel->add(std::make_shared<gui::Label>("Camera control"));
+		panel->add(std::make_shared<gui::Label>("Position: RMB + mouse"));
+		panel->add(std::make_shared<gui::Label>("Rotate: W,S,A,D or LMB + mouse"));
 		panel->add(std::make_shared<gui::Label>("Zoom: Left Shift/Space or Scroll Wheel"));
 
 		return panel;
@@ -627,4 +698,50 @@ void WorkShopScreen::createUIPreview() {
 
 		return panel;
 	}, 3);
+}
+
+bool workshop::WorkShopScreen::checkUnsaved() {
+	std::unordered_multimap<DefType, std::string> unsavedList;
+
+	for (const auto& elem : blocksList) {
+		if (elem.second != stringify(*content->blocks.find(currentPack.id + ':' + elem.first), elem.first, false))
+			unsavedList.emplace(DefType::BLOCK, elem.first);
+	}
+	for (const auto& elem : itemsList) {
+		if (elem.second != stringify(*content->items.find(currentPack.id + ':' + elem.first), elem.first, false))
+			unsavedList.emplace(DefType::ITEM, elem.first);
+	}
+
+	if (unsavedList.empty()) return false;
+
+	auto container = std::make_shared<gui::Container>(Window::size());
+	container->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.75f));
+
+	auto outerContainer = std::make_shared<gui::Panel>(Window::size() / 2.f);
+	outerContainer->setColor(glm::vec4(0.5f, 0.5f, 0.5f, 0.25f));
+	outerContainer->listenInterval(0.01f, [this, outerContainer, container]() {
+		preview->lockedKeyboardInput = true;
+		outerContainer->setPos(Window::size() / 2.f - outerContainer->getSize() / 2.f);
+		container->setSize(Window::size());
+	});
+	outerContainer->add(std::make_shared<gui::Label>("You have " + std::to_string(unsavedList.size()) + " unsaved change(s):"));
+
+	auto innerPanel = std::make_shared<gui::Panel>(glm::vec2());
+	innerPanel->setColor(glm::vec4(0.f));
+	innerPanel->setMaxLength(Window::height / 3.f);
+
+	for(const auto& elem : unsavedList){
+		innerPanel->add(std::make_shared<gui::Label>(getDefName(elem.first) + ": " + elem.second));
+	}
+
+	outerContainer->add(innerPanel);
+	outerContainer->add(std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [this, container](gui::GUI*) { gui->remove(container); }));
+	outerContainer->setPos(Window::size() / 2.f - outerContainer->getSize() / 2.f);
+	//outerContainer->add(std::make_shared<gui::Button>(L"Save all", glm::vec4(10.f), [this, container](gui::GUI*) { }));
+	//outerContainer->add(std::make_shared<gui::Button>(L"Discard all", glm::vec4(10.f), [this, container](gui::GUI*) { }));
+
+	container->add(outerContainer);
+	gui->add(container);
+
+	return true;
 }

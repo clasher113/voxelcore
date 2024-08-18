@@ -52,6 +52,7 @@ void workshop::WorkShopScreen::createDefActionPanel(DefAction action, DefType ty
 				if (!nameInput->validate()) return;
 				input = util::wstr2str_utf8(nameInput->getInput());
 			}
+			if (reInitialize && checkUnsaved()) return;
 			fs::path path(currentPack.folder / getDefFolder(type));
 			const std::string fileFormat(getDefFileFormat(type));
 			if (!fs::is_directory(path)) fs::create_directory(path);

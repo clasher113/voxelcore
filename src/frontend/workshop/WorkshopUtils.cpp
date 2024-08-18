@@ -91,16 +91,16 @@ void workshop::formatTextureImage(gui::Image& image, Atlas* atlas, float height,
 	image.setUVRegion(region);
 }
 
-template void workshop::setSelectable<gui::IconButton>(std::shared_ptr<gui::Panel>);
-template void workshop::setSelectable<gui::Button>(std::shared_ptr<gui::Panel>);
+template void workshop::setSelectable<gui::IconButton>(const gui::Panel&);
+template void workshop::setSelectable<gui::Button>(const gui::Panel&);
 
 template<typename T>
-void workshop::setSelectable(std::shared_ptr<gui::Panel> panel) {
-	for (const auto& elem : panel->getNodes()) {
+void workshop::setSelectable(const gui::Panel& panel) {
+	for (const auto& elem : panel.getNodes()) {
 		T* node = dynamic_cast<T*>(elem.get());
 		if (!node) continue;
-		node->listenAction([node, panel](gui::GUI* gui) {
-			for (const auto& elem : panel->getNodes()) {
+		node->listenAction([node, &panel](gui::GUI* gui) {
+			for (const auto& elem : panel.getNodes()) {
 				if (typeid(*elem.get()) == typeid(T)) {
 					elem->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
 					elem->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
@@ -156,29 +156,29 @@ bool workshop::checkPackId(const std::wstring& id, const std::vector<ContentPack
 	);
 }
 
-bool workshop::hasFocusedTextbox(const std::shared_ptr<gui::Container> container) {
-	for (const auto& elem : container->getNodes()) {
-		if (std::shared_ptr<gui::TextBox> textBox = std::dynamic_pointer_cast<gui::TextBox>(elem)) {
+bool workshop::hasFocusedTextbox(const gui::Container& container) {
+	for (const auto& elem : container.getNodes()) {
+		if (gui::TextBox* textBox = dynamic_cast<gui::TextBox*>(elem.get())) {
 			if (textBox->isFocused()) return true;
 		}
-		else if (std::shared_ptr<gui::Container> container = std::dynamic_pointer_cast<gui::Container>(elem)) {
-			if (hasFocusedTextbox(container)) return true;
+		else if (gui::Container* container = dynamic_cast<gui::Container*>(elem.get())) {
+			if (hasFocusedTextbox(*container)) return true;
 		}
 	}
 	return false;
 }
 
-std::set<std::filesystem::path> workshop::getFiles(const std::filesystem::path& folder, bool recursive) {
-	std::set<std::filesystem::path> files;
+std::vector<std::filesystem::path> workshop::getFiles(const std::filesystem::path& folder, bool recursive) {
+	std::vector<std::filesystem::path> files;
 	if (!std::filesystem::is_directory(folder)) return files;
 	if (recursive) {
 		for (const auto& entry : std::filesystem::recursive_directory_iterator(folder)) {
-			if (entry.is_regular_file()) files.insert(entry.path());
+			if (entry.is_regular_file()) files.emplace_back(entry.path());
 		}
 	}
 	else {
 		for (const auto& entry : std::filesystem::directory_iterator(folder)) {
-			if (entry.is_regular_file()) files.insert(entry.path());
+			if (entry.is_regular_file()) files.emplace_back(entry.path());
 		}
 	}
 	return files;
@@ -195,7 +195,7 @@ void workshop::openPath(const std::filesystem::path& path) {
 std::string workshop::getScriptName(const ContentPack& pack, const std::string& scriptName) {
 	if (scriptName.empty()) return NOT_SET;
 	else if (fs::is_regular_file(pack.folder / ("scripts/" + scriptName + ".lua")))
-		return fs::path(scriptName).stem().string();
+		return fs::relative(pack.folder / "scripts" / scriptName, pack.folder / "scripts/").string();
 	return NOT_SET;
 }
 

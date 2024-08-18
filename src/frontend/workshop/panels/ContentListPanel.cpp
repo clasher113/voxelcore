@@ -11,7 +11,7 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 	const std::function<void(const std::string&)>& callback, float posX)
 {
 	createPanel([this, type, showAll, callback]() {
-		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
+		auto panel = std::make_shared<gui::Panel>(glm::vec2(settings.contentListWidth));
 		panel->setScrollable(true);
 		if (!showAll) {
 			panel->add(std::make_shared<gui::Button>(L"Create " + util::str2wstr_utf8(getDefName(type)), glm::vec4(10.f), [this, type](gui::GUI*) {
@@ -82,7 +82,7 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 				}
 				panel->add(removeList.emplace_back(button));
 			}
-			setSelectable<gui::IconButton>(panel);
+			setSelectable<gui::IconButton>(*panel);
 		};
 		auto textBox = std::make_shared<gui::TextBox>(L"Search");
 		textBox->setTextValidator([this, panel, createList, textBox](const std::wstring&) {

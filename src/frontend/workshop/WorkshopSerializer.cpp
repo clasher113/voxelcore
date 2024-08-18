@@ -10,25 +10,8 @@
 
 #include <algorithm>
 
-void workshop::saveContentPack(const ContentPack& pack) {
-	dynamic::Map root;
-	if (!pack.id.empty()) root.put("id", pack.id);
-	if (!pack.title.empty()) root.put("title", pack.title);
-	if (!pack.version.empty()) root.put("version", pack.version);
-	if (!pack.creator.empty()) root.put("creator", pack.creator);
-	if (!pack.description.empty()) root.put("description", pack.description);
-
-	if (!pack.dependencies.empty()) {
-		auto& dependencies = root.putList("dependencies");
-		for (const auto& elem : pack.dependencies) {
-			if (!elem.id.empty()) dependencies.put(elem.id);
-		}
-		if (dependencies.size() == 0) root.remove("dependencies");
-	}
-	files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, &root);
-}
-
-void workshop::saveBlock(const Block& block, const std::filesystem::path& packFolder, const std::string& actualName) {
+std::string workshop::stringify(const Block& block, const std::string& actualName, bool nice) {
+	json::precision = 5;
 	Block temp("");
 	dynamic::Map root;
 	if (block.model != BlockModel::custom) {
@@ -79,7 +62,7 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 		aabb.b -= aabb.a;
 		putVec3(list, aabb.a); putVec3(list, aabb.b);
 	};
-	if (temp.size != block.size){
+	if (temp.size != block.size) {
 		dynamic::List& sizeList = root.putList("size");
 		sizeList.multiline = false;
 		putVec3(sizeList, block.size);
@@ -137,14 +120,12 @@ void workshop::saveBlock(const Block& block, const std::filesystem::path& packFo
 	if (block.material != DEFAULT_MATERIAL) root.put("material", block.material);
 	if (block.uiLayout != block.name) root.put("ui-layout", block.uiLayout);
 
-	json::precision = 5;
-	std::filesystem::path path = packFolder / ContentPack::BLOCKS_FOLDER;
-	if (!std::filesystem::is_directory(path)) std::filesystem::create_directories(path);
-	files::write_json(path / std::filesystem::path(actualName + ".json"), &root);
+	std::string result = json::stringify(&root, nice, "  ");
 	json::precision = 15;
+	return result;
 }
 
-void workshop::saveItem(const ItemDef& item, const std::filesystem::path& packFolder, const std::string& actualName) {
+std::string workshop::stringify(const ItemDef& item, const std::string& actualName, bool nice) {
 	ItemDef temp("");
 	dynamic::Map root;
 	if (temp.stackSize != item.stackSize) root.put("stack-size", static_cast<int64_t>(item.stackSize));
@@ -157,19 +138,47 @@ void workshop::saveItem(const ItemDef& item, const std::filesystem::path& packFo
 	}
 	std::string iconStr("");
 	switch (item.iconType) {
-	case item_icon_type::none: iconStr = "none";
-		break;
-	case item_icon_type::block: iconStr = "block";
-		break;
+		case item_icon_type::none: iconStr = "none";
+			break;
+		case item_icon_type::block: iconStr = "block";
+			break;
 	}
 	if (!iconStr.empty()) root.put("icon-type", iconStr);
 	if (temp.icon != item.icon) root.put("icon", item.icon);
 	if (temp.placingBlock != item.placingBlock) root.put("placing-block", item.placingBlock);
 	if (item.scriptName != actualName) root.put("script-name", item.scriptName);
 
+	return json::stringify(&root, true, "  ");
+}
+
+void workshop::saveContentPack(const ContentPack& pack) {
+	dynamic::Map root;
+	if (!pack.id.empty()) root.put("id", pack.id);
+	if (!pack.title.empty()) root.put("title", pack.title);
+	if (!pack.version.empty()) root.put("version", pack.version);
+	if (!pack.creator.empty()) root.put("creator", pack.creator);
+	if (!pack.description.empty()) root.put("description", pack.description);
+
+	if (!pack.dependencies.empty()) {
+		auto& dependencies = root.putList("dependencies");
+		for (const auto& elem : pack.dependencies) {
+			if (!elem.id.empty()) dependencies.put(elem.id);
+		}
+		if (dependencies.size() == 0) root.remove("dependencies");
+	}
+	files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, &root);
+}
+
+void workshop::saveBlock(const Block& block, const fs::path& packFolder, const std::string& actualName) {
+	std::filesystem::path path = packFolder / ContentPack::BLOCKS_FOLDER;
+	if (!fs::is_directory(path)) fs::create_directories(path);
+	files::write_string(path / fs::path(actualName + ".json"), stringify(block, actualName, true));
+}
+
+void workshop::saveItem(const ItemDef& item, const fs::path& packFolder, const std::string& actualName) {
 	fs::path path = packFolder / ContentPack::ITEMS_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
-	files::write_json(path / fs::path(actualName + ".json"), &root);
+	files::write_string(path / fs::path(actualName + ".json"), stringify(item, actualName, true));
 }
 
 void workshop::saveDocument(std::shared_ptr<xml::Document> document, const std::filesystem::path& packFolder, const std::string& actualName) {

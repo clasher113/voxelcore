@@ -14,15 +14,15 @@ namespace gui {
 	class Panel;
 }
 
-template<typename T>
-using vec_t = glm::vec<3, T, glm::defaultp>;
+template<glm::length_t L, typename T>
+using vec_t = glm::vec<L, T, glm::defaultp>;
 
 namespace workshop {
 	extern std::shared_ptr<gui::TextBox> createTextBox(std::shared_ptr<gui::Container> container, std::string& string,
 		const std::wstring& placeholder = L"Type here");
 	extern std::shared_ptr<gui::FullCheckBox> createFullCheckBox(std::shared_ptr<gui::Container> container, const std::wstring& string, bool& isChecked, const std::wstring& tooltip = L"");
-	template<typename T>
-	extern std::shared_ptr<gui::UINode> createVectorPanel(vec_t<T>& vec, vec_t<T> min, vec_t<T> max, float width, unsigned int inputType, const std::function<void()>& callback);
+	template<glm::length_t L, typename T>
+	extern std::shared_ptr<gui::UINode> createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, vec_t<L, T> max, float width, unsigned int inputType, const std::function<void()>& callback);
 	extern void createEmissionPanel(std::shared_ptr<gui::Container> container, uint8_t* emission);
 	template<typename T>
 	extern std::shared_ptr<gui::TextBox> createNumTextBox(T& value, const std::wstring& placeholder, T min, T max,

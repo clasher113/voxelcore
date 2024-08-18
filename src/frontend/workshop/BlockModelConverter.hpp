@@ -7,11 +7,17 @@
 class Block;
 class Atlas;
 struct ContentPack;
+namespace dynamic{
+	class Map;
+}
+namespace gui{
+	class UINode;
+}
 
 namespace workshop {
 	class BlockModelConverter {
 	public:
-		static Block* convert(const ContentPack& currentPack, Atlas* blocksAtlas, const std::string& source, const std::string& blockName,
+		static Block* convert(const ContentPack& currentPack, Atlas* blocksAtlas, const dynamic::Map& model, const std::string& blockName,
 			const std::vector<std::string>& textureList);
 	};
 }

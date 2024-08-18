@@ -43,7 +43,7 @@ void workshop::WorkShopScreen::createUILayoutList(bool showAll, unsigned int col
 					panel->add(removeList.emplace_back(button));
 				}
 			}
-			setSelectable<gui::Button>(panel);
+			setSelectable<gui::Button>(*panel);
 		};
 
 		auto textBox = std::make_shared<gui::TextBox>(L"Search");

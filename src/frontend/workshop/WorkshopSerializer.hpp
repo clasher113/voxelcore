@@ -12,6 +12,9 @@ namespace xml {
 }
 
 namespace workshop {
+	extern std::string stringify(const Block& block, const std::string& actualName, bool nice);
+	extern std::string stringify(const ItemDef& item, const std::string& actualName, bool nice);
+
 	extern void saveContentPack(const ContentPack& pack);
 	extern void saveBlock(const Block& block, const std::filesystem::path& packFolder, const std::string& actualName);
 	extern void saveItem(const ItemDef& item, const std::filesystem::path& packFolder, const std::string& actualName);

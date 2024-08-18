@@ -2,7 +2,7 @@
 #define FRONTEND_MENU_WORKSHOP_UTILS_HPP
 
 #include <filesystem>
-#include <set>
+#include <unordered_set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -20,6 +20,7 @@ namespace gui {
 
 inline const std::string NOT_SET = "[not set]";
 inline const std::string BLOCKS_PREVIEW_ATLAS = "blocks_preview";
+inline const std::filesystem::path SETTINGS_FILE("worlds/workshop_settings.json");
 inline constexpr float PANEL_POSITION_AUTO = std::numeric_limits<float>::min();
 
 namespace workshop {
@@ -70,15 +71,15 @@ namespace workshop {
 
 	extern void formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName);
 	template<typename T>
-	extern void setSelectable(std::shared_ptr<gui::Panel> panel);
+	extern void setSelectable(const gui::Panel& panel);
 
 	extern void validateBlock(Assets* assets, Block& block);
 	extern void validateItem(Assets* assets, ItemDef& item);
 	extern bool checkPackId(const std::wstring& id, const std::vector<ContentPack>& scanned);
 
-	extern bool hasFocusedTextbox(const std::shared_ptr<gui::Container> container);
+	extern bool hasFocusedTextbox(const gui::Container& container);
 
-	extern std::set<std::filesystem::path> getFiles(const std::filesystem::path& folder, bool recursive);
+	extern std::vector<std::filesystem::path> getFiles(const std::filesystem::path& folder, bool recursive);
 	extern void openPath(const std::filesystem::path& path);
 
 	template<typename T>

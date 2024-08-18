@@ -32,17 +32,17 @@ std::shared_ptr<gui::FullCheckBox> workshop::createFullCheckBox(std::shared_ptr<
 	return checkbox;
 }
 
-template<typename T>
-std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<T>& vec, vec_t<T> min, vec_t<T> max, float width, unsigned int inputType,
+template<glm::length_t L, typename T>
+std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, vec_t<L, T> max, float width, unsigned int inputType,
 	const std::function<void()>& callback)
 {
 	const std::wstring coords[] = { L"X", L"Y", L"Z" };
 	if (inputType == 0) {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(width));
 		panel->setColor(glm::vec4(0.f));
-		auto coordsString = [coords](const vec_t<T>& vec) {
+		auto coordsString = [coords](const vec_t<L, T>& vec) {
 			std::wstring result;
-			for (typename vec_t<T>::length_type i = 0; i < vec_t<T>::length(); i++) {
+			for (typename vec_t<L, T>::length_type i = 0; i < vec_t<L, T>::length(); i++) {
 				result.append(coords[i] + L":" + util::to_wstring(vec[i], 2) + L" ");
 			}
 			return result;
@@ -50,7 +50,7 @@ std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<T>& vec, vec_t<T>
 		auto label = std::make_shared<gui::Label>(coordsString(vec));
 		panel->add(label);
 
-		for (typename vec_t<T>::length_type i = 0; i < vec_t<T>::length(); i++) {
+		for (typename vec_t<L, T>::length_type i = 0; i < vec_t<L, T>::length(); i++) {
 			auto slider = std::make_shared<gui::TrackBar>(min[i], max[i], vec[i], 0.01f, 5);
 			slider->setConsumer([&vec, i, coordsString, callback, label](double value) {
 				vec[i] = static_cast<float>(value);
@@ -63,7 +63,7 @@ std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<T>& vec, vec_t<T>
 	}
 	auto container = std::make_shared<gui::Container>(glm::vec2(0));
 
-	for (typename vec_t<T>::length_type i = 0; i <  vec_t<T>::length(); i++) {
+	for (typename vec_t<L, T>::length_type i = 0; i <  vec_t<L, T>::length(); i++) {
 		container->add(createNumTextBox(vec[i], coords[i], min[i], max[i], std::function<void(T)>([callback](T num) { callback(); })));
 	}
 	float size = width / 3;
@@ -80,9 +80,9 @@ std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<T>& vec, vec_t<T>
 	return container;
 }
 
-template std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<float>& vec, vec_t<float> min, vec_t<float> max, float width, unsigned int inputType,
+template std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<3, float>& vec, vec_t<3, float> min, vec_t<3, float> max, float width, unsigned int inputType,
 	const std::function<void()>& callback);
-template std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<glm::i8>& vec, vec_t<glm::i8> min, vec_t<glm::i8> max, float width, unsigned int inputType,
+template std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<3, glm::i8>& vec, vec_t<3, glm::i8> min, vec_t<3, glm::i8> max, float width, unsigned int inputType,
 	const std::function<void()>& callback);
 
 void workshop::createEmissionPanel(std::shared_ptr<gui::Container> container, uint8_t* emission) {

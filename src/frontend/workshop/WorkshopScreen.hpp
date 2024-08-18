@@ -54,8 +54,8 @@ namespace workshop {
 		void clearRemoveList(std::shared_ptr<gui::Panel> from);
 		void createPanel(std::function<std::shared_ptr<gui::Panel>()> lambda, unsigned int column, float posX = PANEL_POSITION_AUTO);
 
-		std::shared_ptr<gui::Panel> createTexturesPanel(std::shared_ptr<gui::Panel> panel, float iconSize, std::string* textures, BlockModel model);
-		std::shared_ptr<gui::Panel> createTexturesPanel(std::shared_ptr<gui::Panel> panel, float iconSize, std::string& texture, item_icon_type iconType);
+		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model);
+		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, item_icon_type iconType);
 
 		void createAddingUIElementPanel(float posX, const std::function<void(const std::string&)>& callback, unsigned int filter);
 
@@ -71,6 +71,7 @@ namespace workshop {
 		void createTextureInfoPanel(const std::string& texName, DefType type);
 		void createScriptInfoPanel(const std::filesystem::path& file);
 		void createSoundInfoPanel(const std::filesystem::path& file);
+		void createSettingsPanel();
 
 		void createBlockEditor(Block& block);
 		void createCustomModelEditor(Block& block, size_t index, PrimitiveType type);
@@ -85,13 +86,15 @@ namespace workshop {
 		void createBlockPreview(unsigned int column, PrimitiveType primitiveType);
 		void createUIPreview();
 
+		bool checkUnsaved();
+
 		int framerate;
 		gui::GUI* gui;
 		std::map<unsigned int, std::shared_ptr<gui::Panel>> panels;
 		std::unordered_map<std::string, std::shared_ptr<xml::Document>> xmlDocs;
 		std::vector<std::shared_ptr<gui::UINode>> removeList;
-		std::unordered_set<std::string> blocksList;
-		std::unordered_set<std::string> itemsList;
+		std::unordered_map<std::string, std::string> blocksList;
+		std::unordered_map<std::string, std::string> itemsList;
 		std::unique_ptr<Camera> uicamera;
 
 		ContentPack currentPack;
@@ -102,6 +105,16 @@ namespace workshop {
 		Atlas* blocksAtlas;
 		Atlas* itemsAtlas;
 		Atlas* previewAtlas;
+
+		struct {
+			float previewSensitivity = 1.f;
+			float contentListWidth = 250.f;
+			float blockEditorWidth = 250.f;
+			float customModelEditorWidth = 250.f;
+			float itemEditorWidth = 250.f;
+			float textureListWidth = 250.f;
+			glm::vec2 customModelRange{ 0.f, 1.f };
+		} settings;
 
 		std::unique_ptr<Preview> preview;
 	};

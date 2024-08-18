@@ -13,7 +13,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 
 		std::string actualName(block.name.substr(currentPack.id.size() + 1));
 
-		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
+		auto panel = std::make_shared<gui::Panel>(glm::vec2(settings.blockEditorWidth));
 
 		panel->add(std::make_shared<gui::Label>(actualName));
 
@@ -72,7 +72,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 			}
 			else {
 				createCustomModelEditor(block, 0, PrimitiveType::HITBOX);
-				createTexturesPanel(texturePanel, 35.f, block.textureFaces, block.model);
+				createTexturesPanel(*texturePanel, 35.f, block.textureFaces, block.model);
 			}
 			texturePanel->cropToContent();
 			preview->updateMesh();
@@ -162,6 +162,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		panel->add(createNumTextBox<uint>(block.tickInterval, L"1 - 20tps, 2 - 10tps", 1, 20));
 
 		panel->add(std::make_shared<gui::Button>(L"Save", glm::vec4(10.f), [this, &block, actualName](gui::GUI*) {
+			blocksList[actualName] = stringify(block, actualName, false);
 			saveBlock(block, currentPack.folder, actualName);
 		}));
 		panel->add(std::make_shared<gui::Button>(L"Rename", glm::vec4(10.f), [this, actualName](gui::GUI*) {

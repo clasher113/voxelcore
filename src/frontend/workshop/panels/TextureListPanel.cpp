@@ -9,7 +9,7 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 	const std::function<void(const std::string&)>& callback)
 {
 	createPanel([this, showAll, callback, posX, type]() {
-		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
+		auto panel = std::make_shared<gui::Panel>(glm::vec2(settings.textureListWidth));
 		panel->setScrollable(true);
 
 		auto createList = [this, panel, showAll, callback, posX, type](const std::string& searchName) {
@@ -31,8 +31,14 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 				for (const auto& defPath : defPaths) {
 					if (!fs::exists(defPath.first)) continue;
 					Atlas* atlas = assets->get<Atlas>(getDefFolder(defPath.second));
-					for (const auto& entry : fs::directory_iterator(defPath.first)) {
-						std::string file = entry.path().stem().string();
+					std::vector<fs::path> files = getFiles(defPath.first, false);
+					if (!searchName.empty()) {
+						std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) {
+							return a.stem().string().size() < b.stem().string().size();
+						});
+					}
+					for (const auto& entry : files) {
+						std::string file = entry.stem().string();
 						if (!searchName.empty()) {
 							if (file.find(searchName) == std::string::npos) continue;
 						}
@@ -46,8 +52,8 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 					}
 				}
 			}
-			setSelectable<gui::IconButton>(panel);
-			};
+			setSelectable<gui::IconButton>(*panel);
+		};
 		if (!showAll) {
 			panel->add(std::make_shared<gui::Button>(L"Import", glm::vec4(10.f), [this](gui::GUI*) {
 				createImportPanel();

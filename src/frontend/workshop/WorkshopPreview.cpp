@@ -27,7 +27,7 @@ using namespace workshop;
 vattr attr[] = { 0 };
 
 Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache(cache),
-	blockRenderer(8192, engine->getContent(), cache, &engine->getSettings()),
+	blockRenderer(32768, engine->getContent(), cache, &engine->getSettings()),
 	chunk(new Chunk(0, 0)),
 	world(new World("", "core:default", "", 0, engine->getSettings(), engine->getContent(), engine->getContentPacks())),
 	level(new Level(std::unique_ptr<World>(world), engine->getContent(), engine->getSettings())),
@@ -37,6 +37,7 @@ Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache
     player(std::make_shared<Player>(level, glm::vec3(0.f), 0.f, inventory, 0)),
 	controller(engine->getSettings(), std::unique_ptr<Level>(level)),
 	frontend(player.get(), &controller, engine->getAssets()),
+	cameraPosition(0.f),
 	lineBatch(1024),
 	batch2d(1024),
 	batch3d(1024),
@@ -46,18 +47,27 @@ Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache
 	memset(chunk->voxels, 0, sizeof(chunk->voxels));
 }
 
-void Preview::update(float delta) {
+void Preview::update(float delta, float sensitivity) {
 	if (!lockedKeyboardInput) {
-		if (Events::pressed(keycode::D)) rotate(100.f * delta, 0.f);
-		if (Events::pressed(keycode::A)) rotate(-100.f * delta, 0.f);
-		if (Events::pressed(keycode::S)) rotate(0.f, 100.f * delta);
-		if (Events::pressed(keycode::W)) rotate(0.f, -100.f * delta);
+		float rotateFactor = (100.f * delta) /** sensitivity*/;
+		if (Events::pressed(keycode::D)) rotate(rotateFactor, 0.f);
+		if (Events::pressed(keycode::A)) rotate(-rotateFactor, 0.f);
+		if (Events::pressed(keycode::S)) rotate(0.f, rotateFactor);
+		if (Events::pressed(keycode::W)) rotate(0.f, -rotateFactor);
 		if (Events::pressed(keycode::SPACE)) scale(2.f * delta);
 		if (Events::pressed(keycode::LEFT_SHIFT)) scale(-2.f * delta);
 	}
-	if (mouseLocked) {
-		rotate(-Events::delta.x / 2.f, Events::delta.y / 2.f);
-		if (!Events::clicked(mousecode::BUTTON_1)) mouseLocked = false;
+	if (lmb) {
+		rotate((-Events::delta.x / 2.f) * sensitivity, (Events::delta.y / 2.f) * sensitivity);
+		if (!Events::clicked(mousecode::BUTTON_1)) lmb = false;
+	}
+	if (rmb){
+		glm::vec3 offset = camera.rotation * glm::vec4(Events::delta.x, Events::delta.y, 0.f, 1.f);
+		cameraPosition += (offset / 100.f) * sensitivity;
+		cameraPosition.x = std::clamp(cameraPosition.x, -5.f, 5.f);
+		cameraPosition.y = std::clamp(cameraPosition.y, -5.f, 5.f);
+		cameraPosition.z = std::clamp(cameraPosition.z, -5.f, 5.f);
+		if (!Events::clicked(mousecode::BUTTON_2)) rmb = false;
 	}
 	if (currentUI) {
 		refillTimer += delta;
@@ -138,7 +148,7 @@ void Preview::setResolution(uint width, uint height) {
 	camera.aspect = (float)width / height;
 }
 
-void workshop::Preview::setBlockSize(glm::i8vec3 size) {
+void workshop::Preview::setBlockSize(const glm::i8vec3& size) {
 	blockSize = size;
 	cameraOffset = (glm::vec3(size) + glm::vec3(0.f)) * 0.5f - 0.5f;
 }
@@ -188,7 +198,7 @@ void Preview::drawBlock() {
 	camera.rotation = glm::mat4(1.f);
 	camera.rotate(glm::radians(previewRotation.y), glm::radians(previewRotation.x), 0);
 	camera.position = camera.front * viewDistance;
-	camera.position += cameraOffset;
+	camera.position += cameraOffset + cameraPosition;
 	camera.dir *= -1.f;
 	camera.front *= -1.f;
 
