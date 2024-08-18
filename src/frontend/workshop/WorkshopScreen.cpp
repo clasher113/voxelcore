@@ -126,13 +126,15 @@ void WorkShopScreen::draw(float delta) {
 }
 
 bool WorkShopScreen::initialize() {
+	currentPackId = currentPack.id;
+
 	auto& packs = engine->getContentPacks();
 	packs.clear();
 
 	std::vector<ContentPack> scanned;
 	ContentPack::scanFolder(engine->getPaths()->getResources() / "content", scanned);
 
-	if (currentPack.id != "base") {
+	if (currentPackId != "base") {
 		auto it = std::find_if(scanned.begin(), scanned.end(), [](const ContentPack& pack) {
 			return pack.id == "base";
 		});
@@ -182,14 +184,14 @@ bool WorkShopScreen::initialize() {
 		auto blocks = contentList->list("blocks");
 		for (size_t i = 0; i < blocks->size(); i++) {
 			std::string blockName(blocks->str(i));
-			blocksList[blockName] = stringify(*content->blocks.find(currentPack.id + ':' + blockName), blockName, false);
+			blocksList[blockName] = stringify(*content->blocks.find(currentPackId + ':' + blockName), blockName, false);
 		}
 	}
 	if (contentList->has("items")) {
 		auto items = contentList->list("items");
 		for (size_t i = 0; i < items->size(); i++) {
 			std::string itemName(items->str(i));
-			itemsList[items->str(i)] = stringify(*content->items.find(currentPack.id + ':' + itemName), itemName, false);;
+			itemsList[items->str(i)] = stringify(*content->items.find(currentPackId + ':' + itemName), itemName, false);;
 		}
 	}
 	return 1;
@@ -413,7 +415,7 @@ void WorkShopScreen::createMaterialsList(bool showAll, unsigned int column, floa
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(200));
 
 		for (auto& elem : content->getBlockMaterials()) {
-			if (!showAll && elem.first.substr(0, currentPack.id.length()) != currentPack.id) continue;
+			if (!showAll && elem.first.substr(0, currentPackId.length()) != currentPackId) continue;
 			auto button = std::make_shared<gui::Button>(util::str2wstr_utf8(elem.first), glm::vec4(10.f), [this, &elem, callback](gui::GUI*) {
 				if (callback) callback(elem.first);
 				else createMaterialEditor(const_cast<BlockMaterial&>(*elem.second));
@@ -704,11 +706,11 @@ bool workshop::WorkShopScreen::checkUnsaved() {
 	std::unordered_multimap<DefType, std::string> unsavedList;
 
 	for (const auto& elem : blocksList) {
-		if (elem.second != stringify(*content->blocks.find(currentPack.id + ':' + elem.first), elem.first, false))
+		if (elem.second != stringify(*content->blocks.find(currentPackId + ':' + elem.first), elem.first, false))
 			unsavedList.emplace(DefType::BLOCK, elem.first);
 	}
 	for (const auto& elem : itemsList) {
-		if (elem.second != stringify(*content->items.find(currentPack.id + ':' + elem.first), elem.first, false))
+		if (elem.second != stringify(*content->items.find(currentPackId + ':' + elem.first), elem.first, false))
 			unsavedList.emplace(DefType::ITEM, elem.first);
 	}
 

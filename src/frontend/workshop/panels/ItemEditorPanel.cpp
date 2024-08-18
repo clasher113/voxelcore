@@ -6,7 +6,7 @@
 
 void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 	createPanel([this, &item]() {
-		std::string actualName(item.name.substr(currentPack.id.size() + 1));
+		std::string actualName(item.name.substr(currentPackId.size() + 1));
 		fs::path filePath(currentPack.folder / ContentPack::ITEMS_FOLDER / std::string(actualName + ".json"));
 		bool hasFile = fs::is_regular_file(filePath);
 

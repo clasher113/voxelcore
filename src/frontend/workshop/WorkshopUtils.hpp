@@ -63,6 +63,7 @@ namespace workshop {
 
 	extern std::string getTexName(const std::string& fullName);
 	extern std::string getDefName(DefType type);
+	extern std::string getDefName(const std::string& fullName);
 	extern std::string getScriptName(const ContentPack& pack, const std::string& scriptName);
 	extern std::string getUILayoutName(Assets* assets, const std::string& layoutName);
 

@@ -26,8 +26,8 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 				if (type == DefType::ITEM) fullName = indices->items.get(static_cast<itemid_t>(i))->name;
 				else if (type == DefType::BLOCK) fullName = indices->blocks.get(static_cast<blockid_t>(i))->name;
 
-				if (!showAll && fullName.substr(0, currentPack.id.length()) != currentPack.id) continue;
-				actualName = fullName.substr(std::min(fullName.length(), currentPack.id.length() + 1));
+				if (!showAll && fullName.substr(0, currentPackId.length()) != currentPackId) continue;
+				actualName = fullName.substr(std::min(fullName.length(), currentPackId.length() + 1));
 				if (!searchName.empty() && (showAll ? fullName.find(searchName) : actualName.find(searchName)) == std::string::npos) continue;
 				sorted.emplace_back(fullName, actualName);
 			}

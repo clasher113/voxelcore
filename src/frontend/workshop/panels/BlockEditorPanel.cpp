@@ -11,7 +11,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 	createPanel([this, &block]() {
 		validateBlock(assets, block);
 
-		std::string actualName(block.name.substr(currentPack.id.size() + 1));
+		std::string actualName(block.name.substr(currentPackId.size() + 1));
 
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(settings.blockEditorWidth));
 

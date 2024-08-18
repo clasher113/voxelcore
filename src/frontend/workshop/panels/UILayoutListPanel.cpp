@@ -25,7 +25,7 @@ void workshop::WorkShopScreen::createUILayoutList(bool showAll, unsigned int col
 			else {
 				auto files = getFiles(currentPack.folder / "layouts", false);
 				for (const auto& file : files)
-					layouts.emplace(currentPack.id, file);
+					layouts.emplace(currentPackId, file);
 			}
 
 			for (const auto& elem : layouts) {

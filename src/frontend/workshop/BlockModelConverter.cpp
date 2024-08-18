@@ -65,7 +65,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 				}
 			}
 
-			std::string actualName(block.name.substr(currentPack.id.size() + 1));
+			std::string actualName(block.name.substr(currentPackId.size() + 1));
 			size_t deleteTextures = 0;
 			size_t createTextures = 0;
 			std::unordered_map<std::string, std::vector<std::pair<glm::vec4, int>>> croppedTextures;
@@ -206,6 +206,7 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, At
 
 		{ // delete old textures
 			std::string searchString(blockName + '_');
+			if (!fs::is_directory(texturesPath)) fs::create_directories(texturesPath);
 			for (const auto& elem : fs::directory_iterator(texturesPath)) {
 				if (elem.is_regular_file() && elem.path().extension() == ".png" && elem.path().stem().string().find(searchString) == 0){
 					fs::remove(elem);
@@ -391,7 +392,6 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, At
 							rotateImage(image, rotation);
 						}
 
-						if (!fs::is_directory(texturesPath)) fs::create_directories(texturesPath);
 						imageio::write(fs::path(texturesPath / (textureName + ".png")).string(), image.get());
 					}
 				}

@@ -63,6 +63,10 @@ std::string workshop::getDefName(DefType type) {
 	return "";
 }
 
+std::string workshop::getDefName(const std::string& fullName) {
+	return getTexName(fullName);
+}
+
 std::string workshop::getDefFolder(DefType type) {
 	switch (type) {
 	case DefType::BLOCK: return ContentPack::BLOCKS_FOLDER.string();

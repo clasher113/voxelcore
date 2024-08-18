@@ -74,7 +74,7 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 	createPanel([this]() {
 
 		auto loadIcon = [this]() {
-			std::string icon = currentPack.id + ".icon";
+			std::string icon = currentPackId + ".icon";
 			Texture* iconTex = assets->get<Texture>(icon);
 			if (iconTex == nullptr) {
 				auto iconfile = currentPack.folder / fs::path("icon.png");
@@ -111,7 +111,7 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 			fs::path iconFile(currentPack.folder / "icon.png");
 			if (fs::is_regular_file(iconFile)) {
 				createFileDeletingConfirmationPanel(iconFile, 2, [this, iconImage, loadIcon]() {
-					assets->store(std::unique_ptr<Texture>(nullptr), currentPack.id + ".icon");
+					assets->store(std::unique_ptr<Texture>(nullptr), currentPackId + ".icon");
 					iconImage->setTexture(loadIcon());
 				});
 			}

@@ -98,6 +98,7 @@ namespace workshop {
 		std::unique_ptr<Camera> uicamera;
 
 		ContentPack currentPack;
+		std::string currentPackId;
 		std::unique_ptr<ContentGfxCache> cache;
 		const Content* content;
 		ContentIndices* indices;

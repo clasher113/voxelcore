@@ -19,7 +19,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 
 		std::shared_ptr<xml::Document> xmlDoc(xmlDocs[fullName]);
 		auto updatePreview = [this, xmlDoc](bool forceUpdate = true) {
-			preview->setUiDocument(xmlDoc, engine->getContent()->getPackRuntime(currentPack.id)->getEnvironment(), forceUpdate);
+			preview->setUiDocument(xmlDoc, engine->getContent()->getPackRuntime(currentPackId)->getEnvironment(), forceUpdate);
 		};
 		updatePreview(false);
 
