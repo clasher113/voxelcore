@@ -399,7 +399,7 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, At
 			}
 
 			if (!facesOrder.empty()) {
-				auto& lastFace = facesOrder.begin();
+				auto lastFace = facesOrder.begin();
 
 				for (size_t i = 0; i < std::size(facesNames); i++) {
 					auto it = std::find(facesOrder.begin(), facesOrder.end(), facesNames[i]);
