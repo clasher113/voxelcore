@@ -24,6 +24,7 @@
 #include "../../content/Content.hpp"
 #include "../../audio/audio.hpp"
 #include "WorkshopSerializer.hpp"
+#include "../../content/ContentLoader.hpp"
 
 #define NOMINMAX
 #include "libs/portable-file-dialogs.h"
@@ -82,8 +83,8 @@ WorkShopScreen::~WorkShopScreen() {
 }
 
 void WorkShopScreen::update(float delta) {
-	if (Events::jpressed(keycode::ESCAPE) && !preview->lockedKeyboardInput) {
-		if (panels.size() < 2 && !checkUnsaved()) {
+	if (Events::jpressed(keycode::ESCAPE) && (preview && !preview->lockedKeyboardInput)) {
+		if (panels.size() < 2 && !showUnsaved()) {
 			exit();
 		}
 		else if (panels.size() > 1) removePanel(panels.rbegin()->first);
@@ -101,8 +102,8 @@ void WorkShopScreen::update(float delta) {
 			}
 		}
 		preview->update(delta, settings.previewSensitivity);
+		preview->lockedKeyboardInput = false;
 	}
-	preview->lockedKeyboardInput = false;
 }
 
 void WorkShopScreen::draw(float delta) {
@@ -174,26 +175,8 @@ bool WorkShopScreen::initialize() {
 	itemsAtlas = assets->get<Atlas>("items");
 	blocksAtlas = assets->get<Atlas>("blocks");
 	preview.reset(new Preview(engine, cache.get()));
+	backupDefs();
 
-	if (!fs::is_regular_file(currentPack.getContentFile()))
-		return 1;
-	blocksList.clear();
-	itemsList.clear();
-	auto contentList = files::read_json(currentPack.getContentFile());
-	if (contentList->has("blocks")) {
-		auto blocks = contentList->list("blocks");
-		for (size_t i = 0; i < blocks->size(); i++) {
-			std::string blockName(blocks->str(i));
-			blocksList[blockName] = stringify(*content->blocks.find(currentPackId + ':' + blockName), blockName, false);
-		}
-	}
-	if (contentList->has("items")) {
-		auto items = contentList->list("items");
-		for (size_t i = 0; i < items->size(); i++) {
-			std::string itemName(items->str(i));
-			itemsList[items->str(i)] = stringify(*content->items.find(currentPackId + ':' + itemName), itemName, false);;
-		}
-	}
 	return 1;
 }
 
@@ -236,7 +219,7 @@ std::shared_ptr<gui::Panel> WorkShopScreen::createNavigationPanel() {
 	}));
 	setSelectable<gui::Button>(*panel);
 	auto button = std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [this](gui::GUI*) {
-		if (!checkUnsaved()) exit();
+		if (!showUnsaved()) exit();
 	});
 	panel->add(button);
 
@@ -338,9 +321,9 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 	case BlockModel::block:
 	case BlockModel::aabb: buttonsNum = 6;
 		break;
-	case BlockModel::custom:
-	case BlockModel::xsprite: buttonsNum = 1;
+	case BlockModel::xsprite: buttonsNum = 5;
 		break;
+	default: break;
 	}
 	if (buttonsNum == 0) return;
 	panel.add(removeList.emplace_back(std::make_shared<gui::Label>(buttonsNum == 1 ? L"Texture" : L"Texture faces")));
@@ -360,6 +343,7 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 			});
 		});
 		panel.add(removeList.emplace_back(button));
+		if (model == BlockModel::xsprite && i == 0) i = 3;
 	}
 
 	setSelectable<gui::IconButton>(panel);
@@ -560,7 +544,7 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, DefType 
 		panel->add(std::make_shared<gui::Label>(L"Height: " + std::to_wstring(size.y)));
 		panel->add(std::make_shared<gui::Label>(L"Texture type: " + util::str2wstr_utf8(getDefName(type))));
 		panel->add(std::make_shared<gui::Button>(L"Delete", glm::vec4(10.f), [this, texName, type](gui::GUI*) {
-			if (checkUnsaved()) return;
+			if (showUnsaved()) return;
 			createFileDeletingConfirmationPanel(currentPack.folder / TEXTURES_FOLDER / getDefFolder(type) / std::string(getTexName(texName) + ".png"),
 			3, [this]() {
 					initialize();
@@ -587,7 +571,7 @@ void WorkShopScreen::createImportPanel(DefType type, std::string mode) {
 			else if (mode == "move") createImportPanel(type, "copy");
 		}));
 		panel->add(std::make_shared<gui::Button>(L"Select files", glm::vec4(10.f), [this, type, mode](gui::GUI*) {
-			if (checkUnsaved()) return;
+			if (showUnsaved()) return;
 			auto files = pfd::open_file("", "", { "(.png)", "*.png" }, pfd::opt::multiselect).result();
 			if (files.empty()) return;
 			fs::path path(currentPack.folder / TEXTURES_FOLDER / getDefFolder(type));
@@ -618,7 +602,7 @@ void workshop::WorkShopScreen::createFileDeletingConfirmationPanel(const std::fi
 		panel->add(label);
 
 		panel->add(std::make_shared<gui::Button>(L"Confirm", glm::vec4(10.f), [this, file, column, callback](gui::GUI*) {
-			if (checkUnsaved()) return;
+			if (showUnsaved()) return;
 			std::filesystem::remove(file);
 			removePanel(column);
 			if (callback) callback();
@@ -702,7 +686,24 @@ void WorkShopScreen::createUIPreview() {
 	}, 3);
 }
 
-bool workshop::WorkShopScreen::checkUnsaved() {
+void workshop::WorkShopScreen::backupDefs() {
+	blocksList.clear();
+	itemsList.clear();
+	for (size_t i = 0; i < indices->blocks.count(); i++) {
+		Block* block = indices->blocks.get(i);
+		if (block->name.find(currentPackId) == std::string::npos) continue;
+		std::string blockName(getDefName(block->name));
+		blocksList[blockName] = stringify(*block, blockName, false);
+	}
+	for (size_t i = 0; i < indices->items.count(); i++) {
+		ItemDef* item = indices->items.get(i);
+		if (item->name.find(currentPackId) == std::string::npos) continue;
+		std::string itemName(getDefName(item->name));
+		itemsList[itemName] = stringify(*item, itemName, false);
+	}
+}
+
+bool workshop::WorkShopScreen::showUnsaved() {
 	std::unordered_multimap<DefType, std::string> unsavedList;
 
 	for (const auto& elem : blocksList) {
@@ -714,19 +715,21 @@ bool workshop::WorkShopScreen::checkUnsaved() {
 			unsavedList.emplace(DefType::ITEM, elem.first);
 	}
 
-	if (unsavedList.empty()) return false;
-
+	if (unsavedList.empty() || ignoreUnsaved) {
+		ignoreUnsaved = false;
+		return false;
+	}
 	auto container = std::make_shared<gui::Container>(Window::size());
 	container->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.75f));
 
-	auto outerContainer = std::make_shared<gui::Panel>(Window::size() / 2.f);
-	outerContainer->setColor(glm::vec4(0.5f, 0.5f, 0.5f, 0.25f));
-	outerContainer->listenInterval(0.01f, [this, outerContainer, container]() {
+	auto outerPanel = std::make_shared<gui::Panel>(Window::size() / 2.f);
+	outerPanel->setColor(glm::vec4(0.5f, 0.5f, 0.5f, 0.25f));
+	outerPanel->listenInterval(0.01f, [this, outerPanel, container]() {
 		preview->lockedKeyboardInput = true;
-		outerContainer->setPos(Window::size() / 2.f - outerContainer->getSize() / 2.f);
+		outerPanel->setPos(Window::size() / 2.f - outerPanel->getSize() / 2.f);
 		container->setSize(Window::size());
 	});
-	outerContainer->add(std::make_shared<gui::Label>("You have " + std::to_string(unsavedList.size()) + " unsaved change(s):"));
+	outerPanel->add(std::make_shared<gui::Label>("You have " + std::to_string(unsavedList.size()) + " unsaved change(s):"));
 
 	auto innerPanel = std::make_shared<gui::Panel>(glm::vec2());
 	innerPanel->setColor(glm::vec4(0.f));
@@ -736,13 +739,33 @@ bool workshop::WorkShopScreen::checkUnsaved() {
 		innerPanel->add(std::make_shared<gui::Label>(getDefName(elem.first) + ": " + elem.second));
 	}
 
-	outerContainer->add(innerPanel);
-	outerContainer->add(std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [this, container](gui::GUI*) { gui->remove(container); }));
-	outerContainer->setPos(Window::size() / 2.f - outerContainer->getSize() / 2.f);
-	//outerContainer->add(std::make_shared<gui::Button>(L"Save all", glm::vec4(10.f), [this, container](gui::GUI*) { }));
-	//outerContainer->add(std::make_shared<gui::Button>(L"Discard all", glm::vec4(10.f), [this, container](gui::GUI*) { }));
+	outerPanel->add(innerPanel);
+	auto buttonsContainer = std::make_shared<gui::Container>(glm::vec2(outerPanel->getSize().x, 20));
+	buttonsContainer->add(std::make_shared<gui::Button>(L"Back", glm::vec4(10.f), [this, container](gui::GUI*) { gui->remove(container); }));
+	buttonsContainer->add(std::make_shared<gui::Button>(L"Save all", glm::vec4(10.f), [this, container, unsavedList](gui::GUI*) {
+		for (const auto& pair : unsavedList){
+			if (pair.first == DefType::BLOCK)
+				saveBlock(*content->blocks.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second);
+			else if (pair.first == DefType::ITEM)
+				saveItem(*content->items.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second);
+		}
+		backupDefs();
+		gui->remove(container);
+	}));
+	buttonsContainer->add(std::make_shared<gui::Button>(L"Discard all", glm::vec4(10.f), [this, container](gui::GUI*) {
+		initialize();
+		createNavigationPanel();
+		gui->remove(container);
+	}));
+	buttonsContainer->add(std::make_shared<gui::Button>(L"Ignore once", glm::vec4(10.f), [this, container](gui::GUI*) { 
+		ignoreUnsaved = true;
+		gui->remove(container); 
+	}));
+	placeNodesHorizontally(*buttonsContainer);
+	outerPanel->add(buttonsContainer);
+	outerPanel->setPos(Window::size() / 2.f - outerPanel->getSize() / 2.f);
 
-	container->add(outerContainer);
+	container->add(outerPanel);
 	gui->add(container);
 
 	return true;

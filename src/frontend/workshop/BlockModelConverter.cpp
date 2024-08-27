@@ -13,103 +13,37 @@
 #include "../../graphics/core/Texture.hpp"
 #include "../../coders/imageio.hpp"
 #include "../../content/Content.hpp"
+#include "../../debug/Logger.hpp"
 
 #define NOMINMAX
 #include "libs/portable-file-dialogs.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/hash.hpp"
+#include <array>
 
-struct CroppedTextureData {
-	int rotation;
-	glm::ivec4 rect;
-	std::string name;
-};
+static debug::Logger logger("workshop-converter");
 
-static void rotateImage(std::unique_ptr<ImageData>& image, int angleDegrees);
+static void rotateImage(std::unique_ptr<ImageData>& image, size_t angleDegrees);
 
 void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float posX) {
 	createPanel([this, &block]() {
 		std::shared_ptr<gui::Panel> panel = std::make_shared<gui::Panel>(glm::vec2(300.f));
 
+		std::shared_ptr<BlockModelConverter> converter = nullptr;
+
 		panel->add(std::make_shared<gui::Label>(L"Import model"));
 
 		auto button = std::make_shared<gui::Button>(L"Choose file", glm::vec4(10.f), gui::onaction());
-		button->listenAction([this, button, panel, &block](gui::GUI*) {
-			if (checkUnsaved()) return;
+		button->listenAction([this, button, panel, converter, &block](gui::GUI*) mutable {
+			if (showUnsaved()) return;
+
 			auto file = pfd::open_file("", "", { "(.json)", "*.json" }, pfd::opt::none).result();
 			if (file.empty()) return;
 
-			std::string source = files::read_string(file[0]);
-			auto model = json::parse(source);
-
-			clearRemoveList(panel);
-
-			std::vector<std::shared_ptr<gui::UINode>> nodes;
-
-			nodes.emplace_back(std::make_shared<gui::Label>("File: " + fs::path(file[0]).stem().string()));
-
-			nodes.emplace_back(std::make_shared<gui::Label>("Texture list"));
-			auto textureMap = model->map("textures");
-			if (textureMap != nullptr) {
-				for (const auto& elem : textureMap->values) {
-					auto textureButton = std::make_shared<gui::IconButton>(glm::vec2(50.f), TEXTURE_NOTFOUND, blocksAtlas, TEXTURE_NOTFOUND, elem.first);
-					textureButton->listenAction([this, textureButton, panel](gui::GUI*) {
-						createTextureList(50.f, 6, DefType::BLOCK, panel->getPos().x + panel->getSize().x, true, [this, textureButton](const std::string& textureName) {
-							textureButton->setIcon(getAtlas(assets, textureName), getTexName(textureName));
-							textureButton->setText(getTexName(textureName));
-							textureButton->setId(getTexName(textureName));
-							removePanel(6);
-						});
-					});
-					nodes.emplace_back(textureButton);
-				}
-			}
-
-			std::string actualName(block.name.substr(currentPackId.size() + 1));
+			std::string actualName(getDefName(block.name));
+			converter = std::make_shared<BlockModelConverter>(file.front());
+			size_t newTextures = converter->prepareTextures();
 			size_t deleteTextures = 0;
-			size_t createTextures = 0;
-			std::unordered_map<std::string, std::vector<std::pair<glm::vec4, int>>> croppedTextures;
-
-			auto elementList = model->list("elements");
-			if (elementList != nullptr) {
-				for (size_t i = 0; i < elementList->size(); i++) {
-					const dynamic::Map_sptr& faces = elementList->map(i)->map("faces");
-					for (size_t j = 0; j < faces->size(); j++) {
-						auto it = faces->values.begin();
-						std::advance(it, j);
-						const dynamic::Map_sptr& faceMap = std::get<dynamic::Map_sptr>(it->second);
-						if (faceMap != nullptr) {
-							const dynamic::List_sptr& uvList = faceMap->list("uv");
-							glm::vec4 faceUV(uvList->num(0), uvList->num(1), uvList->num(2), uvList->num(3));
-							if (faceUV.x != 0.f || faceUV.y != 0.f || faceUV.z != 16.f || faceUV.w != 16.f) {
-								std::string textureName = faceMap->get<std::string>("texture");
-								int rotation = 0;
-								if (faceMap->has("rotation")) faceMap->num("rotation", rotation);
-								auto textureParts = croppedTextures.find(textureName);
-								if (textureParts != croppedTextures.end()) {
-									std::vector<std::pair<glm::vec4, int>>& current = textureParts->second;
-									auto found = std::find_if(current.begin(), current.end(), [faceUV, rotation](const std::pair<glm::vec4, int>& data) {
-										if (data.first == faceUV && data.second == rotation) return true;
-										return false;
-									});
-									if (found == current.end()){
-										current.emplace_back(std::pair<glm::vec4, int>(faceUV, rotation));
-									}
-								}
-								else {
-									auto pair = croppedTextures.emplace(textureName, std::vector<std::pair<glm::vec4, int>>());
-									pair.first->second.emplace_back(std::pair<glm::vec4, int>(faceUV, rotation));
-								}
-							}
-						}
-					}
-				}
-			}
-			for (const auto& elem : croppedTextures){
-				for (const auto& elem2 : elem.second){
-					createTextures++;
-				}
-			}
 
 			fs::path texturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
 			if (fs::is_directory(texturesPath)) {
@@ -120,27 +54,37 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 				}
 			}
 
-			auto label = std::make_shared<gui::Label>(std::to_string(deleteTextures) + " Texture(s) will be deleted");
-			label->setColor(glm::vec4(1.f, 0.f, 0.f, 1.f));
-			nodes.emplace_back(label);
-			label = std::make_shared<gui::Label>(std::to_string(createTextures) + " Texture(s) will be created");
-			label->setColor(glm::vec4(0.f, 1.f, 0.f, 1.f));
-			nodes.emplace_back(label);
+			clearRemoveList(panel);
 
-			for (const auto& elem : nodes){
-				panel->add(removeList.emplace_back(elem));
+			std::vector<std::shared_ptr<gui::UINode>> nodes;
+			auto createTexturesLabel = std::make_shared<gui::Label>(std::to_wstring(newTextures) + L" Texture(s) will be created");
+			auto deleteTexturesLabel = std::make_shared<gui::Label>(std::to_wstring(deleteTextures) + L" Texture(s) will be deleted");
+
+			nodes.emplace_back(std::make_shared<gui::Label>("File: " + fs::path(file[0]).stem().string()));
+
+			nodes.emplace_back(std::make_shared<gui::Label>("Texture list"));
+			auto& textureMap = converter->getTextureMap();
+			for (auto& pair : textureMap){
+				auto textureButton = std::make_shared<gui::IconButton>(glm::vec2(50.f), pair.second, blocksAtlas, pair.second, pair.first);
+				textureButton->listenAction([this, textureButton, panel, converter, createTexturesLabel, &pair](gui::GUI*) {
+					createTextureList(50.f, 6, DefType::BLOCK, panel->getPos().x + panel->getSize().x, true, [this, textureButton, converter, createTexturesLabel, &pair](const std::string& textureName) {
+						pair.second = getTexName(textureName);
+						textureButton->setIcon(getAtlas(assets, textureName), pair.second);
+						textureButton->setText(pair.second);
+						createTexturesLabel->setText(std::to_wstring(converter->prepareTextures()) + L" Texture(s) will be created");
+						removePanel(6);
+					});
+				});
+				nodes.emplace_back(textureButton);
 			}
 
-			panel->add(removeList.emplace_back(std::make_shared<gui::Button>(L"Convert", glm::vec4(10.f), [this, panel, actualName, button, model, &block](gui::GUI*) {
-				std::vector<std::string> textureList;
-				for (const auto& elem : panel->getNodes()){
-					auto iconButton = std::dynamic_pointer_cast<gui::IconButton>(elem);
-					if (!iconButton) continue;
-					const std::string id = iconButton->getId();
-					textureList.emplace_back(id.empty() ? TEXTURE_NOTFOUND : id);
-				}
+			deleteTexturesLabel->setColor(glm::vec4(1.f, 0.f, 0.f, 1.f));
+			nodes.emplace_back(deleteTexturesLabel);
+			createTexturesLabel->setColor(glm::vec4(0.f, 1.f, 0.f, 1.f));
+			nodes.emplace_back(createTexturesLabel);
 
-				if (Block* converted = BlockModelConverter::convert(currentPack, blocksAtlas, *model, actualName, textureList)){
+			nodes.emplace_back(std::make_shared<gui::Button>(L"Convert", glm::vec4(10.f), [this, panel, actualName, converter, &block](gui::GUI*) {
+				if (Block* converted = converter->convert(currentPack, blocksAtlas, actualName)){
 					bool append = false;
 					blockid_t id = block.rt.id;
 					removePanels(1);
@@ -161,10 +105,13 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 					createContentList(DefType::BLOCK);
 					createBlockEditor(*converting);
 					createCustomModelEditor(*converting, 0, PrimitiveType::AABB);
+					delete converted;
 				}
-			})));
+			}));
 
-			button->setId(source);
+			for (const auto& elem : nodes) {
+				panel->add(removeList.emplace_back(elem));
+			}
 		});
 		panel->add(button);
 
@@ -172,255 +119,281 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 	}, 5, posX);
 }
 
-Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, Atlas* blocksAtlas, const dynamic::Map& model, const std::string& blockName,
-	const std::vector<std::string>& textureList)
-{
-	Block* block = nullptr;
+workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& filePath) {
+	float gridSize = 16.f;
+	glm::ivec2 textureSize(16);
 
-	try {
-		float gridSize = 16.f;
-		Texture* blocksTexture = blocksAtlas->getTexture();
-		const fs::path texturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
-		const std::unique_ptr<ImageData> imageData = blocksTexture->readData();
-		glm::ivec2 textureSize(16.f);
-		const std::string facesNames[] = { "east", "west", "down", "up", "south", "north" };
-		std::unordered_map<std::string, std::string> textures;
-		std::unordered_map<std::string, std::vector<CroppedTextureData>> croppedTextures;
+	std::string source = files::read_string(filePath);
+	auto model = json::parse(source);
 
-		auto elementList = model.list("elements");
-		if (elementList == nullptr) return block;
-
-		//auto textureSizeList = model->list("texture_size");
-		//if (textureSizeList != nullptr){
-		//	textureSize = glm::vec2(textureSizeList->integer(0), textureSizeList->integer(1));
-		//}
-
-		auto textureMap = model.map("textures");
-		if (textureMap != nullptr) {
-			for (size_t i = 0; i < textureMap->size(); i++) {
-				auto it = textureMap->values.begin();
-				std::advance(it, i);
-				textures.emplace(it->first, textureList[i]);
-			}
-		};
-
-		{ // delete old textures
-			std::string searchString(blockName + '_');
-			if (!fs::is_directory(texturesPath)) fs::create_directories(texturesPath);
-			for (const auto& elem : fs::directory_iterator(texturesPath)) {
-				if (elem.is_regular_file() && elem.path().extension() == ".png" && elem.path().stem().string().find(searchString) == 0){
-					fs::remove(elem);
-				}
-			}
+	auto textureMap = model->map("textures");
+	if (textureMap != nullptr) {
+		for (size_t i = 0; i < textureMap->size(); i++) {
+			auto it = textureMap->values.begin();
+			std::advance(it, i);
+			textureList.emplace(it->first, TEXTURE_NOTFOUND);
 		}
+	};
 
+	auto elementList = model->list("elements");
+	if (elementList != nullptr) {
 		for (size_t i = 0; i < elementList->size(); i++) {
-			if (block == nullptr) block = new Block("");
-
 			const dynamic::Map_sptr& element = elementList->map(i);
 
-			float angle = 0.f;
-			glm::vec3 axis(0.f);
-			glm::vec3 origin(0.f);
+			PrimitiveData primitiveData;
 
-			PrimitiveType primitiveType = PrimitiveType::AABB;
-			if (element->has("rotation")){
+			if (element->has("rotation")) {
 				const dynamic::Map_sptr& rotationMap = element->map("rotation");
-				std::string axis_str;
-				std::set<std::string> a{ "x", "y", "z" };
-				rotationMap->str("axis", axis_str);
-				axis[std::distance(a.begin(), a.find(axis_str))] = 1.f;
-				rotationMap->num("angle", angle);
-				if (angle) primitiveType = PrimitiveType::TETRAGON;
+				size_t axisIndex = 0;
+
+				if (rotationMap->has("axis")){
+					std::string a[] = { "x", "y", "z" };
+					std::string axisStr = rotationMap->get<std::string>("axis");
+					auto it = std::find(std::begin(a), std::end(a), axisStr);
+					if (it != std::end(a)){
+						axisIndex = std::distance(std::begin(a), it);
+					}
+				}
+				primitiveData.axis[axisIndex] = 1.f;
+
+				if (rotationMap->has("angle"))
+					primitiveData.rotation[axisIndex] = rotationMap->get<float>("angle");
+
 				const dynamic::List_sptr& originList = rotationMap->list("origin");
-				origin = glm::vec3(1.f - originList->num(0) / gridSize, originList->num(1) / gridSize, originList->num(2) / gridSize);
+				if (originList != nullptr)
+					primitiveData.origin = glm::vec3(1.f - originList->num(0) / gridSize, originList->num(1) / gridSize, originList->num(2) / gridSize);
 			}
 
 			const dynamic::List_sptr& fromList = element->list("from");
 			const dynamic::List_sptr& toList = element->list("to");
 
-			glm::vec3 from(1 - fromList->num(0) / gridSize, fromList->num(1) / gridSize, 1 - fromList->num(2) / gridSize);
-			glm::vec3 to(1 - toList->num(0) / gridSize, toList->num(1) / gridSize, 1 - toList->num(2) / gridSize);
+			primitiveData.aabb.a = glm::vec3(1 - fromList->num(0) / gridSize, fromList->num(1) / gridSize, 1 - fromList->num(2) / gridSize);
+			primitiveData.aabb.b = glm::vec3(1 - toList->num(0) / gridSize, toList->num(1) / gridSize, 1 - toList->num(2) / gridSize);
 
-			if (primitiveType == PrimitiveType::AABB) {
-				block->modelBoxes.emplace_back(AABB(from, to));
+			const dynamic::Map_sptr& facesMap = element->map("faces");
+			if (facesMap != nullptr) {
+				std::vector<std::string> facesOrder;
+				const std::string facesNames[] = { "east", "west", "down", "up", "south", "north" };
+
+				for (const auto& elem : facesMap->values) {
+					size_t faceIndex = std::distance(std::begin(facesNames), std::find(std::begin(facesNames), std::end(facesNames), elem.first));
+					TextureData& currentTexture = primitiveData.textures[faceIndex];
+					const dynamic::Map_sptr& faceMap = std::get<dynamic::Map_sptr>(elem.second);
+					facesOrder.emplace_back(elem.first);
+
+					const dynamic::List_sptr& uvList = faceMap->list("uv");
+					if (uvList != nullptr){
+						currentTexture.uv = UVRegion(uvList->num(0) / textureSize.x, 1 - uvList->num(1) / textureSize.y,
+							uvList->num(2) / textureSize.x, 1 - uvList->num(3) / textureSize.y);
+					}
+					if (faceMap->has("rotation")){
+						currentTexture.rotation = faceMap->get<int>("rotation");
+					}
+					if (primitiveData.rotation == glm::vec3(0.f) && elem.first == facesNames[3])
+						currentTexture.rotation += 180;
+					if (faceMap->has("texture")){
+						currentTexture.name = faceMap->get<std::string>("texture").erase(0, 1);
+					}
+				}
+
+				if (!facesOrder.empty()) {
+					auto lastFace = facesOrder.begin();
+
+					for (size_t i = 0; i < std::size(facesNames); i++) {
+						auto it = std::find(facesOrder.begin(), facesOrder.end(), facesNames[i]);
+						if (it != facesOrder.end()) {
+							lastFace = it;
+						}
+						else {
+							primitiveData.textures[i] = primitiveData.textures[std::distance(std::begin(facesNames),
+								std::find(std::begin(facesNames), std::end(facesNames), *lastFace))];
+						}
+					}
+				}
 			}
-			else if (primitiveType == PrimitiveType::TETRAGON){
+
+			primitives.emplace_back(primitiveData);
+		}
+	};
+}
+
+size_t workshop::BlockModelConverter::prepareTextures() {
+	croppedTextures.clear();
+	preparedTextures.clear();
+	size_t uniqueTextures = 0;
+
+	for (const auto& primitive : primitives) {
+		for (size_t i = 0; i < std::size(primitive.textures); i++) {
+			const TextureData& currentTexture = primitive.textures[i];
+
+			std::string textureName = TEXTURE_NOTFOUND;
+			if (textureList.find(currentTexture.name) != textureList.end()) {
+				textureName = textureList.at(currentTexture.name);
+			}
+
+			if (currentTexture.isUnique()) {
+				const auto textureParts = croppedTextures.find(textureName);
+				if (textureParts != croppedTextures.end()) {
+					std::vector<TextureData>& current = textureParts->second;
+					auto found = std::find_if(current.begin(), current.end(), [&currentTexture](const TextureData& data) {
+						if (data.uv == currentTexture.uv && data.rotation == currentTexture.rotation) return true;
+						return false;
+					});
+					if (found != current.end()) {
+						textureName = found->name;
+					}
+					else {
+						textureName.append("_" + std::to_string(textureParts->second.size()));
+						current.emplace_back(currentTexture).name = textureName;
+						uniqueTextures++;
+					}
+				}
+				else {
+					auto pair = croppedTextures.emplace(textureName, std::vector<TextureData>());
+					textureName.append("_0");
+					pair.first->second.emplace_back(currentTexture).name = textureName;
+					uniqueTextures++;
+				}
+			}
+
+			preparedTextures.emplace_back(textureName);
+		}
+	}
+	return uniqueTextures;
+}
+
+Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, Atlas* blocksAtlas, const std::string& blockName) {
+	Block* block = nullptr;
+
+	try {
+		Texture* const blocksTexture = blocksAtlas->getTexture();
+		const fs::path texturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
+		const std::unique_ptr<ImageData> imageData = blocksTexture->readData();
+
+		if (primitives.empty()) return block;
+		for (const auto& primitive : primitives){ // apply new primitives
+			if (block == nullptr) block = new Block("");
+
+			const PrimitiveType primitiveType = primitive.rotation == glm::vec3(0.f) ? PrimitiveType::AABB : PrimitiveType::TETRAGON;
+
+			if (primitive.rotation == glm::vec3(0.f)){
+				block->modelBoxes.emplace_back(primitive.aabb);
+			}
+			else {
 				size_t index = block->modelExtraPoints.size();
 				// east (left)
-				block->modelExtraPoints.emplace_back(to.x, from.y, to.z);
-				block->modelExtraPoints.emplace_back(to.x, from.y, from.z);
-				block->modelExtraPoints.emplace_back(to.x, to.y, from.z);
-				block->modelExtraPoints.emplace_back(to.x, to.y, to.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.b.z);
 
 				// west (right)
-				block->modelExtraPoints.emplace_back(from.x, from.y, from.z);
-				block->modelExtraPoints.emplace_back(from.x, from.y, to.z);
-				block->modelExtraPoints.emplace_back(from.x, to.y, to.z);
-				block->modelExtraPoints.emplace_back(from.x, to.y, from.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.a.z);
 
 				// down (bottom)
-				block->modelExtraPoints.emplace_back(from.x, from.y, from.z);
-				block->modelExtraPoints.emplace_back(to.x, from.y, from.z);
-				block->modelExtraPoints.emplace_back(to.x, from.y, to.z);
-				block->modelExtraPoints.emplace_back(from.x, from.y, to.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.b.z);
 
 				// up (top)
-				block->modelExtraPoints.emplace_back(from.x, to.y, to.z);
-				block->modelExtraPoints.emplace_back(to.x, to.y, to.z);
-				block->modelExtraPoints.emplace_back(to.x, to.y, from.z);
-				block->modelExtraPoints.emplace_back(from.x, to.y, from.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.a.z);
 
 				// south (back)
-				block->modelExtraPoints.emplace_back(from.x, from.y, to.z);
-				block->modelExtraPoints.emplace_back(to.x, from.y, to.z);
-				block->modelExtraPoints.emplace_back(to.x, to.y, to.z);
-				block->modelExtraPoints.emplace_back(from.x, to.y, to.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.b.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.b.z);
 
 				// north (front)
-				block->modelExtraPoints.emplace_back(to.x, from.y, from.z);
-				block->modelExtraPoints.emplace_back(from.x, from.y, from.z);
-				block->modelExtraPoints.emplace_back(from.x, to.y, from.z);
-				block->modelExtraPoints.emplace_back(to.x, to.y, from.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.a.z);
+				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.a.z);
 
-				glm::mat4 mat = glm::translate(glm::mat4(1.f), origin);
-				mat = glm::rotate(mat, glm::radians(angle), axis * glm::vec3(-1.f, 1.f,-1.f));
-				mat = glm::translate(mat,-origin);
+				glm::mat4 mat = glm::translate(glm::mat4(1.f), primitive.origin);
+				mat = glm::rotate(mat, glm::radians(primitive.rotation.x) * (primitive.axis.x * -1.f), glm::vec3(1.f, 0.f, 0.f));
+				mat = glm::rotate(mat, glm::radians(primitive.rotation.y) * (primitive.axis.y), glm::vec3(0.f, 1.f, 0.f));
+				mat = glm::rotate(mat, glm::radians(primitive.rotation.z) * (primitive.axis.z * -1.f), glm::vec3(0.f, 0.f, 1.f));
+				mat = glm::translate(mat, -primitive.origin);
 
 				for (size_t i = index; i < index + 24; i++) {
 					block->modelExtraPoints[i] = mat * glm::vec4(block->modelExtraPoints[i], 1.f);
 				}
 			}
+		}
 
-			std::vector<std::string> facesOrder;
+		for (const auto& textureName : preparedTextures){ // apply new textures
+			block->modelTextures.emplace_back(blockName + '_' + textureName);
+		}
 
-			size_t texturesIndex = block->modelTextures.size();
-			block->modelTextures.resize(texturesIndex + 6);
-
-			const dynamic::Map_sptr& facesMap = element->map("faces");
-			for (const auto& elem : facesMap->values){
-				const dynamic::Map_sptr& faceMap = std::get<dynamic::Map_sptr>(elem.second);
-				facesOrder.emplace_back(elem.first);
-
-				size_t currentIndex = texturesIndex + std::distance(std::begin(facesNames), std::find(std::begin(facesNames), std::end(facesNames), elem.first));
-
-				std::string textureName = TEXTURE_NOTFOUND;
-
-				if (faceMap != nullptr) {
-					faceMap->str("texture", textureName);
-					textureName.erase(0, 1);
-					if (textures.find(textureName) != textures.end()) {
-						textureName = textures[textureName];
-					}
-					else textureName = TEXTURE_NOTFOUND;
-
-					const UVRegion& textureUV = blocksAtlas->get(textureName);
-
-					const dynamic::List_sptr& uvList = faceMap->list("uv");
-					UVRegion faceUV(uvList->num(0) / textureSize.x, 1 - uvList->num(1) / textureSize.y,
-									uvList->num(2) / textureSize.x, 1 - uvList->num(3) / textureSize.y);
-
-					int rotation = 0;
-					if (faceMap->has("rotation")){
-						faceMap->num("rotation", rotation);
-					}
-					if (primitiveType == PrimitiveType::AABB && elem.first == facesNames[3]) {
-						rotation += 180;
-					}
-					glm::ivec2 position = glm::ivec2(textureUV.u1 * blocksTexture->getWidth(), textureUV.v1 * blocksTexture->getHeight());
-					glm::ivec2 size = glm::ivec2(textureUV.u2 * blocksTexture->getWidth(), textureUV.v2 * blocksTexture->getHeight()) - position;
-
-					glm::ivec2 localPos = glm::ivec2(faceUV.u1 * size.x, faceUV.v1 * size.y);
-					position += localPos;
-					size = glm::ivec2(faceUV.u2 * size.x, faceUV.v2 * size.y) - localPos;
-
-					glm::ivec4 rect(localPos, size);
-
-					if (faceUV.u1 != 0.f || faceUV.v1 != 0.f || faceUV.u2 != 1.f || faceUV.v2 != 1.f) {
-						auto textureParts = croppedTextures.find(textureName);
-						if (textureParts != croppedTextures.end()) {
-							std::vector<CroppedTextureData>& current = textureParts->second;
-							auto found = std::find_if(current.begin(), current.end(), [rect, rotation](const CroppedTextureData& data) {
-								if (data.rect == rect && data.rotation == rotation) return true;
-								return false;
-							});
-							if (found != current.end()) {
-								block->modelTextures[currentIndex] = found->name;
-								continue;
-							}
-							else {
-								textureName = blockName + "_" + textureName + "_" + std::to_string(textureParts->second.size());
-								current.emplace_back(CroppedTextureData{ rotation, rect, textureName });
-							}
-						}
-						else {
-							auto pair = croppedTextures.emplace(textureName, std::vector<CroppedTextureData>());
-							textureName = blockName + "_" + textureName + "_" + std::to_string(pair.first->second.size());
-							pair.first->second.emplace_back(CroppedTextureData{ rotation, rect, textureName });
-						}
-
-						bool flipX = false, flipY = false;
-
-						if (size.x < 0) {
-							size.x *= -1;
-							position.x -= size.x;
-							flipX = true;
-						}
-						if (size.y < 0) {
-							size.y *= -1;
-							position.y -= size.y;
-							flipY = true;
-						}
-						size = glm::max(size, glm::ivec2(1));
-
-						std::unique_ptr<ubyte[]> data(new ubyte[size.x * size.y * 4]);
-
-						unsigned int location = position.y * blocksTexture->getWidth() * 4 + position.x * 4;
-
-						for (int j = 0; j < size.y; j++) {
-							memcpy(&data[j * (size.x * 4)], &imageData->getData()[location], size.x * 4);
-							location += blocksTexture->getWidth() * 4;
-						}
-
-						std::unique_ptr<ImageData> image(new ImageData(ImageFormat::rgba8888, size.x, size.y, std::move(data)));
-
-
-						if (flipX) image->flipX();
-						if (flipY) image->flipY();
-						if (rotation >= 360) rotation -= 360;
-						if (rotation){
-							rotateImage(image, rotation);
-						}
-
-						imageio::write(fs::path(texturesPath / (textureName + ".png")).string(), image.get());
-					}
-				}
-				block->modelTextures[currentIndex] = textureName;
-			}
-
-			if (!facesOrder.empty()) {
-				auto lastFace = facesOrder.begin();
-
-				for (size_t i = 0; i < std::size(facesNames); i++) {
-					auto it = std::find(facesOrder.begin(), facesOrder.end(), facesNames[i]);
-					if (it != facesOrder.end()) {
-						lastFace = it;
-					}
-					else {
-						block->modelTextures[texturesIndex + i] = block->modelTextures[texturesIndex + std::distance(std::begin(facesNames),
-							std::find(std::begin(facesNames), std::end(facesNames), *lastFace))];
-					}
+		{ // delete old textures
+			std::string searchString(blockName + '_');
+			if (!fs::is_directory(texturesPath)) fs::create_directories(texturesPath);
+			for (const auto& elem : fs::directory_iterator(texturesPath)) {
+				if (elem.is_regular_file() && elem.path().extension() == ".png" && elem.path().stem().string().find(searchString) == 0) {
+					fs::remove(elem);
 				}
 			}
 		}
+
+		for (const auto& pair : croppedTextures) { // write new textures
+			const UVRegion& textureUV = blocksAtlas->get(pair.first);
+			const glm::ivec2 globalPosition = glm::ivec2(textureUV.u1 * blocksTexture->getWidth(), textureUV.v1 * blocksTexture->getHeight());
+			const glm::ivec2 globalSize = glm::ivec2(textureUV.u2 * blocksTexture->getWidth(), textureUV.v2 * blocksTexture->getHeight()) - globalPosition;
+
+			for(const auto& croppedTexture : pair.second){
+				glm::ivec2 localPosition = glm::ivec2(croppedTexture.uv.u1 * globalSize.x, croppedTexture.uv.v1 * globalSize.y);
+				glm::ivec2 localSize = glm::ivec2(croppedTexture.uv.u2 * globalSize.x, croppedTexture.uv.v2 * globalSize.y) - localPosition;
+				localPosition += globalPosition;
+
+				glm::bvec2 flip(false, false);
+
+				for (size_t i = 0; i < 2; i++) {
+					if (localSize[i] < 0) {
+						localSize[i] *= -1;
+						localPosition[i] -= localSize[i];
+						flip[i] = true;
+					}
+				}
+				localSize = glm::max(localSize, glm::ivec2(1));
+
+				std::unique_ptr<ubyte[]> data(new ubyte[localSize.x * localSize.y * 4]);
+
+				unsigned int location = localPosition.y * blocksTexture->getWidth() * 4 + localPosition.x * 4;
+
+				for (int j = 0; j < localSize.y; j++) {
+					memcpy(&data[j * (localSize.x * 4)], &imageData->getData()[location], localSize.x * 4);
+					location += blocksTexture->getWidth() * 4;
+				}
+
+				std::unique_ptr<ImageData> image(new ImageData(ImageFormat::rgba8888, localSize.x, localSize.y, std::move(data)));
+
+				if (flip.x) image->flipX();
+				if (flip.y) image->flipY();
+				size_t rotation = abs(croppedTexture.rotation) % 360;
+				if (rotation) {
+					rotateImage(image, rotation);
+				}
+
+				imageio::write(fs::path(texturesPath / (blockName + '_' + croppedTexture.name + ".png")).string(), image.get());
+			}
+		}
 	}
-	catch (const std::exception&) {
+	catch (const std::exception& e) {
+		logger.error() << e.what();
 		return block;
 	}
 	return block;
 }
 
-static void rotateImage(std::unique_ptr<ImageData>& image, int angleDegrees) {	
+static void rotateImage(std::unique_ptr<ImageData>& image, size_t angleDegrees) {	
 	if (image->getFormat() != ImageFormat::rgba8888) return;
 
 	uint width = image->getWidth();

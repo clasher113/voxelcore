@@ -12,6 +12,7 @@ class Atlas;
 class Block;
 struct ItemDef;
 struct ContentPack;
+struct UVRegion;
 namespace gui {
 	class Image;
 	class Panel;
@@ -70,9 +71,12 @@ namespace workshop {
 	extern std::string getDefFolder(DefType type);
 	extern std::string getDefFileFormat(DefType type);
 
+	extern bool operator==(const UVRegion& left, const UVRegion& right);
+
 	extern void formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName);
 	template<typename T>
 	extern void setSelectable(const gui::Panel& panel);
+	extern void placeNodesHorizontally(gui::Container& container);
 
 	extern void validateBlock(Assets* assets, Block& block);
 	extern void validateItem(Assets* assets, ItemDef& item);

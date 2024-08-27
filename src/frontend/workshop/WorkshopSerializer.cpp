@@ -15,8 +15,7 @@ std::string workshop::stringify(const Block& block, const std::string& actualNam
 	Block temp("");
 	dynamic::Map root;
 	if (block.model != BlockModel::custom) {
-		if (std::all_of(std::cbegin(block.textureFaces), std::cend(block.textureFaces), [&r = block.textureFaces[0]](const std::string& value) {return value == r; }) ||
-			block.model == BlockModel::xsprite) {
+		if (std::all_of(std::cbegin(block.textureFaces), std::cend(block.textureFaces), [&r = block.textureFaces[0]](const std::string& value) {return value == r; })) {
 			root.put("texture", block.textureFaces[0]);
 		}
 		else {
@@ -77,11 +76,15 @@ std::string workshop::stringify(const Block& block, const std::string& actualNam
 		}
 	}
 	else if (!block.hitboxes.empty()) {
-		auto& hitboxesArr = root.putList("hitboxes");
-		for (const auto& hitbox : block.hitboxes) {
-			auto& hitboxArr = hitboxesArr.putList();
-			hitboxArr.multiline = false;
-			putAABB(hitboxArr, hitbox);
+		if (!std::equal(block.hitboxes.begin(), block.hitboxes.end(), block.modelBoxes.begin(), block.modelBoxes.end(), [](const AABB& hitbox, const AABB& modelBox) {
+			return hitbox.a == modelBox.a && hitbox.b == modelBox.b;
+		})) {
+			auto& hitboxesArr = root.putList("hitboxes");
+			for (const auto& hitbox : block.hitboxes) {
+				auto& hitboxArr = hitboxesArr.putList();
+				hitboxArr.multiline = false;
+				putAABB(hitboxArr, hitbox);
+			}
 		}
 	}
 

@@ -13,6 +13,15 @@ void workshop::WorkShopScreen::createDefActionPanel(DefAction action, DefType ty
 		const std::wstring defName(util::str2wstr_utf8(getDefName(type)));
 
 		panel->add(std::make_shared<gui::Label>(buttonAct[static_cast<int>(action)] + L' ' + defName));
+		if (type == DefType::BLOCK && action == DefAction::RENAME) {
+			fs::path itemFile(currentPack.folder / getDefFolder(DefType::ITEM) / (name + BLOCK_ITEM_SUFFIX + getDefFileFormat(DefType::ITEM)));
+			if (fs::is_regular_file(itemFile)) {
+				panel->add(std::make_shared<gui::Label>("This block has item file"));
+				panel->add(std::make_shared<gui::Label>(itemFile.stem().string()));
+				panel->add(std::make_shared<gui::Label>("Delete item file first"));
+				return panel;
+			};
+		}
 		std::shared_ptr<gui::TextBox> nameInput;
 		std::shared_ptr<gui::Button> uiRootButton;
 		if (action == DefAction::CREATE_NEW && type == DefType::UI_LAYOUT) {
@@ -52,7 +61,7 @@ void workshop::WorkShopScreen::createDefActionPanel(DefAction action, DefType ty
 				if (!nameInput->validate()) return;
 				input = util::wstr2str_utf8(nameInput->getInput());
 			}
-			if (reInitialize && checkUnsaved()) return;
+			if (reInitialize && showUnsaved()) return;
 			fs::path path(currentPack.folder / getDefFolder(type));
 			const std::string fileFormat(getDefFileFormat(type));
 			if (!fs::is_directory(path)) fs::create_directory(path);
@@ -74,7 +83,7 @@ void workshop::WorkShopScreen::createDefActionPanel(DefAction action, DefType ty
 			}
 			else if (action == DefAction::DELETE) {
 				if (type == DefType::BLOCK) {
-					fs::path blockItemFilePath(currentPack.folder / getDefFolder(DefType::ITEM) / fs::path(name + BLOCK_ITEM_SUFFIX + fileFormat));
+					fs::path blockItemFilePath(currentPack.folder / getDefFolder(DefType::ITEM) / (name + BLOCK_ITEM_SUFFIX + fileFormat));
 					if (fs::is_regular_file(blockItemFilePath)) fs::remove(blockItemFilePath);
 				}
 				fs::remove(path / (name + fileFormat));

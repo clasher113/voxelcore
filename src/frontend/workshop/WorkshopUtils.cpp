@@ -11,13 +11,14 @@
 #include "../../voxels/Block.hpp"
 #include "IncludeCommons.hpp"
 #include "../UiDocument.hpp"
-
-#include <iostream>
+#include "../../debug/Logger.hpp"
 
 #ifdef _WIN32
 #define NOMINMAX
 #include "Windows.h"
 #endif // _WIN32
+
+static debug::Logger logger("workshop-validator");
 
 namespace workshop {
 const std::unordered_map<std::string, UIElementInfo> uiElementsArgs {
@@ -85,6 +86,10 @@ std::string workshop::getDefFileFormat(DefType type) {
 	return "";
 }
 
+bool workshop::operator==(const UVRegion& left, const UVRegion& right) {
+	return left.u1 == right.u1 && left.u2 == right.u2 && left.v1 == right.v1 && left.v2 == right.v2;
+}
+
 void workshop::formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName) {
 	const UVRegion& region = atlas->get(texName);
 	glm::vec2 textureSize((region.u2 - region.u1) * atlas->getTexture()->getWidth(), (region.v2 - region.v1) * atlas->getTexture()->getHeight());
@@ -115,36 +120,37 @@ void workshop::setSelectable(const gui::Panel& panel) {
 	}
 }
 
+void workshop::placeNodesHorizontally(gui::Container& container) {
+	auto& nodes = container.getNodes();
+	float width = container.getSize().x / nodes.size();
+	float height = 0.f;
+	size_t i = 0;
+	for (auto& elem : nodes) {
+		elem->setSize(glm::vec2(width - elem->getMargin().x - 4, elem->getSize().y));
+		elem->setPos(glm::vec2(width * i++, 0.f));
+		height = elem->getSize().y;
+	}
+	container.setSize(glm::vec2(container.getSize().x, height));
+	container.setScrollable(false);
+}
+
 void workshop::validateBlock(Assets* assets, Block& block) {
 	Atlas* blocksAtlas = assets->get<Atlas>("blocks");
 	auto checkTextures = [&block, blocksAtlas](std::string* begin, std::string* end) {
 		for (std::string* it = begin; it != end; it++) {
 			if (blocksAtlas->has(*it)) continue;
-			std::cout << "the texture \"" << *it << "\" in block \"" << block.name << "\" was removed since the texture does not exist" << std::endl;
+			logger.info() << "the texture \"" << *it << "\" in block \"" << block.name << "\" was removed since the texture does not exist";
 			*it = TEXTURE_NOTFOUND;
 		}
 	};
 	checkTextures(std::begin(block.textureFaces), std::end(block.textureFaces));
 	checkTextures(block.modelTextures.data(), block.modelTextures.data() + block.modelTextures.size());
-	if (block.modelBoxes.size() == block.hitboxes.size()) {
-		bool removeHitboxes = true;
-		for (size_t i = 0; i < block.hitboxes.size(); i++) {
-			if (block.hitboxes[i].a == block.modelBoxes[i].a &&
-				block.hitboxes[i].b == block.modelBoxes[i].b) continue;
-			removeHitboxes = false;
-			break;
-		}
-		if (removeHitboxes) {
-			block.hitboxes.clear();
-			std::cout << "removed generated hitboxes in block \"" << block.name << "\"" << std::endl;
-		}
-	}
 }
 
 void workshop::validateItem(Assets* assets, ItemDef& item) {
 	Atlas* atlas = getAtlas(assets, item.icon);
 	if (!atlas->has((item.iconType == item_icon_type::block ? item.icon : getTexName(item.icon)))) {
-		std::cout << "invalid icon \"" << item.icon << "\" was reset in item \"" << item.name << "\"" << std::endl;
+		logger.info() << "invalid icon \"" << item.icon << "\" was reset in item \"" << item.name << "\"";
 		item.iconType = item_icon_type::sprite;
 		item.icon = "blocks:notfound";
 	}

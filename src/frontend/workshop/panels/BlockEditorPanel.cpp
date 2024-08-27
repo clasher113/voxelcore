@@ -75,6 +75,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 				createTexturesPanel(*texturePanel, 35.f, block.textureFaces, block.model);
 			}
 			texturePanel->cropToContent();
+			panel->refresh();
 			preview->updateMesh();
 		};
 

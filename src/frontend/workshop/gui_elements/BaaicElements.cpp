@@ -61,21 +61,12 @@ std::shared_ptr<gui::UINode> workshop::createVectorPanel(vec_t<L, T>& vec, vec_t
 		}
 		return panel;
 	}
-	auto container = std::make_shared<gui::Container>(glm::vec2(0));
+	auto container = std::make_shared<gui::Container>(glm::vec2(width, 0));
 
 	for (typename vec_t<L, T>::length_type i = 0; i <  vec_t<L, T>::length(); i++) {
 		container->add(createNumTextBox(vec[i], coords[i], min[i], max[i], std::function<void(T)>([callback](T num) { callback(); })));
 	}
-	float size = width / 3;
-	float height = 0.f;
-	size_t i = 0;
-	for (auto& elem : container->getNodes()) {
-		elem->setSize(glm::vec2(size - elem->getMargin().x - 4, elem->getSize().y));
-		elem->setPos(glm::vec2(size * i++, 0.f));
-		height = elem->getSize().y;
-	}
-	container->setSize(glm::vec2(width, height));
-	container->setScrollable(false);
+	placeNodesHorizontally(*container);
 
 	return container;
 }

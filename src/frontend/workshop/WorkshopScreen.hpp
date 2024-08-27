@@ -86,8 +86,10 @@ namespace workshop {
 		void createBlockPreview(unsigned int column, PrimitiveType primitiveType);
 		void createUIPreview();
 
-		bool checkUnsaved();
+		void backupDefs();
+		bool showUnsaved();
 
+		bool ignoreUnsaved = false;
 		int framerate;
 		gui::GUI* gui;
 		std::map<unsigned int, std::shared_ptr<gui::Panel>> panels;
