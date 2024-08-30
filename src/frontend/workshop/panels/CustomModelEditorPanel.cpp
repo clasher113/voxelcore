@@ -167,8 +167,20 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 		panel->add(createInputModeButton(createInput));
 		if (type != PrimitiveType::HITBOX) {
 			auto texturePanel = std::make_shared<gui::Panel>(glm::vec2(panel->getSize().x, 35.f));
-			createTexturesPanel(*texturePanel, 35.f, textures, (type == PrimitiveType::AABB ? BlockModel::aabb : BlockModel::xsprite));
+			createTexturesPanel(*texturePanel, 35.f, textures, (type == PrimitiveType::AABB ? BlockModel::aabb : BlockModel::custom));
 			panel->add(texturePanel);
+		}
+		if (type == PrimitiveType::AABB){
+			panel->add(std::make_shared<gui::Button>(L"Convert to tetragons", glm::vec4(10.f), [this, &block, &aabbArr, index](gui::GUI*) {
+				auto tetragons = aabb2tetragons(aabbArr[index]);
+
+				block.modelBoxes.erase(block.modelBoxes.begin() + index);
+				block.modelExtraPoints.insert(block.modelExtraPoints.end(), tetragons.begin(), tetragons.end());
+				block.modelTextures.insert(block.modelTextures.end(), block.modelTextures.begin() + index * 6, block.modelTextures.begin() + index * 6 + 6);
+				block.modelTextures.erase(block.modelTextures.begin() + index * 6, block.modelTextures.begin() + index * 6 + 6);
+				createCustomModelEditor(block, block.modelExtraPoints.size() / 4 - 6, PrimitiveType::TETRAGON);
+				preview->updateCache();
+			}));
 		}
 
 		return panel;

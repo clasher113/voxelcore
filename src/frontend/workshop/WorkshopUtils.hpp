@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <glm/glm.hpp>
 
 class Assets;
 class Atlas;
@@ -13,6 +14,7 @@ class Block;
 struct ItemDef;
 struct ContentPack;
 struct UVRegion;
+struct AABB;
 namespace gui {
 	class Image;
 	class Panel;
@@ -60,9 +62,9 @@ namespace workshop {
 
 	extern const std::unordered_map<std::string, UIElementInfo> uiElementsArgs;
 
-	extern Atlas* getAtlas(Assets* assets, const std::string& fullName);
+	extern Atlas* getAtlas(Assets* assets, const std::string& fullName, const std::string& delimiter = ":");
 
-	extern std::string getTexName(const std::string& fullName);
+	extern std::string getTexName(const std::string& fullName, const std::string& delimiter = ":");
 	extern std::string getDefName(DefType type);
 	extern std::string getDefName(const std::string& fullName);
 	extern std::string getScriptName(const ContentPack& pack, const std::string& scriptName);
@@ -72,6 +74,7 @@ namespace workshop {
 	extern std::string getDefFileFormat(DefType type);
 
 	extern bool operator==(const UVRegion& left, const UVRegion& right);
+	extern std::vector<glm::vec3> aabb2tetragons(const AABB& aabb);
 
 	extern void formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName);
 	template<typename T>

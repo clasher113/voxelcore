@@ -24,12 +24,12 @@ namespace gui{
 namespace workshop {
 	class BlockModelConverter {
 	public:
-		BlockModelConverter(const std::filesystem::path& filePath);
+		BlockModelConverter(const std::filesystem::path& filePath, Atlas* blocksAtlas);
 
 		size_t prepareTextures();
 		std::unordered_map<std::string, std::string>& getTextureMap() { return textureList; };
 
-		Block* convert(const ContentPack& currentPack, Atlas* blocksAtlas, const std::string& blockName);
+		Block* convert(const ContentPack& currentPack, const std::string& blockName);
 	private:
 		struct TextureData {
 			int rotation = 0;
@@ -45,6 +45,7 @@ namespace workshop {
 			TextureData textures[6];
 		};
 
+		Atlas* blocksAtlas;
 		std::vector<PrimitiveData> primitives;
 		std::vector<std::string> preparedTextures;
 		std::unordered_map<std::string, std::string> textureList;

@@ -41,7 +41,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 			if (file.empty()) return;
 
 			std::string actualName(getDefName(block.name));
-			converter = std::make_shared<BlockModelConverter>(file.front());
+			converter = std::make_shared<BlockModelConverter>(file.front(), blocksAtlas);
 			size_t newTextures = converter->prepareTextures();
 			size_t deleteTextures = 0;
 
@@ -84,7 +84,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 			nodes.emplace_back(createTexturesLabel);
 
 			nodes.emplace_back(std::make_shared<gui::Button>(L"Convert", glm::vec4(10.f), [this, panel, actualName, converter, &block](gui::GUI*) {
-				if (Block* converted = converter->convert(currentPack, blocksAtlas, actualName)){
+				if (Block* converted = converter->convert(currentPack, actualName)){
 					bool append = false;
 					blockid_t id = block.rt.id;
 					removePanels(1);
@@ -119,7 +119,9 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 	}, 5, posX);
 }
 
-workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& filePath) {
+workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& filePath, Atlas* blocksAtlas) :
+	blocksAtlas(blocksAtlas)
+{
 	float gridSize = 16.f;
 	glm::ivec2 textureSize(16);
 
@@ -131,7 +133,8 @@ workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& 
 		for (size_t i = 0; i < textureMap->size(); i++) {
 			auto it = textureMap->values.begin();
 			std::advance(it, i);
-			textureList.emplace(it->first, TEXTURE_NOTFOUND);
+			const std::string textureName = getTexName(std::get<std::string>(it->second), "/");
+			textureList.emplace(it->first, blocksAtlas && blocksAtlas->has(textureName) ? textureName : TEXTURE_NOTFOUND);
 		}
 	};
 
@@ -262,7 +265,7 @@ size_t workshop::BlockModelConverter::prepareTextures() {
 	return uniqueTextures;
 }
 
-Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, Atlas* blocksAtlas, const std::string& blockName) {
+Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, const std::string& blockName) {
 	Block* block = nullptr;
 
 	try {
@@ -281,41 +284,9 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, At
 			}
 			else {
 				size_t index = block->modelExtraPoints.size();
-				// east (left)
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.b.z);
-
-				// west (right)
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.a.z);
-
-				// down (bottom)
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.b.z);
-
-				// up (top)
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.a.z);
-
-				// south (back)
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.b.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.b.z);
-
-				// north (front)
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.a.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.a.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.a.x, primitive.aabb.b.y, primitive.aabb.a.z);
-				block->modelExtraPoints.emplace_back(primitive.aabb.b.x, primitive.aabb.b.y, primitive.aabb.a.z);
+				
+				auto tetragons = aabb2tetragons(primitive.aabb);
+				block->modelExtraPoints.insert(block->modelExtraPoints.end(), tetragons.begin(), tetragons.end());
 
 				glm::mat4 mat = glm::translate(glm::mat4(1.f), primitive.origin);
 				mat = glm::rotate(mat, glm::radians(primitive.rotation.x) * (primitive.axis.x * -1.f), glm::vec3(1.f, 0.f, 0.f));
@@ -366,10 +337,10 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, At
 
 				std::unique_ptr<ubyte[]> data(new ubyte[localSize.x * localSize.y * 4]);
 
-				unsigned int location = localPosition.y * blocksTexture->getWidth() * 4 + localPosition.x * 4;
+				size_t location = localPosition.y * blocksTexture->getWidth() * 4 + localPosition.x * 4;
 
-				for (int j = 0; j < localSize.y; j++) {
-					memcpy(&data[j * (localSize.x * 4)], &imageData->getData()[location], localSize.x * 4);
+				for (size_t i = 0; i < localSize.y; i++) {
+					memcpy(&data[i * (localSize.x * 4)], &imageData->getData()[location], localSize.x * 4);
 					location += blocksTexture->getWidth() * 4;
 				}
 
@@ -416,11 +387,6 @@ static void rotateImage(std::unique_ptr<ImageData>& image, size_t angleDegrees) 
 		}
 		bool clockWise = angleDegrees == 90;
 
-		//for (size_t x = 0; x < width; x++) {
-		//	for (size_t y = 0; y < height; y++) {
-		//		original[x * width + y] = copy[(clockWise ? height - y - 1 : y) * width + x];
-		//	}
-		//}
 		for (size_t y = 0; y < height; y++) {
 			for (size_t x = 0; x < width; x++) {
 				original[(x + 1) * height - y - 1] = copy[clockWise ?  y * width + x : width * height - 1 - (y * width + x)];

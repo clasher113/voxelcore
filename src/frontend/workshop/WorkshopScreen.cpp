@@ -323,6 +323,8 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 		break;
 	case BlockModel::xsprite: buttonsNum = 5;
 		break;
+	case BlockModel::custom: buttonsNum = 1;
+		break;
 	default: break;
 	}
 	if (buttonsNum == 0) return;
@@ -502,15 +504,15 @@ void workshop::WorkShopScreen::createSettingsPanel() {
 		panel->add(createNumTextBox(settings.customModelRange.x, L"Min", -FLT_MAX, FLT_MAX));
 		panel->add(createNumTextBox(settings.customModelRange.y, L"Max", -FLT_MAX, FLT_MAX));
 
-		panel->add(std::make_shared<gui::Label>(L"Content list with"));
+		panel->add(std::make_shared<gui::Label>(L"Content list width"));
 		panel->add(createNumTextBox(settings.contentListWidth, L"", 100.f, 1000.f));
-		panel->add(std::make_shared<gui::Label>(L"Block editor with"));
+		panel->add(std::make_shared<gui::Label>(L"Block editor width"));
 		panel->add(createNumTextBox(settings.blockEditorWidth, L"", 100.f, 1000.f));
-		panel->add(std::make_shared<gui::Label>(L"Custom model editor with"));
+		panel->add(std::make_shared<gui::Label>(L"Custom model editor width"));
 		panel->add(createNumTextBox(settings.customModelEditorWidth, L"", 100.f, 1000.f));
-		panel->add(std::make_shared<gui::Label>(L"Item editor with"));
+		panel->add(std::make_shared<gui::Label>(L"Item editor width"));
 		panel->add(createNumTextBox(settings.itemEditorWidth, L"", 100.f, 1000.f));
-		panel->add(std::make_shared<gui::Label>(L"Texture list with"));
+		panel->add(std::make_shared<gui::Label>(L"Texture list width"));
 		panel->add(createNumTextBox(settings.textureListWidth, L"", 100.f, 1000.f));
 
 		auto label = std::make_shared<gui::Label>(L"Preview sensitivity: " + util::to_wstring(settings.previewSensitivity, 2));

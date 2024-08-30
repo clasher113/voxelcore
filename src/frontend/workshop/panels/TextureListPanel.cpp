@@ -27,7 +27,7 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 				std::unordered_map<fs::path, DefType> defPaths;
 				if (type == DefType::BLOCK || type == DefType::BOTH) defPaths.emplace(elem.second / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER, DefType::BLOCK);
 				if (type == DefType::ITEM || type == DefType::BOTH) defPaths.emplace(elem.second / TEXTURES_FOLDER / ContentPack::ITEMS_FOLDER, DefType::ITEM);
-				if (showAll) panel->add(removeList.emplace_back(std::make_shared<gui::Label>(elem.first)));
+				bool addPackName = true;
 				for (const auto& defPath : defPaths) {
 					if (!fs::exists(defPath.first)) continue;
 					Atlas* atlas = assets->get<Atlas>(getDefFolder(defPath.second));
@@ -41,6 +41,10 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 						std::string file = entry.stem().string();
 						if (!searchName.empty()) {
 							if (file.find(searchName) == std::string::npos) continue;
+						}
+						if (addPackName && showAll){
+							panel->add(removeList.emplace_back(std::make_shared<gui::Label>(elem.first)));
+							addPackName = false;
 						}
 						if (!atlas->has(file)) continue;
 						auto button = std::make_shared<gui::IconButton>(glm::vec2(panel->getSize().x, 50.f), file, atlas, file);

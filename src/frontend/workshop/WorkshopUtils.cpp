@@ -37,16 +37,16 @@ const std::unordered_map<std::string, UIElementInfo> uiElementsArgs {
 };
 }
 
-std::string workshop::getTexName(const std::string& fullName) {
-	size_t pos = fullName.find(':');
+std::string workshop::getTexName(const std::string& fullName, const std::string& delimiter) {
+	size_t pos = fullName.find(delimiter);
 	if (pos != std::string::npos) {
 		return fullName.substr(pos + 1);
 	}
 	return fullName;
 }
 
-Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName) {
-	size_t pos = fullName.find(':');
+Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName, const std::string& delimiter) {
+	size_t pos = fullName.find(delimiter);
 	if (pos != std::string::npos) {
 		Atlas* atlas = assets->get<Atlas>(fullName.substr(0, pos));
 		if (atlas) return atlas;
@@ -65,7 +65,7 @@ std::string workshop::getDefName(DefType type) {
 }
 
 std::string workshop::getDefName(const std::string& fullName) {
-	return getTexName(fullName);
+	return getTexName(fullName, ":");
 }
 
 std::string workshop::getDefFolder(DefType type) {
@@ -88,6 +88,48 @@ std::string workshop::getDefFileFormat(DefType type) {
 
 bool workshop::operator==(const UVRegion& left, const UVRegion& right) {
 	return left.u1 == right.u1 && left.u2 == right.u2 && left.v1 == right.v1 && left.v2 == right.v2;
+}
+
+std::vector<glm::vec3> workshop::aabb2tetragons(const AABB& aabb) {
+	std::vector<glm::vec3> result;
+
+	// east (left)
+	result.emplace_back(aabb.b.x, aabb.a.y, aabb.b.z);
+	result.emplace_back(aabb.b.x, aabb.a.y, aabb.a.z);
+	result.emplace_back(aabb.b.x, aabb.b.y, aabb.a.z);
+	result.emplace_back(aabb.b.x, aabb.b.y, aabb.b.z);
+
+	// west (right)
+	result.emplace_back(aabb.a.x, aabb.a.y, aabb.a.z);
+	result.emplace_back(aabb.a.x, aabb.a.y, aabb.b.z);
+	result.emplace_back(aabb.a.x, aabb.b.y, aabb.b.z);
+	result.emplace_back(aabb.a.x, aabb.b.y, aabb.a.z);
+
+	// down (bottom)
+	result.emplace_back(aabb.a.x, aabb.a.y, aabb.a.z);
+	result.emplace_back(aabb.b.x, aabb.a.y, aabb.a.z);
+	result.emplace_back(aabb.b.x, aabb.a.y, aabb.b.z);
+	result.emplace_back(aabb.a.x, aabb.a.y, aabb.b.z);
+
+	// up (top)
+	result.emplace_back(aabb.a.x, aabb.b.y, aabb.b.z);
+	result.emplace_back(aabb.b.x, aabb.b.y, aabb.b.z);
+	result.emplace_back(aabb.b.x, aabb.b.y, aabb.a.z);
+	result.emplace_back(aabb.a.x, aabb.b.y, aabb.a.z);
+
+	// south (back)
+	result.emplace_back(aabb.a.x, aabb.a.y, aabb.b.z);
+	result.emplace_back(aabb.b.x, aabb.a.y, aabb.b.z);
+	result.emplace_back(aabb.b.x, aabb.b.y, aabb.b.z);
+	result.emplace_back(aabb.a.x, aabb.b.y, aabb.b.z);
+
+	// north (front)
+	result.emplace_back(aabb.b.x, aabb.a.y, aabb.a.z);
+	result.emplace_back(aabb.a.x, aabb.a.y, aabb.a.z);
+	result.emplace_back(aabb.a.x, aabb.b.y, aabb.a.z);
+	result.emplace_back(aabb.b.x, aabb.b.y, aabb.a.z);
+
+	return result;
 }
 
 void workshop::formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName) {
