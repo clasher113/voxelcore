@@ -100,7 +100,7 @@ std::string workshop::stringify(const Block& block, const std::string& actualNam
 				dynamic::List& aabb = aabbs.putList();
 				aabb.multiline = false;
 				putAABB(aabb, block.modelBoxes[i]);
-				size_t textures = (isElementsEqual(block.modelTextures, offset, 6) ? 1 : 6);
+				const size_t textures = (isElementsEqual(block.modelTextures, offset, 6) ? 1 : 6);
 				for (size_t j = 0; j < textures; j++) {
 					aabb.put(block.modelTextures[offset + j]);
 				}

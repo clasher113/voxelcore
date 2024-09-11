@@ -1,18 +1,19 @@
 #include "../WorkshopScreen.hpp"
 
 #include "../../../assets/Assets.hpp"
+#include "../../../constants.hpp"
 #include "../../../graphics/core/Atlas.hpp"
 #include "../IncludeCommons.hpp"
-#include "../../../constants.hpp"
 
 void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int column, DefType type, float posX, bool showAll,
 	const std::function<void(const std::string&)>& callback)
 {
 	createPanel([this, showAll, callback, posX, type]() {
-		auto panel = std::make_shared<gui::Panel>(glm::vec2(settings.textureListWidth));
-		panel->setScrollable(true);
+		gui::Panel& panel = *new gui::Panel(glm::vec2(settings.textureListWidth));
+		panel.setScrollable(true);
+		optimizeContainer(panel);
 
-		auto createList = [this, panel, showAll, callback, posX, type](const std::string& searchName) {
+		auto createList = [this, &panel, showAll, callback, posX, type](const std::string& searchName) {
 			auto& packs = engine->getContentPacks();
 			std::unordered_map<std::string, fs::path> paths;
 			paths.emplace(currentPack.title, currentPack.folder);
@@ -30,7 +31,7 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 				bool addPackName = true;
 				for (const auto& defPath : defPaths) {
 					if (!fs::exists(defPath.first)) continue;
-					Atlas* atlas = assets->get<Atlas>(getDefFolder(defPath.second));
+					const Atlas* atlas = assets->get<Atlas>(getDefFolder(defPath.second));
 					std::vector<fs::path> files = getFiles(defPath.first, false);
 					if (!searchName.empty()) {
 						std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) {
@@ -38,42 +39,42 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 						});
 					}
 					for (const auto& entry : files) {
-						std::string file = entry.stem().string();
+						const std::string file = entry.stem().string();
 						if (!searchName.empty()) {
 							if (file.find(searchName) == std::string::npos) continue;
 						}
-						if (addPackName && showAll){
-							panel->add(removeList.emplace_back(std::make_shared<gui::Label>(elem.first)));
+						if (addPackName && showAll) {
+							panel += removeList.emplace_back(new gui::Label(elem.first));
 							addPackName = false;
 						}
 						if (!atlas->has(file)) continue;
-						auto button = std::make_shared<gui::IconButton>(glm::vec2(panel->getSize().x, 50.f), file, atlas, file);
-						button->listenAction([this, panel, file, defPath, callback, posX](gui::GUI*) {
+						gui::IconButton& button = *new gui::IconButton(glm::vec2(panel.getSize().x, 50.f), file, atlas, file);
+						button.listenAction([this, file, defPath, callback](gui::GUI*) {
 							if (callback) callback(getDefFolder(defPath.second) + ':' + file);
 							else createTextureInfoPanel(getDefFolder(defPath.second) + ':' + file, defPath.second);
 						});
-						panel->add(removeList.emplace_back(button));
+						panel += removeList.emplace_back(&button);
 					}
 				}
 			}
-			setSelectable<gui::IconButton>(*panel);
+			setSelectable<gui::IconButton>(panel);
 		};
 		if (!showAll) {
-			panel->add(std::make_shared<gui::Button>(L"Import", glm::vec4(10.f), [this](gui::GUI*) {
+			panel += new gui::Button(L"Import", glm::vec4(10.f), [this](gui::GUI*) {
 				createImportPanel();
-			}));
+			});
 		}
-		auto textBox = std::make_shared<gui::TextBox>(L"Search");
-		textBox->setTextValidator([this, panel, createList, textBox](const std::wstring&) {
+		gui::TextBox& textBox = *new gui::TextBox(L"Search");
+		textBox.setTextValidator([this, &panel, createList, &textBox](const std::wstring&) {
 			clearRemoveList(panel);
-			createList(util::wstr2str_utf8(textBox->getInput()));
+			createList(util::wstr2str_utf8(textBox.getInput()));
 			return true;
 		});
 
-		panel->add(textBox);
+		panel += textBox;
 
-		createList(util::wstr2str_utf8(textBox->getInput()));
+		createList(util::wstr2str_utf8(textBox.getInput()));
 
-		return panel;
+		return std::ref(panel);
 	}, column, posX);
 }

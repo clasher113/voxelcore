@@ -4,14 +4,14 @@
 #include "../../constants.hpp"
 #include "../../content/ContentPack.hpp"
 #include "../../core_defs.hpp"
+#include "../../debug/Logger.hpp"
 #include "../../graphics/core/Atlas.hpp"
 #include "../../graphics/core/Texture.hpp"
 #include "../../items/ItemDef.hpp"
 #include "../../maths/UVRegion.hpp"
 #include "../../voxels/Block.hpp"
-#include "IncludeCommons.hpp"
 #include "../UiDocument.hpp"
-#include "../../debug/Logger.hpp"
+#include "IncludeCommons.hpp"
 
 #ifdef _WIN32
 #define NOMINMAX
@@ -21,24 +21,24 @@
 static debug::Logger logger("workshop-validator");
 
 namespace workshop {
-const std::unordered_map<std::string, UIElementInfo> uiElementsArgs {
-	{ "inventory", { INVENTORY | CONTAINER, { {"size", "200, 200"} } } },
-	{ "container", { CONTAINER, { {"size", "200, 200" } } } },
-	{ "panel", { PANEL, { {"size", "200, 200" } } } },
-	{ "image", { IMAGE, { {"src", "gui/error"} } } },
-	{ "label", { LABEL | HAS_ElEMENT_TEXT | HAS_SUPPLIER, { }, { {"#", {"#", "The label"} } } } },
-	{ "button", { BUTTON /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_HOVER_COLOR, {{"size", "100,20"}}, {{"#", {"#", "The button"}}}}},
-	{ "textbox", { TEXTBOX /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { {"size", "150,40"} }, { {"#", {"#", "The textbox"} } } } },
-	{ "checkbox", { CHECKBOX /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { {"size", "150,30"} }, { {"#", {"#", "The checkbox"} } } } },
-	{ "trackbar", { TRACKBAR | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR,  {{"size", "150,20"}, {"max", "100"}, {"track-width", "5"}}}},
-	{ "slots-grid", { SLOTS_GRID, { {"rows", "1"}, {"count", "1"} } } },
-	{ "slot", { SLOT } },
-	{ "bindbox", { BINDBOX /*| PANEL*/, { {"binding", "movement.left" } } } }
-};
+	const std::unordered_map<std::string, UIElementInfo> uiElementsArgs{
+		{ "inventory", { INVENTORY | CONTAINER, { { "size", "200, 200" } } } },
+		{ "container", { CONTAINER, { { "size", "200, 200" } } } },
+		{ "panel", { PANEL, { { "size", "200, 200" } } } },
+		{ "image", { IMAGE, { { "src", "gui/error" } } } },
+		{ "label", { LABEL | HAS_ElEMENT_TEXT | HAS_SUPPLIER, {}, { { "#", { "#", "The label" } } } } },
+		{ "button", { BUTTON /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_HOVER_COLOR, { { "size", "100,20" } }, { { "#", { "#", "The button" } } } } },
+		{ "textbox", { TEXTBOX /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { { "size", "150,40" } }, { { "#", { "#", "The textbox" } } } } },
+		{ "checkbox", { CHECKBOX /*| PANEL*/ | HAS_ElEMENT_TEXT | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { { "size", "150,30" } }, { { "#", { "#", "The checkbox" } } } } },
+		{ "trackbar", { TRACKBAR | HAS_SUPPLIER | HAS_CONSUMER | HAS_HOVER_COLOR, { { "size", "150,20" }, { "max", "100" }, { "track-width", "5" } } } },
+		{ "slots-grid", { SLOTS_GRID, { { "rows", "1" }, { "count", "1" } } } },
+		{ "slot", { SLOT } },
+		{ "bindbox", { BINDBOX /*| PANEL*/, { { "binding", "movement.left" } } } }
+	};
 }
 
 std::string workshop::getTexName(const std::string& fullName, const std::string& delimiter) {
-	size_t pos = fullName.find(delimiter);
+	const size_t pos = fullName.find(delimiter);
 	if (pos != std::string::npos) {
 		return fullName.substr(pos + 1);
 	}
@@ -46,7 +46,7 @@ std::string workshop::getTexName(const std::string& fullName, const std::string&
 }
 
 Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName, const std::string& delimiter) {
-	size_t pos = fullName.find(delimiter);
+	const size_t pos = fullName.find(delimiter);
 	if (pos != std::string::npos) {
 		Atlas* atlas = assets->get<Atlas>(fullName.substr(0, pos));
 		if (atlas) return atlas;
@@ -56,10 +56,10 @@ Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName, const std
 
 std::string workshop::getDefName(DefType type) {
 	switch (type) {
-	case DefType::BLOCK: return "block";
-	case DefType::ITEM: return "item";
-	case DefType::BOTH: return "[both]";
-	case DefType::UI_LAYOUT: return "layout";
+		case DefType::BLOCK: return "block";
+		case DefType::ITEM: return "item";
+		case DefType::BOTH: return "[both]";
+		case DefType::UI_LAYOUT: return "layout";
 	}
 	return "";
 }
@@ -70,24 +70,33 @@ std::string workshop::getDefName(const std::string& fullName) {
 
 std::string workshop::getDefFolder(DefType type) {
 	switch (type) {
-	case DefType::BLOCK: return ContentPack::BLOCKS_FOLDER.string();
-	case DefType::ITEM: return ContentPack::ITEMS_FOLDER.string();
-	case DefType::UI_LAYOUT: return LAYOUTS_FOLDER;
+		case DefType::BLOCK: return ContentPack::BLOCKS_FOLDER.string();
+		case DefType::ITEM: return ContentPack::ITEMS_FOLDER.string();
+		case DefType::UI_LAYOUT: return LAYOUTS_FOLDER;
 	}
 	return "";
 }
 
 std::string workshop::getDefFileFormat(DefType type) {
 	switch (type) {
-	case DefType::BLOCK:
-	case DefType::ITEM: return ".json";
-	case DefType::UI_LAYOUT: return ".xml";
+		case DefType::BLOCK:
+		case DefType::ITEM: return ".json";
+		case DefType::UI_LAYOUT: return ".xml";
 	}
 	return "";
 }
 
 bool workshop::operator==(const UVRegion& left, const UVRegion& right) {
 	return left.u1 == right.u1 && left.u2 == right.u2 && left.v1 == right.v1 && left.v2 == right.v2;
+}
+
+gui::Container& workshop::operator+=(gui::Container& left, gui::UINode& right) {
+	return left += &right;
+}
+
+gui::Container& workshop::operator+=(gui::Container& left, gui::UINode* right) {
+	left.add(std::shared_ptr<gui::UINode>(right));
+	return left;
 }
 
 std::vector<glm::vec3> workshop::aabb2tetragons(const AABB& aabb) {
@@ -132,10 +141,10 @@ std::vector<glm::vec3> workshop::aabb2tetragons(const AABB& aabb) {
 	return result;
 }
 
-void workshop::formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName) {
+void workshop::formatTextureImage(gui::Image& image, const Atlas* atlas, float height, const std::string& texName) {
 	const UVRegion& region = atlas->get(texName);
-	glm::vec2 textureSize((region.u2 - region.u1) * atlas->getTexture()->getWidth(), (region.v2 - region.v1) * atlas->getTexture()->getHeight());
-	glm::vec2 multiplier(height / textureSize);
+	const glm::vec2 textureSize((region.u2 - region.u1) * atlas->getTexture()->getWidth(), (region.v2 - region.v1) * atlas->getTexture()->getHeight());
+	const glm::vec2 multiplier(height / textureSize);
 	image.setSize(textureSize * std::min(multiplier.x, multiplier.y));
 	image.setPos(glm::vec2(height / 2.f - image.getSize().x / 2.f, height / 2.f - image.getSize().y / 2.f));
 	image.setTexture(atlas->getTexture());
@@ -164,7 +173,7 @@ void workshop::setSelectable(const gui::Panel& panel) {
 
 void workshop::placeNodesHorizontally(gui::Container& container) {
 	auto& nodes = container.getNodes();
-	float width = container.getSize().x / nodes.size();
+	const float width = container.getSize().x / nodes.size();
 	float height = 0.f;
 	size_t i = 0;
 	for (auto& elem : nodes) {
@@ -174,6 +183,19 @@ void workshop::placeNodesHorizontally(gui::Container& container) {
 	}
 	container.setSize(glm::vec2(container.getSize().x, height));
 	container.setScrollable(false);
+}
+
+void workshop::optimizeContainer(gui::Container& container) {
+	container.listenInterval(0.01f, [&container]() {
+		const glm::vec2 pos = container.calcPos();
+		const glm::vec2 size = container.getSize();
+		for (const auto& node : container.getNodes()) {
+			const glm::vec2 nodePos = node->calcPos();
+			const glm::vec2 nodeSize = node->getSize();
+			node->setVisible(nodePos.y + nodeSize.y > pos.y && nodePos.y < pos.y + size.y &&
+				nodePos.x + nodeSize.x > pos.x && nodePos.x < pos.x + size.x);
+		}
+	});
 }
 
 void workshop::validateBlock(Assets* assets, Block& block) {
@@ -190,7 +212,7 @@ void workshop::validateBlock(Assets* assets, Block& block) {
 }
 
 void workshop::validateItem(Assets* assets, ItemDef& item) {
-	Atlas* atlas = getAtlas(assets, item.icon);
+	const Atlas* const atlas = getAtlas(assets, item.icon);
 	if (!atlas->has((item.iconType == item_icon_type::block ? item.icon : getTexName(item.icon)))) {
 		logger.info() << "invalid icon \"" << item.icon << "\" was reset in item \"" << item.name << "\"";
 		item.iconType = item_icon_type::sprite;
@@ -203,17 +225,17 @@ bool workshop::checkPackId(const std::wstring& id, const std::vector<ContentPack
 		!std::all_of(id.begin(), id.end(), [](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); }) ||
 		std::find(ContentPack::RESERVED_NAMES.begin(), ContentPack::RESERVED_NAMES.end(), util::wstr2str_utf8(id)) != ContentPack::RESERVED_NAMES.end() ||
 		std::find_if(scanned.begin(), scanned.end(), [id](const ContentPack& pack) {
-			return util::wstr2str_utf8(id) == pack.id; }
+		return util::wstr2str_utf8(id) == pack.id; }
 		) != scanned.end()
 	);
 }
 
 bool workshop::hasFocusedTextbox(const gui::Container& container) {
 	for (const auto& elem : container.getNodes()) {
-		if (gui::TextBox* textBox = dynamic_cast<gui::TextBox*>(elem.get())) {
+		if (const gui::TextBox* const textBox = dynamic_cast<gui::TextBox*>(elem.get())) {
 			if (textBox->isFocused()) return true;
 		}
-		else if (gui::Container* container = dynamic_cast<gui::Container*>(elem.get())) {
+		else if (const gui::Container* const container = dynamic_cast<gui::Container*>(elem.get())) {
 			if (hasFocusedTextbox(*container)) return true;
 		}
 	}

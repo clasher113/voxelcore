@@ -11,15 +11,16 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 	const std::function<void(const std::string&)>& callback, float posX)
 {
 	createPanel([this, type, showAll, callback]() {
-		auto panel = std::make_shared<gui::Panel>(glm::vec2(settings.contentListWidth));
-		panel->setScrollable(true);
+		gui::Panel& panel = *new gui::Panel(glm::vec2(settings.contentListWidth));
+
+		panel.setScrollable(true);
 		if (!showAll) {
-			panel->add(std::make_shared<gui::Button>(L"Create " + util::str2wstr_utf8(getDefName(type)), glm::vec4(10.f), [this, type](gui::GUI*) {
+			panel += new gui::Button(L"Create " + util::str2wstr_utf8(getDefName(type)), glm::vec4(10.f), [this, type](gui::GUI*) {
 				createDefActionPanel(DefAction::CREATE_NEW, type);
-			}));
+			});
 		}
-		auto createList = [this, panel, type, showAll, callback](const std::string& searchName) {
-			size_t size = (type == DefType::BLOCK ? indices->blocks.count() : indices->items.count());
+		auto createList = [this, &panel, type, showAll, callback](const std::string& searchName) {
+			const size_t size = (type == DefType::BLOCK ? indices->blocks.count() : indices->items.count());
 			std::vector<std::pair<std::string, std::string>> sorted;
 			for (size_t i = 0; i < size; i++) {
 				std::string fullName, actualName;
@@ -43,7 +44,7 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 				return a.second < b.second;
 			});
 
-			float width = panel->getSize().x;
+			const float width = panel.getSize().x;
 			for (const auto& elem : sorted) {
 				Atlas* contentAtlas = previewAtlas;
 				std::string textureName("core:air");
@@ -58,11 +59,11 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 						textureName = item.icon;
 					}
 					else if (item.iconType == item_icon_type::sprite) {
-						contentAtlas = getAtlas(assets, item.icon); 
+						contentAtlas = getAtlas(assets, item.icon);
 						textureName = getTexName(item.icon);
 					}
 				}
-				auto button = std::make_shared<gui::IconButton>(glm::vec2(width, 32), showAll ? elem.first : elem.second,
+				gui::IconButton* button = new gui::IconButton(glm::vec2(width, 32), showAll ? elem.first : elem.second,
 					contentAtlas, textureName);
 
 				if (type == DefType::BLOCK) {
@@ -80,21 +81,21 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 						else createItemEditor(item);
 					});
 				}
-				panel->add(removeList.emplace_back(button));
+				panel += removeList.emplace_back(button);
 			}
-			setSelectable<gui::IconButton>(*panel);
+			setSelectable<gui::IconButton>(panel);
 		};
-		auto textBox = std::make_shared<gui::TextBox>(L"Search");
-		textBox->setTextValidator([this, panel, createList, textBox](const std::wstring&) {
+		gui::TextBox& textBox = *new gui::TextBox(L"Search");
+		textBox.setTextValidator([this, &panel, createList, &textBox](const std::wstring&) {
 			clearRemoveList(panel);
-			createList(util::wstr2str_utf8(textBox->getInput()));
+			createList(util::wstr2str_utf8(textBox.getInput()));
 			return true;
 		});
 
-		panel->add(textBox);
+		panel += textBox;
 
-		createList(util::wstr2str_utf8(textBox->getInput()));
+		createList(util::wstr2str_utf8(textBox.getInput()));
 
-		return panel;
+		return std::ref(panel);
 	}, column, posX);
 }

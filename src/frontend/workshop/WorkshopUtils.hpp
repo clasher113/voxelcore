@@ -2,11 +2,10 @@
 #define FRONTEND_MENU_WORKSHOP_UTILS_HPP
 
 #include <filesystem>
-#include <unordered_set>
+#include <glm/glm.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <glm/glm.hpp>
 
 class Assets;
 class Atlas;
@@ -19,6 +18,7 @@ namespace gui {
 	class Image;
 	class Panel;
 	class Container;
+	class UINode;
 }
 
 inline const std::string NOT_SET = "[not set]";
@@ -74,12 +74,16 @@ namespace workshop {
 	extern std::string getDefFileFormat(DefType type);
 
 	extern bool operator==(const UVRegion& left, const UVRegion& right);
+	extern gui::Container& operator+=(gui::Container& left, gui::UINode& right);
+	extern gui::Container& operator+=(gui::Container& left, gui::UINode* right);
+
 	extern std::vector<glm::vec3> aabb2tetragons(const AABB& aabb);
 
-	extern void formatTextureImage(gui::Image& image, Atlas* atlas, float height, const std::string& texName);
+	extern void formatTextureImage(gui::Image& image, const Atlas* atlas, float height, const std::string& texName);
 	template<typename T>
 	extern void setSelectable(const gui::Panel& panel);
 	extern void placeNodesHorizontally(gui::Container& container);
+	extern void optimizeContainer(gui::Container& container);
 
 	extern void validateBlock(Assets* assets, Block& block);
 	extern void validateItem(Assets* assets, ItemDef& item);
@@ -91,7 +95,7 @@ namespace workshop {
 	extern void openPath(const std::filesystem::path& path);
 
 	template<typename T>
-	extern T incrementEnumClass(T enumClass, int factor){
+	extern T incrementEnumClass(T enumClass, int factor) {
 		return static_cast<T>(static_cast<int>(enumClass) + factor);
 	}
 }

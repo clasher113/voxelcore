@@ -17,7 +17,7 @@ namespace gui {
         Image(std::string texture, glm::vec2 size=glm::vec2(32,32));
         Image(Texture* texture, glm::vec2 size=glm::vec2(32,32));
 
-        void setTexture(Texture* texture) { tex = texture; };
+        void setTexture(Texture* const texture) { tex = texture; };
         void setUVRegion(const UVRegion& uv) { this->uv = uv; };
 
         virtual void draw(const DrawContext* pctx, Assets* assets) override;

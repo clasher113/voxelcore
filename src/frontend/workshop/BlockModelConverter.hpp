@@ -5,19 +5,19 @@
 #include "../../maths/UVRegion.hpp"
 #include "WorkshopUtils.hpp"
 
-#include <string>
-#include <vector>
 #include <filesystem>
-#include <unordered_map>
 #include <glm/glm.hpp>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 class Block;
 class Atlas;
 struct ContentPack;
-namespace dynamic{
+namespace dynamic {
 	class Map;
 }
-namespace gui{
+namespace gui {
 	class UINode;
 }
 
@@ -39,7 +39,7 @@ namespace workshop {
 		};
 		struct PrimitiveData {
 			glm::vec3 rotation{ 0.f };
-			glm::vec3 axis{ 0.f };
+			glm::bvec3 axis{ false };
 			glm::vec3 origin{ 0.f };
 			AABB aabb;
 			TextureData textures[6];

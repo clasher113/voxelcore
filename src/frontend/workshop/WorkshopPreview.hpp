@@ -86,8 +86,8 @@ namespace workshop {
 		Framebuffer framebuffer;
 
 		LevelController controller;
-        std::shared_ptr<Inventory> inventory;
-        std::shared_ptr<Player> player;
+		std::shared_ptr<Inventory> inventory;
+		std::shared_ptr<Player> player;
 		LevelFrontend frontend;
 		std::shared_ptr<gui::UINode> currentUI;
 		std::shared_ptr<xml::Document> currentDocument;

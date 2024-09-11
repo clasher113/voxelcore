@@ -1,6 +1,7 @@
 #include "WorkshopPreview.hpp"
 
 #include "../../assets/AssetsLoader.hpp"
+#include "../../content/Content.hpp"
 #include "../../engine.hpp"
 #include "../../graphics/core/Atlas.hpp"
 #include "../../graphics/core/DrawContext.hpp"
@@ -9,6 +10,7 @@
 #include "../../graphics/core/Viewport.hpp"
 #include "../../graphics/ui/gui_xml.hpp"
 #include "../../items/ItemDef.hpp"
+#include "../../voxels/Block.hpp"
 #include "../../voxels/Chunk.hpp"
 #include "../../voxels/ChunksStorage.hpp"
 #include "../../window/Events.hpp"
@@ -17,8 +19,6 @@
 #include "../../world/World.hpp"
 #include "../ContentGfxCache.hpp"
 #include "WorkshopUtils.hpp"
-#include "../../voxels/Block.hpp"
-#include "../../content/Content.hpp"
 
 #include <cstring>
 
@@ -27,21 +27,21 @@ using namespace workshop;
 vattr attr[] = { 0 };
 
 Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache(cache),
-	blockRenderer(32768, engine->getContent(), cache, &engine->getSettings()),
-	chunk(new Chunk(0, 0)),
-	world(new World("", "core:default", "", 0, engine->getSettings(), engine->getContent(), engine->getContentPacks())),
-	level(new Level(std::unique_ptr<World>(world), engine->getContent(), engine->getSettings())),
-	camera(glm::vec3(0.f), glm::radians(60.f)),
-	framebuffer(0, 0, true),
-	inventory(std::make_shared<Inventory>(0, 0)),
-    player(std::make_shared<Player>(level, glm::vec3(0.f), 0.f, inventory, 0)),
-	controller(engine->getSettings(), std::unique_ptr<Level>(level)),
-	frontend(player.get(), &controller, engine->getAssets()),
-	cameraPosition(0.f),
-	lineBatch(1024),
-	batch2d(1024),
-	batch3d(1024),
-	mesh(nullptr)
+blockRenderer(32768, engine->getContent(), cache, &engine->getSettings()),
+chunk(new Chunk(0, 0)),
+world(new World("", "core:default", "", 0, engine->getSettings(), engine->getContent(), engine->getContentPacks())),
+level(new Level(std::unique_ptr<World>(world), engine->getContent(), engine->getSettings())),
+camera(glm::vec3(0.f), glm::radians(60.f)),
+framebuffer(0, 0, true),
+inventory(std::make_shared<Inventory>(0, 0)),
+player(std::make_shared<Player>(level, glm::vec3(0.f), 0.f, inventory, 0)),
+controller(engine->getSettings(), std::unique_ptr<Level>(level)),
+frontend(player.get(), &controller, engine->getAssets()),
+cameraPosition(0.f),
+lineBatch(1024),
+batch2d(1024),
+batch3d(1024),
+mesh(nullptr)
 {
 	level->chunksStorage->store(std::shared_ptr<Chunk>(chunk));
 	memset(chunk->voxels, 0, sizeof(chunk->voxels));
@@ -49,7 +49,7 @@ Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache
 
 void Preview::update(float delta, float sensitivity) {
 	if (!lockedKeyboardInput) {
-		float rotateFactor = (100.f * delta) /** sensitivity*/;
+		const float rotateFactor = (100.f * delta) /** sensitivity*/;
 		if (Events::pressed(keycode::D)) rotate(rotateFactor, 0.f);
 		if (Events::pressed(keycode::A)) rotate(-rotateFactor, 0.f);
 		if (Events::pressed(keycode::S)) rotate(0.f, rotateFactor);
@@ -61,8 +61,8 @@ void Preview::update(float delta, float sensitivity) {
 		rotate((-Events::delta.x / 2.f) * sensitivity, (Events::delta.y / 2.f) * sensitivity);
 		if (!Events::clicked(mousecode::BUTTON_1)) lmb = false;
 	}
-	if (rmb){
-		glm::vec3 offset = camera.rotation * glm::vec4(Events::delta.x, Events::delta.y, 0.f, 1.f);
+	if (rmb) {
+		const glm::vec3 offset = camera.rotation * glm::vec4(Events::delta.x, Events::delta.y, 0.f, 1.f);
 		cameraPosition += (offset / 100.f) * sensitivity;
 		cameraPosition.x = std::clamp(cameraPosition.x, -5.f, 5.f);
 		cameraPosition.y = std::clamp(cameraPosition.y, -5.f, 5.f);
@@ -79,7 +79,7 @@ void Preview::update(float delta, float sensitivity) {
 
 void Preview::updateMesh() {
 	if (currentBlock == nullptr) return;
-	bool rotatable = currentBlock->rotatable;
+	const bool rotatable = currentBlock->rotatable;
 	currentBlock->rotatable = false;
 	mesh = blockRenderer.render(chunk, level->chunksStorage.get());
 	currentBlock->rotatable = rotatable;
@@ -161,8 +161,8 @@ void Preview::refillInventory() {
 	refillTimer = 0.f;
 	if (!inventory) return;
 	for (size_t i = 0; i < inventory->size(); i++) {
-		auto indices = cache->getContent()->getIndices();
-		ItemDef* item = indices->items.get(1 + (rand() % (indices->items.count() - 1)));
+		const ContentIndices* const indices = cache->getContent()->getIndices();
+		const ItemDef* const item = indices->items.get(1 + (rand() % (indices->items.count() - 1)));
 		if (!item) continue;
 		inventory->getSlot(i).set(ItemStack(item->rt.id, rand() % item->stackSize));
 	}
@@ -183,17 +183,17 @@ void Preview::drawBlock() {
 	Window::setBgColor(glm::vec4(0.f));
 	Window::clear();
 
-	Viewport viewport(Window::width, Window::height);
+	const Viewport viewport(Window::width, Window::height);
 	DrawContext ctx(nullptr, viewport, &batch2d);
 
 	ctx.setDepthTest(true);
 	ctx.setCullFace(true);
 
-	Assets* assets = engine->getAssets();
-	Shader* lineShader = assets->get<Shader>("lines");
-	Shader* shader = assets->get<Shader>("main");
-	Shader* shader3d = assets->get<Shader>("ui3d");
-	Texture* texture = assets->get<Atlas>("blocks")->getTexture();
+	const Assets* const assets = engine->getAssets();
+	Shader* const lineShader = assets->get<Shader>("lines");
+	Shader* const shader = assets->get<Shader>("main");
+	Shader* const shader3d = assets->get<Shader>("ui3d");
+	Texture* const texture = assets->get<Atlas>("blocks")->getTexture();
 
 	camera.rotation = glm::mat4(1.f);
 	camera.rotate(glm::radians(previewRotation.y), glm::radians(previewRotation.x), 0);
@@ -216,7 +216,7 @@ void Preview::drawBlock() {
 
 	if (drawCurrentTetragon && primitiveType == PrimitiveType::TETRAGON) {
 		for (size_t i = 0; i < 4; i++) {
-			size_t next = (i + 1 < 4 ? i + 1 : 0);
+			const size_t next = (i + 1 < 4 ? i + 1 : 0);
 			lineBatch.line(currentTetragon[i], currentTetragon[next], glm::vec4(1.f, 0.f, 1.f, 1.f));
 		}
 	}
@@ -240,7 +240,7 @@ void Preview::drawBlock() {
 	//glm::mat4 view = glm::lookAt(glm::vec3(2, 2, 2), glm::vec3(0.5f), glm::vec3(0, 1, 0));
 	shader->use();
 	shader->uniformMatrix("u_model", glm::translate(glm::mat4(1.f), glm::vec3(-1.f)));
-    shader->uniformMatrix("u_proj", camera.getProjection());
+	shader->uniformMatrix("u_proj", camera.getProjection());
 	shader->uniformMatrix("u_view", camera.getView());
 	shader->uniform1f("u_fogFactor", 0.f);
 	shader->uniform3f("u_fogColor", glm::vec3(1.f));
@@ -265,9 +265,9 @@ void Preview::drawUI() {
 	Window::setBgColor(glm::vec4(0.f));
 	Window::clear();
 
-	Viewport viewport(Window::width, Window::height);
+	const Viewport viewport(Window::width, Window::height);
 	DrawContext ctx(nullptr, viewport, &batch2d);
-	
+
 	batch2d.begin();
 
 	currentUI->draw(&ctx, engine->getAssets());
