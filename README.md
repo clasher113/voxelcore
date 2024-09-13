@@ -1,6 +1,6 @@
 # ![voxel-core](dev/VoxelEngine.png) VoxelCore
 
-[Download | Скачать](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod-0.22.2-block-model-converter)
+[Download | Скачать](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod-0.22.2_1)
 
 - [Download](https://github.com/MihailRis/VoxelEngine-Cpp/releases/latest) | [Скачать](https://github.com/MihailRis/VoxelEngine-Cpp/releases/latest)
 - [Documentation](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.22/doc/en/main-page.md) | [Документация](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.22/doc/ru/main-page.md)
