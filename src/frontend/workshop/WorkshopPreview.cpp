@@ -48,12 +48,27 @@ mesh(nullptr)
 }
 
 void Preview::update(float delta, float sensitivity) {
+	glm::vec3 offset(0.f);
 	if (!lockedKeyboardInput) {
+		bool lctrl = Events::pressed(keycode::LEFT_CONTROL);
 		const float rotateFactor = (100.f * delta) /** sensitivity*/;
-		if (Events::pressed(keycode::D)) rotate(rotateFactor, 0.f);
-		if (Events::pressed(keycode::A)) rotate(-rotateFactor, 0.f);
-		if (Events::pressed(keycode::S)) rotate(0.f, rotateFactor);
-		if (Events::pressed(keycode::W)) rotate(0.f, -rotateFactor);
+		if (Events::pressed(keycode::D)) {
+			if (lctrl) offset.x -= 2.f;
+			else rotate(rotateFactor, 0.f);
+		}
+		if (Events::pressed(keycode::A)) {
+			if (lctrl) offset.x += 2.f;
+			else rotate(-rotateFactor, 0.f);
+		}
+		if (Events::pressed(keycode::S)) {
+			if (lctrl) offset.z -= 2.f;
+			else rotate(0.f, rotateFactor);
+		}
+		if (Events::pressed(keycode::W)) {
+			if (lctrl) offset.z += 2.f;
+			else rotate(0.f, -rotateFactor);
+		}
+		offset = camera.rotation * glm::vec4(offset.x, offset.y, offset.z, 1.f);
 		if (Events::pressed(keycode::SPACE)) scale(2.f * delta);
 		if (Events::pressed(keycode::LEFT_SHIFT)) scale(-2.f * delta);
 	}
@@ -62,11 +77,7 @@ void Preview::update(float delta, float sensitivity) {
 		if (!Events::clicked(mousecode::BUTTON_1)) lmb = false;
 	}
 	if (rmb) {
-		const glm::vec3 offset = camera.rotation * glm::vec4(Events::delta.x, Events::delta.y, 0.f, 1.f);
-		cameraPosition += (offset / 100.f) * sensitivity;
-		cameraPosition.x = std::clamp(cameraPosition.x, -5.f, 5.f);
-		cameraPosition.y = std::clamp(cameraPosition.y, -5.f, 5.f);
-		cameraPosition.z = std::clamp(cameraPosition.z, -5.f, 5.f);
+		offset = camera.rotation * glm::vec4(Events::delta.x, Events::delta.y, 0.f, 1.f);
 		if (!Events::clicked(mousecode::BUTTON_2)) rmb = false;
 	}
 	if (currentUI) {
@@ -75,6 +86,10 @@ void Preview::update(float delta, float sensitivity) {
 			refillInventory();
 		}
 	}
+	cameraPosition += (offset / 100.f) * sensitivity;
+	cameraPosition.x = std::clamp(cameraPosition.x, -5.f, 5.f);
+	cameraPosition.y = std::clamp(cameraPosition.y, -5.f, 5.f);
+	cameraPosition.z = std::clamp(cameraPosition.z, -5.f, 5.f);
 }
 
 void Preview::updateMesh() {

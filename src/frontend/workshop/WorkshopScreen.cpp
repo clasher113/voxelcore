@@ -873,8 +873,8 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type)
 			createFullCheckBox(panel, L"Highlight current Tetragon", preview->drawCurrentTetragon);
 		panel += new gui::Label("");
 		panel += new gui::Label("Camera control");
-		panel += new gui::Label("Position: RMB + mouse");
-		panel += new gui::Label("Rotate: W,S,A,D or LMB + mouse");
+		panel += new gui::Label("Position: Left Control + W, S, A, D or RMB + mouse");
+		panel += new gui::Label("Rotate: W, S, A, D or LMB + mouse");
 		panel += new gui::Label("Zoom: Left Shift/Space or Scroll Wheel");
 
 		return std::ref(panel);
