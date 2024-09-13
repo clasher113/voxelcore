@@ -1,5 +1,4 @@
-#ifndef CONSTANTS_HPP_
-#define CONSTANTS_HPP_
+#pragma once
 
 #include "typedefs.hpp"
 
@@ -7,7 +6,7 @@
 #include <string>
 
 inline constexpr int ENGINE_VERSION_MAJOR = 0;
-inline constexpr int ENGINE_VERSION_MINOR = 22;
+inline constexpr int ENGINE_VERSION_MINOR = 23;
 
 #ifdef NDEBUG
 inline constexpr bool ENGINE_DEBUG_BUILD = false;
@@ -15,7 +14,7 @@ inline constexpr bool ENGINE_DEBUG_BUILD = false;
 inline constexpr bool ENGINE_DEBUG_BUILD = true;
 #endif // NDEBUG
 
-inline const std::string ENGINE_VERSION_STRING = "0.22";
+inline const std::string ENGINE_VERSION_STRING = "0.23";
 
 inline constexpr blockid_t BLOCK_AIR = 0;
 inline constexpr itemid_t ITEM_EMPTY = 0;
@@ -52,5 +51,3 @@ inline const std::string LAYOUTS_FOLDER = "layouts";
 inline const std::string SOUNDS_FOLDER = "sounds";
 inline const std::string MODELS_FOLDER = "models";
 inline const std::string SKELETONS_FOLDER = "skeletons";
-
-#endif // CONSTANTS_HPP_

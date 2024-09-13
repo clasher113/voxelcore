@@ -1,17 +1,14 @@
-#ifndef DATA_SETTING_HPP_
-#define DATA_SETTING_HPP_
+#pragma once
 
 #include <limits>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
-#include "../typedefs.hpp"
-#include "../delegates.hpp"
+#include "delegates.hpp"
+#include "typedefs.hpp"
 
-enum class setting_format {
-    simple, percent
-};
+enum class setting_format { simple, percent };
 
 class Setting {
 protected:
@@ -20,7 +17,8 @@ public:
     Setting(setting_format format) : format(format) {
     }
 
-    virtual ~Setting() {}
+    virtual ~Setting() {
+    }
 
     virtual void resetToDefault() = 0;
 
@@ -31,7 +29,7 @@ public:
     virtual std::string toString() const = 0;
 };
 
-template<class T>
+template <class T>
 class ObservableSetting : public Setting {
     int nextid = 1;
     std::unordered_map<int, consumer<T>> observers;
@@ -39,16 +37,17 @@ protected:
     T initial;
     T value;
 public:
-    ObservableSetting(T value, setting_format format) 
-    : Setting(format), initial(value), value(value) {}
+    ObservableSetting(T value, setting_format format)
+        : Setting(format), initial(value), value(value) {
+    }
 
-    observer_handler observe(consumer<T> callback, bool callOnStart=false) {
+    observer_handler observe(consumer<T> callback, bool callOnStart = false) {
         const int id = nextid++;
         observers.emplace(id, callback);
         if (callOnStart) {
             callback(value);
         }
-        return std::shared_ptr<int>(new int(id), [this](int* id) {
+        return std::shared_ptr<int>(new int(id), [this](int* id) { //-V508
             observers.erase(*id);
             delete id;
         });
@@ -87,14 +86,13 @@ protected:
     number_t max;
 public:
     NumberSetting(
-        number_t value, 
-        number_t min=std::numeric_limits<number_t>::min(), 
-        number_t max=std::numeric_limits<number_t>::max(),
-        setting_format format=setting_format::simple
-    ) : ObservableSetting(value, format), 
-        min(min), 
-        max(max)
-    {}
+        number_t value,
+        number_t min = std::numeric_limits<number_t>::min(),
+        number_t max = std::numeric_limits<number_t>::max(),
+        setting_format format = setting_format::simple
+    )
+        : ObservableSetting(value, format), min(min), max(max) {
+    }
 
     number_t& operator*() {
         return value;
@@ -129,14 +127,13 @@ protected:
     integer_t max;
 public:
     IntegerSetting(
-        integer_t value, 
-        integer_t min=std::numeric_limits<integer_t>::min(), 
-        integer_t max=std::numeric_limits<integer_t>::max(),
-        setting_format format=setting_format::simple
-    ) : ObservableSetting(value, format),
-        min(min), 
-        max(max)
-    {}
+        integer_t value,
+        integer_t min = std::numeric_limits<integer_t>::min(),
+        integer_t max = std::numeric_limits<integer_t>::max(),
+        setting_format format = setting_format::simple
+    )
+        : ObservableSetting(value, format), min(min), max(max) {
+    }
 
     integer_t getMin() const {
         return min;
@@ -155,10 +152,9 @@ public:
 
 class FlagSetting : public ObservableSetting<bool> {
 public:
-    FlagSetting(
-        bool value,
-        setting_format format=setting_format::simple
-    ) : ObservableSetting(value, format) {}
+    FlagSetting(bool value, setting_format format = setting_format::simple)
+        : ObservableSetting(value, format) {
+    }
 
     void toggle() {
         set(!get());
@@ -170,11 +166,10 @@ public:
 class StringSetting : public ObservableSetting<std::string> {
 public:
     StringSetting(
-        std::string value,
-        setting_format format=setting_format::simple
-    ) : ObservableSetting(value, format) {}
+        std::string value, setting_format format = setting_format::simple
+    )
+        : ObservableSetting(value, format) {
+    }
 
     virtual std::string toString() const override;
 };
-
-#endif // DATA_SETTING_HPP_

@@ -11,7 +11,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include "../../coders/GLSLExtension.hpp"
+#include "coders/GLSLExtension.hpp"
 
 namespace fs = std::filesystem;
 
@@ -32,7 +32,7 @@ uint Shader::getUniformLocation(const std::string& name) {
     auto found = uniformLocations.find(name);
     if (found == uniformLocations.end()) {
         uint location = glGetUniformLocation(id, name.c_str());
-        uniformLocations.emplace(name, location);
+        uniformLocations.try_emplace(name, location);
         return location;
     }
     return found->second;
@@ -95,7 +95,7 @@ glshader compile_shader(GLenum type, const GLchar* source, const std::string& fi
             "vertex shader compilation failed ("+file+"):\n"+std::string(infoLog)
         );
     } 
-    return glshader(new GLuint(shader), shader_deleter);
+    return glshader(new GLuint(shader), shader_deleter); //-V508
 }
 
 std::unique_ptr<Shader> Shader::create(

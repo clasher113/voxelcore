@@ -2,9 +2,11 @@
 #include "Mesh.hpp"
 #include "Texture.hpp"
 #include "gl_util.hpp"
-#include "../../maths/UVRegion.hpp"
+#include "maths/UVRegion.hpp"
 
 #include <GL/glew.h>
+
+#include <cmath>
 
 inline constexpr uint B2D_VERTEX_SIZE = 8;
 
@@ -163,9 +165,10 @@ void Batch2D::rect(
 
     float x1,y1,x2,y2,x3,y3,x4,y4;
 
-    if (angle != 0) {
-        float s = sin(angle);
-        float c = cos(angle);
+    constexpr float epsilon = 1e-6f; // 0.000001
+    if (std::fabs(angle) > epsilon) {
+        float s = std::sin(angle);
+        float c = std::cos(angle);
 
         x1 = c * _x1 - s * _y1;
         y1 = s * _x1 + c * _y1;

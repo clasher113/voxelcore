@@ -18,6 +18,7 @@
 #include "../../world/Level.hpp"
 #include "../../world/World.hpp"
 #include "../ContentGfxCache.hpp"
+#include "files/WorldFiles.hpp"
 #include "WorkshopUtils.hpp"
 
 #include <cstring>
@@ -29,14 +30,11 @@ vattr attr[] = { 0 };
 Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache(cache),
 blockRenderer(32768, engine->getContent(), cache, &engine->getSettings()),
 chunk(new Chunk(0, 0)),
-world(new World("", "core:default", "", 0, engine->getSettings(), engine->getContent(), engine->getContentPacks())),
+world(new World(WorldInfo(), std::make_shared<WorldFiles>(""), engine->getContent(), engine->getContentPacks())),
 level(new Level(std::unique_ptr<World>(world), engine->getContent(), engine->getSettings())),
 camera(glm::vec3(0.f), glm::radians(60.f)),
 framebuffer(0, 0, true),
 inventory(std::make_shared<Inventory>(0, 0)),
-player(std::make_shared<Player>(level, glm::vec3(0.f), 0.f, inventory, 0)),
-controller(engine->getSettings(), std::unique_ptr<Level>(level)),
-frontend(player.get(), &controller, engine->getAssets()),
 cameraPosition(0.f),
 lineBatch(1024),
 batch2d(1024),

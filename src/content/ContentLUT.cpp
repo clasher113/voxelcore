@@ -1,27 +1,40 @@
 #include "ContentLUT.hpp"
 
-#include "Content.hpp"
-#include "../constants.hpp"
-#include "../files/files.hpp"
-#include "../coders/json.hpp"
-#include "../voxels/Block.hpp"
-#include "../items/ItemDef.hpp"
 #include <memory>
 
-ContentLUT::ContentLUT(const ContentIndices* indices, size_t blocksCount, size_t itemsCount) 
-  : blocks(blocksCount, indices->blocks, BLOCK_VOID, contenttype::block),
-    items(itemsCount, indices->items, ITEM_VOID, contenttype::item)
-{}
+#include "coders/json.hpp"
+#include "constants.hpp"
+#include "files/files.hpp"
+#include "items/ItemDef.hpp"
+#include "voxels/Block.hpp"
+#include "world/World.hpp"
+#include "files/WorldFiles.hpp"
+#include "Content.hpp"
 
-template<class T> static constexpr size_t get_entries_count(
-    const ContentUnitIndices<T>& indices, const dynamic::List_sptr& list) {
+ContentLUT::ContentLUT(
+    const ContentIndices* indices, size_t blocksCount, size_t itemsCount
+)
+    : blocks(blocksCount, indices->blocks, BLOCK_VOID, contenttype::block),
+      items(itemsCount, indices->items, ITEM_VOID, contenttype::item) {
+}
+
+template <class T>
+static constexpr size_t get_entries_count(
+    const ContentUnitIndices<T>& indices, const dynamic::List_sptr& list
+) {
     return list ? std::max(list->size(), indices.count()) : indices.count();
 }
 
 std::shared_ptr<ContentLUT> ContentLUT::create(
+    const std::shared_ptr<WorldFiles>& worldFiles,
     const fs::path& filename, 
     const Content* content
 ) {
+    auto worldInfo = worldFiles->readWorldInfo();
+    if (!worldInfo.has_value()) {
+        return nullptr;
+    }
+
     auto root = files::read_json(filename);
     auto blocklist = root->list("blocks");
     auto itemlist = root->list("items");

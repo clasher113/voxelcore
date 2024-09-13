@@ -48,8 +48,8 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 			for (const auto& elem : sorted) {
 				Atlas* contentAtlas = previewAtlas;
 				std::string textureName("core:air");
-				ItemDef& item = *content->items.find(elem.first);
-				Block& block = *content->blocks.find(elem.first);
+				ItemDef& item = *const_cast<ItemDef*>(content->items.find(elem.first));
+				Block& block = *const_cast<Block*>(content->blocks.find(elem.first));
 				if (type == DefType::BLOCK) {
 					textureName = elem.first;
 				}
@@ -70,7 +70,7 @@ void workshop::WorkShopScreen::createContentList(DefType type, unsigned int colu
 					button->listenAction([this, elem, &block, callback](gui::GUI*) {
 						if (callback) callback(elem.first);
 						else {
-							preview->setBlock(content->blocks.find(elem.first));
+							preview->setBlock(const_cast<Block*>(content->blocks.find(elem.first)));
 							createBlockEditor(block);
 						}
 					});

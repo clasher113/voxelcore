@@ -1,13 +1,13 @@
-#ifndef UTIL_STRINGUTIL_HPP_
-#define UTIL_STRINGUTIL_HPP_
-
-#include "../typedefs.hpp"
+#pragma once
 
 #include <string>
 #include <vector>
 
+#include "typedefs.hpp"
+#include "util/Buffer.hpp"
+
 namespace util {
-    /// @brief Function used for string serialization in text formats 
+    /// @brief Function used for string serialization in text formats
     std::string escape(const std::string& s);
 
     /// @brief Function used for error messages
@@ -18,26 +18,53 @@ namespace util {
 
     uint encode_utf8(uint32_t c, ubyte* bytes);
     uint32_t decode_utf8(uint& size, const char* bytes);
-    std::string wstr2str_utf8(const std::wstring &ws);
-    std::wstring str2wstr_utf8(const std::string &s);
+
+    /// @brief Encode raw wstring to UTF-8
+    /// @param ws source raw wstring
+    /// @return new UTF-8 encoded string
+    std::string wstr2str_utf8(const std::wstring& ws);
+
+    /// @brief Decode UTF-8 string
+    /// @param s source encoded string
+    /// @return new raw decoded wstring
+    std::wstring str2wstr_utf8(const std::string& s);
+
+    /// @brief Encode raw u32string to UTF-8
+    /// @param ws source raw wstring
+    /// @return new UTF-8 encoded string
+    std::string u32str2str_utf8(const std::u32string& ws);
+
+    /// @brief Decode UTF-8 string
+    /// @param s source encoded string
+    /// @return new raw decoded u32string
+    std::u32string str2u32str_utf8(const std::string& s);
+
+    /// @brief Calculated length of UTF-8 encoded string that fits into maxSize
+    /// @param s source UTF-8 encoded string view
+    /// @param maxSize max encoded string length after crop
+    /// @return cropped string size (less or equal to maxSize)
+    size_t crop_utf8(std::string_view s, size_t maxSize);
+    
     bool is_integer(const std::string& text);
     bool is_integer(const std::wstring& text);
-    bool is_valid_filename(const std::wstring &name);
+    bool is_valid_filename(const std::wstring& name);
 
-    void ltrim(std::string &s);
-    void rtrim(std::string &s);
-    void trim(std::string &s);
+    void ltrim(std::string& s);
+    void rtrim(std::string& s);
+    void trim(std::string& s);
 
     std::string to_string(double x);
     std::wstring to_wstring(double x, int precision);
 
     std::string base64_encode(const ubyte* data, size_t size);
-    std::vector<ubyte> base64_decode(const char* str, size_t size);
-    std::vector<ubyte> base64_decode(const std::string& str);
+    util::Buffer<ubyte> base64_decode(const char* str, size_t size);
+    util::Buffer<ubyte> base64_decode(const std::string& str);
 
     std::string mangleid(uint64_t value);
 
-    int replaceAll(std::string& str, const std::string& from, const std::string& to);
+    int replaceAll(
+        std::string& str, const std::string& from, const std::string& to
+    );
 
     double parse_double(const std::string& str);
     double parse_double(const std::string& str, size_t offset, size_t len);
@@ -60,5 +87,3 @@ namespace util {
 
     std::pair<std::string, std::string> split_at(std::string_view view, char c);
 }
-
-#endif // UTIL_STRINGUTIL_HPP_

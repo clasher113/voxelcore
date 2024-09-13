@@ -9,10 +9,8 @@
 #include "../../graphics/render/BlocksRenderer.hpp"
 #include "../../graphics/ui/elements/InventoryView.hpp"
 #include "../../items/Inventory.hpp"
-#include "../../logic/LevelController.hpp"
 #include "../../maths/aabb.hpp"
 #include "../../window/Camera.hpp"
-#include "../LevelFrontend.hpp"
 
 #include <glm/fwd.hpp>
 
@@ -85,10 +83,7 @@ namespace workshop {
 		Camera camera;
 		Framebuffer framebuffer;
 
-		LevelController controller;
 		std::shared_ptr<Inventory> inventory;
-		std::shared_ptr<Player> player;
-		LevelFrontend frontend;
 		std::shared_ptr<gui::UINode> currentUI;
 		std::shared_ptr<xml::Document> currentDocument;
 		Block* currentBlock = nullptr;

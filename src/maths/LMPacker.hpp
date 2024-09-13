@@ -1,12 +1,12 @@
 ///    C++ LMPacker port
 ///        https://github.com/MihailRis/LMPacker
-#ifndef LMPACKER_HPP_
-#define LMPACKER_HPP_
+#pragma once
 
-#include <stdlib.h>
 #include <stdint.h>
-#include <vector>
+#include <stdlib.h>
+
 #include <memory>
+#include <vector>
 
 struct rectangle {
     unsigned int idx;
@@ -18,7 +18,7 @@ struct rectangle {
     int extY = 0;
 
     rectangle(unsigned int idx, int x, int y, int width, int height)
-        : idx(idx), x(x), y(y), width(width), height(height){
+        : idx(idx), x(x), y(y), width(width), height(height) {
     }
 };
 
@@ -46,11 +46,15 @@ public:
     bool buildFast(uint32_t width, uint32_t height, uint16_t extension) {
         return build(width, height, extension, 1, 2);
     }
-    bool build(uint32_t width, uint32_t height, uint16_t extension, uint32_t mbit, uint32_t vstep);
+    bool build(
+        uint32_t width,
+        uint32_t height,
+        uint16_t extension,
+        uint32_t mbit,
+        uint32_t vstep
+    );
 
     std::vector<rectangle> getResult() {
         return rects;
     }
 };
-
-#endif // LMPACKER_HPP_

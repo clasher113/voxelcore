@@ -4,8 +4,8 @@
 #include "Texture.hpp"
 
 #include <GL/glew.h>
-#include "../../typedefs.hpp"
-#include "../../maths/UVRegion.hpp"
+#include "typedefs.hpp"
+#include "maths/UVRegion.hpp"
 
 /// xyz, uv, rgba
 inline constexpr uint B3D_VERTEX_SIZE = 9;
@@ -245,12 +245,18 @@ void Batch3D::blockCube(
     cube((1.0f - size) * -0.5f, size, texfaces, tint, shading);
 }
 
-void Batch3D::point(glm::vec3 coord, glm::vec2 uv, glm::vec4 tint) {
+void Batch3D::vertex(glm::vec3 coord, glm::vec2 uv, glm::vec4 tint) {
+    if (index + B3D_VERTEX_SIZE >= capacity) {
+        flush();
+    }
     vertex(coord, uv, tint.r, tint.g, tint.b, tint.a);
 }
 
 void Batch3D::point(glm::vec3 coord, glm::vec4 tint) {
-    point(coord, glm::vec2(), tint);
+    if (index + B3D_VERTEX_SIZE >= capacity) {
+        flushPoints();
+    }
+    vertex(coord, {}, tint.r, tint.g, tint.b, tint.a);
 }
 
 void Batch3D::flush() {

@@ -2,7 +2,7 @@
 
 #include "Texture.hpp"
 #include "ImageData.hpp"
-#include "../../maths/LMPacker.hpp"
+#include "maths/LMPacker.hpp"
 
 #include <stdexcept>
 
@@ -19,8 +19,7 @@ Atlas::Atlas(
     }
 }
 
-Atlas::~Atlas() {
-}
+Atlas::~Atlas() = default;
 
 void Atlas::prepare() {
     texture = Texture::from(image.get());

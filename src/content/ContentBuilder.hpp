@@ -1,17 +1,16 @@
-#ifndef CONTENT_CONTENT_BUILDER_HPP_
-#define CONTENT_CONTENT_BUILDER_HPP_
-
-#include "../items/ItemDef.hpp"
-#include "../voxels/Block.hpp"
-#include "../objects/EntityDef.hpp"
-#include "../content/Content.hpp"
-#include "../content/ContentPack.hpp"
+#pragma once
 
 #include <memory>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
-template<class T>
+#include "Content.hpp"
+#include "ContentPack.hpp"
+#include "items/ItemDef.hpp"
+#include "objects/EntityDef.hpp"
+#include "voxels/Block.hpp"
+
+template <class T>
 class ContentUnitBuilder {
     std::unordered_map<std::string, contenttype>& allNames;
     contenttype type;
@@ -19,17 +18,20 @@ class ContentUnitBuilder {
     void checkIdentifier(const std::string& id) {
         const auto& found = allNames.find(id);
         if (found != allNames.end()) {
-            throw namereuse_error("name "+id+" is already used", found->second);
+            throw namereuse_error(
+                "name " + id + " is already used", found->second
+            );
         }
     }
 public:
     UptrsMap<std::string, T> defs;
     std::vector<std::string> names;
-    
+
     ContentUnitBuilder(
-        std::unordered_map<std::string, contenttype>& allNames,
-        contenttype type
-    ) : allNames(allNames), type(type) {}
+        std::unordered_map<std::string, contenttype>& allNames, contenttype type
+    )
+        : allNames(allNames), type(type) {
+    }
 
     T& create(const std::string& id) {
         auto found = defs.find(id);
@@ -41,6 +43,14 @@ public:
         names.push_back(id);
         defs[id] = std::make_unique<T>(id);
         return *defs[id];
+    }
+    // Only fetch existing definition, return null otherwise.
+    T* get(const std::string& id) {
+        auto found = defs.find(id);
+        if (found != defs.end()) {
+            return &*found->second;
+        }
+        return nullptr;
     }
 
     auto build() {
@@ -68,5 +78,3 @@ public:
 
     std::unique_ptr<Content> build();
 };
-
-#endif // CONTENT_CONTENT_BUILDER_HPP_

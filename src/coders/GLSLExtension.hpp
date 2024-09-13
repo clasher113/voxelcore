@@ -1,10 +1,9 @@
-#ifndef CODERS_GLSL_EXTESION_HPP_
-#define CODERS_GLSL_EXTESION_HPP_
+#pragma once
 
-#include <string>
-#include <vector>
-#include <unordered_map>
 #include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 class ResPaths;
 
@@ -30,10 +29,8 @@ public:
     bool hasDefine(const std::string& name) const;
 
     std::string process(
-        const std::filesystem::path& file, 
+        const std::filesystem::path& file,
         const std::string& source,
-        bool header=false
+        bool header = false
     );
 };
-
-#endif // CODERS_GLSL_EXTESION_HPP_

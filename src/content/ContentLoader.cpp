@@ -1,34 +1,33 @@
 #include "ContentLoader.hpp"
 
-#include "Content.hpp"
-#include "ContentPack.hpp"
-#include "ContentBuilder.hpp"
-#include "../coders/json.hpp"
-#include "../core_defs.hpp"
-#include "../data/dynamic.hpp"
-#include "../debug/Logger.hpp"
-#include "../files/files.hpp"
-#include "../items/ItemDef.hpp"
-#include "../objects/rigging.hpp"
-#include "../logic/scripting/scripting.hpp"
-#include "../typedefs.hpp"
-#include "../util/listutil.hpp"
-#include "../util/stringutil.hpp"
-#include "../voxels/Block.hpp"
-
-#include <iostream>
-#include <string>
-#include <memory>
 #include <algorithm>
 #include <glm/glm.hpp>
+#include <iostream>
+#include <memory>
+#include <string>
+
+#include "Content.hpp"
+#include "ContentBuilder.hpp"
+#include "ContentPack.hpp"
+#include "coders/json.hpp"
+#include "core_defs.hpp"
+#include "data/dynamic.hpp"
+#include "debug/Logger.hpp"
+#include "files/files.hpp"
+#include "items/ItemDef.hpp"
+#include "logic/scripting/scripting.hpp"
+#include "objects/rigging.hpp"
+#include "typedefs.hpp"
+#include "util/listutil.hpp"
+#include "util/stringutil.hpp"
+#include "voxels/Block.hpp"
 
 namespace fs = std::filesystem;
 
 static debug::Logger logger("content-loader");
 
 ContentLoader::ContentLoader(ContentPack* pack, ContentBuilder& builder)
-  : pack(pack), builder(builder)
-{
+    : pack(pack), builder(builder) {
     auto runtime = std::make_unique<ContentPackRuntime>(
         *pack, scripting::create_pack_environment(*pack)
     );
@@ -97,9 +96,9 @@ bool ContentLoader::fixPackIndices(
 void ContentLoader::fixPackIndices() {
     auto folder = pack->folder;
     auto indexFile = pack->getContentFile();
-    auto blocksFolder = folder/ContentPack::BLOCKS_FOLDER;
-    auto itemsFolder = folder/ContentPack::ITEMS_FOLDER;
-    auto entitiesFolder = folder/ContentPack::ENTITIES_FOLDER;
+    auto blocksFolder = folder / ContentPack::BLOCKS_FOLDER;
+    auto itemsFolder = folder / ContentPack::ITEMS_FOLDER;
+    auto entitiesFolder = folder / ContentPack::ENTITIES_FOLDER;
 
     dynamic::Map_sptr root;
     if (fs::is_regular_file(indexFile)) {
@@ -113,14 +112,28 @@ void ContentLoader::fixPackIndices() {
     modified |= fixPackIndices(itemsFolder, root.get(), "items");
     modified |= fixPackIndices(entitiesFolder, root.get(), "entities");
 
-    if (modified){
+    if (modified) {
         // rewrite modified json
         files::write_json(indexFile, root.get());
     }
 }
 
-void ContentLoader::loadBlock(Block& def, const std::string& name, const fs::path& file) {
+void ContentLoader::loadBlock(
+    Block& def, const std::string& name, const fs::path& file
+) {
     auto root = files::read_json(file);
+
+    if (root->has("parent")) {
+        std::string parentName;
+        root->str("parent", parentName);
+        auto parentDef = this->builder.blocks.get(parentName);
+        if (parentDef == nullptr) {
+            throw std::runtime_error(
+                "Failed to find parent(" + parentName + ") for " + name
+            );
+        }
+        parentDef->cloneTo(def);
+    }
 
     root->str("caption", def.caption);
 
@@ -169,27 +182,28 @@ void ContentLoader::loadBlock(Block& def, const std::string& name, const fs::pat
         logger.error() << "unknown rotation profile " << profile;
         def.rotatable = false;
     }
-    
+
     // block hitbox AABB [x, y, z, width, height, depth]
     auto boxarr = root->list("hitboxes");
     if (boxarr) {
         def.hitboxes.resize(boxarr->size());
         for (uint i = 0; i < boxarr->size(); i++) {
             auto box = boxarr->list(i);
-            def.hitboxes[i].a = glm::vec3(box->num(0), box->num(1), box->num(2));
-            def.hitboxes[i].b = glm::vec3(box->num(3), box->num(4), box->num(5));
-            def.hitboxes[i].b += def.hitboxes[i].a;
+            auto& hitboxesIndex = def.hitboxes[i];
+            hitboxesIndex.a = glm::vec3(box->num(0), box->num(1), box->num(2));
+            hitboxesIndex.b = glm::vec3(box->num(3), box->num(4), box->num(5));
+            hitboxesIndex.b += hitboxesIndex.a;
         }
-    } else if ((boxarr = root->list("hitbox"))){
+    } else if ((boxarr = root->list("hitbox"))) {
         AABB aabb;
         aabb.a = glm::vec3(boxarr->num(0), boxarr->num(1), boxarr->num(2));
         aabb.b = glm::vec3(boxarr->num(3), boxarr->num(4), boxarr->num(5));
         aabb.b += aabb.a;
-        def.hitboxes = { aabb };
+        def.hitboxes = {aabb};
     } else if (!def.modelBoxes.empty()) {
         def.hitboxes = def.modelBoxes;
     } else {
-        def.hitboxes = { AABB() };
+        def.hitboxes = {AABB()};
     }
 
     // block light emission [r, g, b] where r,g,b in range [0..15]
@@ -204,8 +218,8 @@ void ContentLoader::loadBlock(Block& def, const std::string& name, const fs::pat
         def.size.x = sizearr->num(0);
         def.size.y = sizearr->num(1);
         def.size.z = sizearr->num(2);
-        if (def.model == BlockModel::block && 
-           (def.size.x != 1 || def.size.y != 1 || def.size.z != 1)) {
+        if (def.model == BlockModel::block &&
+            (def.size.x != 1 || def.size.y != 1 || def.size.z != 1)) {
             def.model = BlockModel::aabb;
             def.hitboxes = {AABB(def.size)};
         }
@@ -232,7 +246,7 @@ void ContentLoader::loadBlock(Block& def, const std::string& name, const fs::pat
         def.tickInterval = 1;
     }
 
-    if (def.hidden && def.pickingItem == def.name+BLOCK_ITEM_SUFFIX) {
+    if (def.hidden && def.pickingItem == def.name + BLOCK_ITEM_SUFFIX) {
         def.pickingItem = CORE_EMPTY;
     }
 }
@@ -240,22 +254,24 @@ void ContentLoader::loadBlock(Block& def, const std::string& name, const fs::pat
 void ContentLoader::loadCustomBlockModel(Block& def, dynamic::Map* primitives) {
     if (primitives->has("aabbs")) {
         auto modelboxes = primitives->list("aabbs");
-        for (uint i = 0; i < modelboxes->size(); i++ ) {
+        for (uint i = 0; i < modelboxes->size(); i++) {
             /* Parse aabb */
             auto boxarr = modelboxes->list(i);
             AABB modelbox;
-            modelbox.a = glm::vec3(boxarr->num(0), boxarr->num(1), boxarr->num(2));
-            modelbox.b = glm::vec3(boxarr->num(3), boxarr->num(4), boxarr->num(5));
+            modelbox.a =
+                glm::vec3(boxarr->num(0), boxarr->num(1), boxarr->num(2));
+            modelbox.b =
+                glm::vec3(boxarr->num(3), boxarr->num(4), boxarr->num(5));
             modelbox.b += modelbox.a;
             def.modelBoxes.push_back(modelbox);
 
             if (boxarr->size() == 7)
                 for (uint j = 6; j < 12; j++) {
-                    def.modelTextures.push_back(boxarr->str(6));
+                    def.modelTextures.emplace_back(boxarr->str(6));
                 }
             else if (boxarr->size() == 12)
                 for (uint j = 6; j < 12; j++) {
-                    def.modelTextures.push_back(boxarr->str(j));
+                    def.modelTextures.emplace_back(boxarr->str(j));
                 }
             else
                 for (uint j = 6; j < 12; j++) {
@@ -269,20 +285,35 @@ void ContentLoader::loadCustomBlockModel(Block& def, dynamic::Map* primitives) {
             /* Parse tetragon to points */
             auto tgonobj = modeltetragons->list(i);
             glm::vec3 p1(tgonobj->num(0), tgonobj->num(1), tgonobj->num(2)),
-                      xw(tgonobj->num(3), tgonobj->num(4), tgonobj->num(5)),
-                      yh(tgonobj->num(6), tgonobj->num(7), tgonobj->num(8));
+                xw(tgonobj->num(3), tgonobj->num(4), tgonobj->num(5)),
+                yh(tgonobj->num(6), tgonobj->num(7), tgonobj->num(8));
             def.modelExtraPoints.push_back(p1);
-            def.modelExtraPoints.push_back(p1+xw);
-            def.modelExtraPoints.push_back(p1+xw+yh);
-            def.modelExtraPoints.push_back(p1+yh);
+            def.modelExtraPoints.push_back(p1 + xw);
+            def.modelExtraPoints.push_back(p1 + xw + yh);
+            def.modelExtraPoints.push_back(p1 + yh);
 
-            def.modelTextures.push_back(tgonobj->str(9));
+            def.modelTextures.emplace_back(tgonobj->str(9));
         }
     }
 }
 
-void ContentLoader::loadItem(ItemDef& def, const std::string& name, const fs::path& file) {
+void ContentLoader::loadItem(
+    ItemDef& def, const std::string& name, const fs::path& file
+) {
     auto root = files::read_json(file);
+
+    if (root->has("parent")) {
+        std::string parentName;
+        root->str("parent", parentName);
+        auto parentDef = this->builder.items.get(parentName);
+        if (parentDef == nullptr) {
+            throw std::runtime_error(
+                "Failed to find parent(" + parentName + ") for " + name
+            );
+        }
+        parentDef->cloneTo(def);
+    }
+
     root->str("caption", def.caption);
 
     std::string iconTypeStr = "";
@@ -293,7 +324,7 @@ void ContentLoader::loadItem(ItemDef& def, const std::string& name, const fs::pa
         def.iconType = item_icon_type::block;
     } else if (iconTypeStr == "sprite") {
         def.iconType = item_icon_type::sprite;
-    } else if (iconTypeStr.length()){
+    } else if (iconTypeStr.length()) {
         logger.error() << name << ": unknown icon type" << iconTypeStr;
     }
     root->str("icon", def.icon);
@@ -309,11 +340,26 @@ void ContentLoader::loadItem(ItemDef& def, const std::string& name, const fs::pa
     }
 }
 
-void ContentLoader::loadEntity(EntityDef& def, const std::string& name, const fs::path& file) {
+void ContentLoader::loadEntity(
+    EntityDef& def, const std::string& name, const fs::path& file
+) {
     auto root = files::read_json(file);
+
+    if (root->has("parent")) {
+        std::string parentName;
+        root->str("parent", parentName);
+        auto parentDef = this->builder.entities.get(parentName);
+        if (parentDef == nullptr) {
+            throw std::runtime_error(
+                "Failed to find parent(" + parentName + ") for " + name
+            );
+        }
+        parentDef->cloneTo(def);
+    }
+
     if (auto componentsarr = root->list("components")) {
         for (size_t i = 0; i < componentsarr->size(); i++) {
-            def.components.push_back(componentsarr->str(i));
+            def.components.emplace_back(componentsarr->str(i));
         }
     }
     if (auto boxarr = root->list("hitbox")) {
@@ -324,14 +370,22 @@ void ContentLoader::loadEntity(EntityDef& def, const std::string& name, const fs
             if (auto sensorarr = sensorsarr->list(i)) {
                 auto sensorType = sensorarr->str(0);
                 if (sensorType == "aabb") {
-                    def.boxSensors.push_back({i, {
-                        {sensorarr->num(1), sensorarr->num(2), sensorarr->num(3)},
-                        {sensorarr->num(4), sensorarr->num(5), sensorarr->num(6)}
-                    }});
+                    def.boxSensors.emplace_back(
+                        i,
+                        AABB {
+                            {sensorarr->num(1),
+                             sensorarr->num(2),
+                             sensorarr->num(3)},
+                            {sensorarr->num(4),
+                             sensorarr->num(5),
+                             sensorarr->num(6)}
+                        }
+                    );
                 } else if (sensorType == "radius") {
-                    def.radialSensors.push_back({i, sensorarr->num(1)});
+                    def.radialSensors.emplace_back(i, sensorarr->num(1));
                 } else {
-                    logger.error() << name << ": sensor #" << i << " - unknown type "
+                    logger.error()
+                        << name << ": sensor #" << i << " - unknown type "
                         << util::quote(sensorType);
                 }
             }
@@ -353,29 +407,33 @@ void ContentLoader::loadEntity(EntityDef& def, const std::string& name, const fs
     root->flag("blocking", def.blocking);
 }
 
-void ContentLoader::loadEntity(EntityDef& def, const std::string& full, const std::string& name) {
+void ContentLoader::loadEntity(
+    EntityDef& def, const std::string& full, const std::string& name
+) {
     auto folder = pack->folder;
-    auto configFile = folder/fs::path("entities/"+name+".json");
+    auto configFile = folder / fs::path("entities/" + name + ".json");
     if (fs::exists(configFile)) loadEntity(def, full, configFile);
 }
 
-void ContentLoader::loadBlock(Block& def, const std::string& full, const std::string& name) {
+void ContentLoader::loadBlock(
+    Block& def, const std::string& full, const std::string& name
+) {
     auto folder = pack->folder;
-    auto configFile = folder/fs::path("blocks/"+name+".json");
+    auto configFile = folder / fs::path("blocks/" + name + ".json");
     if (fs::exists(configFile)) loadBlock(def, full, configFile);
 
-    auto scriptfile = folder/fs::path("scripts/"+def.scriptName+".lua");
+    auto scriptfile = folder / fs::path("scripts/" + def.scriptName + ".lua");
     if (fs::is_regular_file(scriptfile)) {
         scripting::load_block_script(env, full, scriptfile, def.rt.funcsset);
     }
     if (!def.hidden) {
-        auto& item = builder.items.create(full+BLOCK_ITEM_SUFFIX);
+        auto& item = builder.items.create(full + BLOCK_ITEM_SUFFIX);
         item.generated = true;
         item.caption = def.caption;
         item.iconType = item_icon_type::block;
         item.icon = full;
         item.placingBlock = full;
-        
+
         for (uint j = 0; j < 4; j++) {
             item.emission[j] = def.emission[j];
         }
@@ -383,18 +441,22 @@ void ContentLoader::loadBlock(Block& def, const std::string& full, const std::st
     }
 }
 
-void ContentLoader::loadItem(ItemDef& def, const std::string& full, const std::string& name) {
+void ContentLoader::loadItem(
+    ItemDef& def, const std::string& full, const std::string& name
+) {
     auto folder = pack->folder;
-    auto configFile = folder/fs::path("items/"+name+".json");
+    auto configFile = folder / fs::path("items/" + name + ".json");
     if (fs::exists(configFile)) loadItem(def, full, configFile);
 
-    auto scriptfile = folder/fs::path("scripts/"+def.scriptName+".lua");
+    auto scriptfile = folder / fs::path("scripts/" + def.scriptName + ".lua");
     if (fs::is_regular_file(scriptfile)) {
         scripting::load_item_script(env, full, scriptfile, def.rt.funcsset);
     }
 }
 
-void ContentLoader::loadBlockMaterial(BlockMaterial& def, const fs::path& file) {
+void ContentLoader::loadBlockMaterial(
+    BlockMaterial& def, const fs::path& file
+) {
     auto root = files::read_json(file);
     root->str("steps-sound", def.stepsSound);
     root->str("place-sound", def.placeSound);
@@ -408,50 +470,167 @@ void ContentLoader::load() {
 
     auto folder = pack->folder;
 
-    fs::path scriptFile = folder/fs::path("scripts/world.lua");
+    fs::path scriptFile = folder / fs::path("scripts/world.lua");
     if (fs::is_regular_file(scriptFile)) {
-        scripting::load_world_script(env, pack->id, scriptFile, runtime->worldfuncsset);
+        scripting::load_world_script(
+            env, pack->id, scriptFile, runtime->worldfuncsset
+        );
     }
 
-    if (!fs::is_regular_file(pack->getContentFile()))
-        return;
+    if (!fs::is_regular_file(pack->getContentFile())) return;
 
     auto root = files::read_json(pack->getContentFile());
+    std::vector<std::pair<std::string, std::string>> pendingDefs;
+    auto getJsonParent = [this](const std::string& prefix, const std::string& name) {
+            auto configFile = pack->folder / fs::path(prefix + "/" + name + ".json");
+            std::string parent;
+            if (fs::exists(configFile)) {
+                auto root = files::read_json(configFile);
+                if (root->has("parent")) root->str("parent", parent);
+            }
+            return parent;
+        };
+    auto processName = [this](const std::string& name) {
+        auto colon = name.find(':');
+        auto new_name = name;
+        std::string full =
+            colon == std::string::npos ? pack->id + ":" + name : name;
+        if (colon != std::string::npos) new_name[colon] = '/';
+
+        return std::make_pair(full, new_name);
+    };
 
     if (auto blocksarr = root->list("blocks")) {
         for (size_t i = 0; i < blocksarr->size(); i++) {
-            std::string name = blocksarr->str(i);
-            auto colon = name.find(':');
-            std::string full = colon == std::string::npos ? pack->id + ":" + name : name;
-            if (colon != std::string::npos) name[colon] = '/';
-            auto& def = builder.blocks.create(full);
-            if (colon != std::string::npos) def.scriptName = name.substr(0, colon) + '/' + def.scriptName;
-            loadBlock(def, full, name);
-            stats->totalBlocks++;
+            auto [full, name] = processName(blocksarr->str(i));
+            auto parent = getJsonParent("blocks", name);
+            if (parent.empty() || builder.blocks.get(parent)) {
+                // No dependency or dependency already loaded/exists in another
+                // content pack
+                auto& def = builder.blocks.create(full);
+                loadBlock(def, full, name);
+                stats->totalBlocks++;
+            } else {
+                // Dependency not loaded yet, add to pending items
+                pendingDefs.emplace_back(full, name);
+            }
+        }
+
+        // Resolve dependencies for pending items
+        bool progressMade = true;
+        while (!pendingDefs.empty() && progressMade) {
+            progressMade = false;
+
+            for (auto it = pendingDefs.begin(); it != pendingDefs.end();) {
+                auto parent = getJsonParent("blocks", it->second);
+                if (builder.blocks.get(parent)) {
+                    // Dependency resolved or parent exists in another pack,
+                    // load the item
+                    auto& def = builder.blocks.create(it->first);
+                    loadBlock(def, it->first, it->second);
+                    stats->totalBlocks++;
+                    it = pendingDefs.erase(it);  // Remove resolved item
+                    progressMade = true;
+                } else {
+                    ++it;
+                }
+            }
+        }
+
+        if (!pendingDefs.empty()) {
+            // Handle circular dependencies or missing dependencies
+            // You can log an error or throw an exception here if necessary
+            throw std::runtime_error("Unresolved block dependencies detected.");
         }
     }
+
     if (auto itemsarr = root->list("items")) {
         for (size_t i = 0; i < itemsarr->size(); i++) {
-            std::string name = itemsarr->str(i);
-            auto colon = name.find(':');
-            std::string full = colon == std::string::npos ? pack->id + ":" + name : name;
-            if (colon != std::string::npos) name[colon] = '/';
-            auto& def = builder.items.create(full);
-            if (colon != std::string::npos) def.scriptName = name.substr(0, colon) + '/' + def.scriptName;
-            loadItem(def, full, name);
-            stats->totalItems++;
+            auto [full, name] = processName(itemsarr->str(i));
+            auto parent = getJsonParent("items", name);
+            if (parent.empty() || builder.items.get(parent)) {
+                // No dependency or dependency already loaded/exists in another
+                // content pack
+                auto& def = builder.items.create(full);
+                loadItem(def, full, name);
+                stats->totalItems++;
+            } else {
+                // Dependency not loaded yet, add to pending items
+                pendingDefs.emplace_back(full, name);
+            }
+        }
+
+        // Resolve dependencies for pending items
+        bool progressMade = true;
+        while (!pendingDefs.empty() && progressMade) {
+            progressMade = false;
+
+            for (auto it = pendingDefs.begin(); it != pendingDefs.end();) {
+                auto parent = getJsonParent("items", it->second);
+                if (builder.items.get(parent)) {
+                    // Dependency resolved or parent exists in another pack,
+                    // load the item
+                    auto& def = builder.items.create(it->first);
+                    loadItem(def, it->first, it->second);
+                    stats->totalItems++;
+                    it = pendingDefs.erase(it);  // Remove resolved item
+                    progressMade = true;
+                } else {
+                    ++it;
+                }
+            }
+        }
+
+        if (!pendingDefs.empty()) {
+            // Handle circular dependencies or missing dependencies
+            // You can log an error or throw an exception here if necessary
+            throw std::runtime_error("Unresolved item dependencies detected.");
         }
     }
 
     if (auto entitiesarr = root->list("entities")) {
         for (size_t i = 0; i < entitiesarr->size(); i++) {
-            std::string name = entitiesarr->str(i);
-            auto colon = name.find(':');
-            std::string full = colon == std::string::npos ? pack->id + ":" + name : name;
-            if (colon != std::string::npos) name[colon] = '/';
-            auto& def = builder.entities.create(full);
-            loadEntity(def, full, name);
-            stats->totalEntities++;
+            auto [full, name] = processName(entitiesarr->str(i));
+            auto parent = getJsonParent("entities", name);
+            if (parent.empty() || builder.entities.get(parent)) {
+                // No dependency or dependency already loaded/exists in another
+                // content pack
+                auto& def = builder.entities.create(full);
+                loadEntity(def, full, name);
+                stats->totalEntities++;
+            } else {
+                // Dependency not loaded yet, add to pending items
+                pendingDefs.emplace_back(full, name);
+            }
+        }
+
+        // Resolve dependencies for pending items
+        bool progressMade = true;
+        while (!pendingDefs.empty() && progressMade) {
+            progressMade = false;
+
+            for (auto it = pendingDefs.begin(); it != pendingDefs.end();) {
+                auto parent = getJsonParent("entities", it->second);
+                if (builder.entities.get(parent)) {
+                    // Dependency resolved or parent exists in another pack,
+                    // load the item
+                    auto& def = builder.entities.create(it->first);
+                    loadEntity(def, it->first, it->second);
+                    stats->totalEntities++;
+                    it = pendingDefs.erase(it);  // Remove resolved item
+                    progressMade = true;
+                } else {
+                    ++it;
+                }
+            }
+        }
+
+        if (!pendingDefs.empty()) {
+            // Handle circular dependencies or missing dependencies
+            // You can log an error or throw an exception here if necessary
+            throw std::runtime_error(
+                "Unresolved entities dependencies detected."
+            );
         }
     }
 
@@ -459,7 +638,7 @@ void ContentLoader::load() {
     if (fs::is_directory(materialsDir)) {
         for (const auto& entry : fs::directory_iterator(materialsDir)) {
             const fs::path& file = entry.path();
-            std::string name = pack->id+":"+file.stem().u8string();
+            std::string name = pack->id + ":" + file.stem().u8string();
             loadBlockMaterial(builder.createBlockMaterial(name), file);
         }
     }
@@ -468,9 +647,11 @@ void ContentLoader::load() {
     if (fs::is_directory(skeletonsDir)) {
         for (const auto& entry : fs::directory_iterator(skeletonsDir)) {
             const fs::path& file = entry.path();
-            std::string name = pack->id+":"+file.stem().u8string();
+            std::string name = pack->id + ":" + file.stem().u8string();
             std::string text = files::read_string(file);
-            builder.add(rigging::SkeletonConfig::parse(text, file.u8string(), name));
+            builder.add(
+                rigging::SkeletonConfig::parse(text, file.u8string(), name)
+            );
         }
     }
 
@@ -479,7 +660,7 @@ void ContentLoader::load() {
         for (const auto& entry : fs::directory_iterator(componentsDir)) {
             fs::path scriptfile = entry.path();
             if (fs::is_regular_file(scriptfile)) {
-                auto name = pack->id+":"+scriptfile.stem().u8string();
+                auto name = pack->id + ":" + scriptfile.stem().u8string();
                 scripting::load_entity_component(name, scriptfile);
             }
         }
@@ -503,6 +684,7 @@ void ContentLoader::load() {
 void ContentLoader::loadResources(ResourceType type, dynamic::List* list) {
     for (size_t i = 0; i < list->size(); i++) {
         builder.resourceIndices[static_cast<size_t>(type)].add(
-            pack->id+":"+list->str(i), nullptr);
+            pack->id + ":" + list->str(i), nullptr
+        );
     }
 }

@@ -21,7 +21,7 @@ void workshop::WorkShopScreen::createTextureList(float icoSize, unsigned int col
 				for (const auto& elem : packs) {
 					paths[elem.title] = elem.folder;
 				}
-				paths.emplace("Default", engine->getPaths()->getResources());
+				paths.emplace("Default", engine->getPaths()->getResourcesFolder());
 			}
 
 			for (const auto& elem : paths) {

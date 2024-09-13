@@ -1,69 +1,69 @@
-#ifndef FILES_ENGINE_PATHS_HPP_
-#define FILES_ENGINE_PATHS_HPP_
+#pragma once
 
+#include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <vector>
-#include <stdexcept>
-#include <filesystem>
 
-#include "../content/ContentPack.hpp"
+#include "content/ContentPack.hpp"
 
-namespace fs = std::filesystem;
 
 class files_access_error : public std::runtime_error {
 public:
-    files_access_error(const std::string& msg) : std::runtime_error(msg) {}
+    files_access_error(const std::string& msg) : std::runtime_error(msg) {
+    }
 };
 
 class EnginePaths {
-    fs::path userfiles {"."};
-    fs::path resources {"res"}; 
-    fs::path worldFolder;
-    std::vector<ContentPack>* contentPacks = nullptr;
 public:
     void prepare();
 
-    fs::path getUserfiles() const;
-    fs::path getResources() const;
+    void setUserFilesFolder(std::filesystem::path folder);
+    std::filesystem::path getUserFilesFolder() const;
+
+    void setResourcesFolder(std::filesystem::path folder);
+    std::filesystem::path getResourcesFolder() const;
+
+    std::filesystem::path getWorldsFolder();
+    std::filesystem::path getWorldFolderByName(const std::string& name);
+
+    void setCurrentWorldFolder(std::filesystem::path folder);
+    std::filesystem::path getCurrentWorldFolder();
     
-    fs::path getScreenshotFile(const std::string& ext);
-    fs::path getWorldsFolder();
-    fs::path getWorldFolder();
-    fs::path getWorldFolder(const std::string& name);
-    fs::path getControlsFile();
-    fs::path getSettingsFile();
-    bool isWorldNameUsed(const std::string& name);
+    std::filesystem::path getNewScreenshotFile(const std::string& ext);
+    std::filesystem::path getControlsFile();
+    std::filesystem::path getSettingsFile();
 
-    void setUserfiles(fs::path folder);
-    void setResources(fs::path folder);
     void setContentPacks(std::vector<ContentPack>* contentPacks);
-    void setWorldFolder(fs::path folder);
 
-    std::vector<fs::path> scanForWorlds();
+    std::vector<std::filesystem::path> scanForWorlds();
 
-    fs::path resolve(const std::string& path, bool throwErr=true);
+    std::filesystem::path resolve(const std::string& path, bool throwErr = true);
+
+private:
+    std::filesystem::path userFilesFolder {"."};
+    std::filesystem::path resourcesFolder {"res"};
+    std::filesystem::path currentWorldFolder;
+    std::vector<ContentPack>* contentPacks = nullptr;
 };
 
 struct PathsRoot {
     std::string name;
-    fs::path path;
+    std::filesystem::path path;
 };
 
 class ResPaths {
-    fs::path mainRoot;
-    std::vector<PathsRoot> roots;
 public:
-    ResPaths(
-        fs::path mainRoot,
-        std::vector<PathsRoot> roots
-    );
-    
-    fs::path find(const std::string& filename) const;
+    ResPaths(std::filesystem::path mainRoot, std::vector<PathsRoot> roots);
+
+    std::filesystem::path find(const std::string& filename) const;
     std::string findRaw(const std::string& filename) const;
-    std::vector<fs::path> listdir(const std::string& folder) const;
+    std::vector<std::filesystem::path> listdir(const std::string& folder) const;
     std::vector<std::string> listdirRaw(const std::string& folder) const;
 
-    const fs::path& getMainRoot() const;
-};
+    const std::filesystem::path& getMainRoot() const;
 
-#endif // FILES_ENGINE_PATHS_HPP_
+private:
+    std::filesystem::path mainRoot;
+    std::vector<PathsRoot> roots;
+};

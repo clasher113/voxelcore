@@ -2,13 +2,13 @@
 
 #include "UiDocument.hpp"
 
-#include "../assets/Assets.hpp"
-#include "../content/Content.hpp"
-#include "../content/ContentPack.hpp"
-#include "../core_defs.hpp"
-#include "../graphics/core/Atlas.hpp"
-#include "../maths/UVRegion.hpp"
-#include "../voxels/Block.hpp"
+#include "assets/Assets.hpp"
+#include "content/Content.hpp"
+#include "content/ContentPack.hpp"
+#include "core_defs.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "maths/UVRegion.hpp"
+#include "voxels/Block.hpp"
 
 #include <string>
 
@@ -16,16 +16,14 @@ ContentGfxCache::ContentGfxCache(const Content* content, Assets* assets) : conte
     refresh(content, assets);
 }
 
-ContentGfxCache::~ContentGfxCache() {
-}
-
 void ContentGfxCache::refresh(const Content* content, Assets* assets) {
     auto indices = content->getIndices();
     sideregions = std::make_unique<UVRegion[]>(indices->blocks.count() * 6);
     auto atlas = assets->get<Atlas>("blocks");
     
-    for (uint i = 0; i < indices->blocks.count(); i++) {
-        Block* def = indices->blocks.get(i);
+    const auto& blocks = indices->blocks.getIterable();
+    for (uint i = 0; i < blocks.size(); i++) {
+        auto def = blocks[i];
         def->modelUVs.clear();
         for (uint side = 0; side < 6; side++) {
             const std::string& tex = def->textureFaces[side];
@@ -45,6 +43,8 @@ void ContentGfxCache::refresh(const Content* content, Assets* assets) {
         }
     }
 }
+
+ContentGfxCache::~ContentGfxCache() = default;
 
 const Content* ContentGfxCache::getContent() const {
     return content;

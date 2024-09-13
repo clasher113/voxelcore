@@ -22,6 +22,7 @@
 #include "../ContentGfxCache.hpp"
 #include "IncludeCommons.hpp"
 #include "menu_workshop.hpp"
+#include "settings.hpp"
 #include "WorkshopPreview.hpp"
 #include "WorkshopSerializer.hpp"
 #include "WorkshopUtils.hpp"
@@ -136,7 +137,7 @@ bool WorkShopScreen::initialize() {
 	packs.clear();
 
 	std::vector<ContentPack> scanned;
-	ContentPack::scanFolder(engine->getPaths()->getResources() / "content", scanned);
+	ContentPack::scanFolder(engine->getPaths()->getResourcesFolder() / "content", scanned);
 
 	if (currentPackId != "base") {
 		auto it = std::find_if(scanned.begin(), scanned.end(), [](const ContentPack& pack) {
@@ -544,7 +545,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 			std::unordered_map<Block*, size_t> brokenAABBs;
 			for (size_t i = 0; i < indices->blocks.count(); i++) {
 				size_t aabbsNum = 0;
-				Block* block = indices->blocks.get(i);
+				Block* block = indices->blocks.getIterable().at(i);
 				for (auto& aabb : block->modelBoxes) {
 					if (aabb.a != aabb.min() && aabb.b != aabb.max()) aabbsNum++;
 				}
@@ -616,7 +617,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 				}
 				else {
 					panel += new gui::Label("Found " + std::to_string(unusedTextures.size()) + " unused textures");
-					panel += new gui::Button(L"Delete all", glm::vec4(10.f), [this, unusedTextures](gui::GUI*){
+					panel += new gui::Button(L"Delete all", glm::vec4(10.f), [this, unusedTextures](gui::GUI*) {
 						std::vector<fs::path> v;
 						std::transform(unusedTextures.begin(), unusedTextures.end(), std::back_inserter(v), [](const auto& pair) {return pair.second; });
 						createFileDeletingConfirmationPanel(v, 3, [this]() {
@@ -653,7 +654,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 			});
 
 			std::vector<std::vector<ubyte>> filesBytes;
-			for (const auto& file : files){
+			for (const auto& file : files) {
 				filesBytes.emplace_back(files::read_bytes(file));
 			}
 			std::set<fs::path> skipList;
@@ -662,7 +663,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 				for (size_t j = i + 1; j < filesBytes.size(); j++) {
 					if (skipList.find(files[j]) != skipList.end()) continue;
 					if (filesBytes[i] == filesBytes[j]) {
-						if (duplicates.find(files[i]) == duplicates.end()){
+						if (duplicates.find(files[i]) == duplicates.end()) {
 							duplicates.emplace(files[i], std::set<fs::path>{files[j]});
 						}
 						else {
@@ -677,16 +678,16 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 
 				std::vector<fs::path> files;
 
-				if (duplicates.empty()){
+				if (duplicates.empty()) {
 					panel += new gui::Label("Duplicated textures not found");
 				}
-				else {					
+				else {
 					gui::Panel& filesList = *new gui::Panel(panel.getSize());
 					filesList.setMaxLength(500);
 
-					for (const auto& pair : duplicates){
+					for (const auto& pair : duplicates) {
 						filesList += new gui::Label(pair.first.stem().string());
-						for (const auto& duplicate : pair.second){
+						for (const auto& duplicate : pair.second) {
 							std::string file = duplicate.stem().string();
 							files.emplace_back(duplicate);
 							filesList += *new gui::IconButton(glm::vec2(panel.getSize().x, 50.f), file, blocksAtlas, file);
@@ -701,9 +702,9 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 							for (const auto& duplicate : pair.second) {
 								const std::string duplicateTexName = duplicate.stem().string();
 								for (size_t i = 0; i < indices->blocks.count(); i++) {
-									Block* const block = indices->blocks.get(i);
+									Block* const block = indices->blocks.getIterable().at(i);
 									if (block->name.find(currentPackId) == std::string::npos) continue;
-									for (std::string& blockTexture : block->modelTextures){
+									for (std::string& blockTexture : block->modelTextures) {
 										if (blockTexture == duplicateTexName) blockTexture = uniqueTexName;
 									}
 									for (std::string& blockTexture : block->textureFaces) {
@@ -806,14 +807,14 @@ void workshop::WorkShopScreen::createFileDeletingConfirmationPanel(const std::ve
 
 		gui::Panel& filesList = *new gui::Panel(panel.getSize());
 		filesList.setMaxLength(300);
-		for (const auto& file : files){
+		for (const auto& file : files) {
 			filesList += new gui::Label(fs::relative(file, currentPack.folder).string());
 		}
 		panel += filesList;
 
 		panel += new gui::Button(L"Confirm", glm::vec4(10.f), [this, files, column, callback](gui::GUI*) {
 			if (showUnsaved([this, files, column, callback]() {
-				for (const auto& file : files){
+				for (const auto& file : files) {
 					fs::remove(file);
 				}
 				removePanel(column);

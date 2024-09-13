@@ -39,7 +39,7 @@ void workshop::create_workshop_button(Engine* engine, const gui::Page* page) {
 	*panel += packsPanel;
 
 	std::vector<ContentPack> scanned;
-	ContentPack::scanFolder(engine->getPaths()->getResources() / "content", scanned);
+	ContentPack::scanFolder(engine->getPaths()->getResourcesFolder() / "content", scanned);
 
 	for (const auto& pack : scanned) {
 		gui::Container& container = *new gui::Container(glm::vec2(panel->getSize().x, 80.f));
@@ -76,7 +76,7 @@ void workshop::create_workshop_button(Engine* engine, const gui::Page* page) {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(400, 200));
 		menu->addPage("new-content", panel);
 		menu->setPage("new-content");
-		fs::path path = engine->getPaths()->getResources() / "content";
+		fs::path path = engine->getPaths()->getResourcesFolder() / "content";
 
 		*panel += new gui::Label(L"Name");
 		gui::TextBox& nameInput = *new gui::TextBox(L"example_pack", glm::vec4(6.0f));

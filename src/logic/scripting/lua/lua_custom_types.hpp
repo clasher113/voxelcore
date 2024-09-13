@@ -1,10 +1,9 @@
-#ifndef LOGIC_SCRIPTING_LUA_LUA_CUSTOM_TYPES_HPP_
-#define LOGIC_SCRIPTING_LUA_LUA_CUSTOM_TYPES_HPP_
-
-#include "lua_commons.hpp"
+#pragma once
 
 #include <string>
 #include <vector>
+
+#include "lua_commons.hpp"
 
 namespace lua {
     class Userdata {
@@ -19,7 +18,7 @@ namespace lua {
         Bytearray(size_t capacity);
         Bytearray(std::vector<ubyte> buffer);
         virtual ~Bytearray();
-        
+
         const std::string& getTypeName() const override {
             return TYPENAME;
         }
@@ -31,5 +30,3 @@ namespace lua {
         inline static std::string TYPENAME = "bytearray";
     };
 }
-
-#endif // LOGIC_SCRIPTING_LUA_LUA_CUSTOM_TYPES_HPP_

@@ -1,21 +1,19 @@
-#ifndef FILES_WORLD_FILES_HPP_
-#define FILES_WORLD_FILES_HPP_
+#pragma once
 
-#include "WorldRegions.hpp"
-
-#include "files.hpp"
-#include "../typedefs.hpp"
-#include "../content/ContentPack.hpp"
-#include "../voxels/Chunk.hpp"
-
-#include <vector>
-#include <string>
-#include <memory>
 #include <filesystem>
-
 #include <glm/glm.hpp>
+#include <optional>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "content/ContentPack.hpp"
+#include "typedefs.hpp"
+#include "voxels/Chunk.hpp"
+#include "WorldRegions.hpp"
+#include "files.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
-#include "glm/gtx/hash.hpp"
+#include <glm/gtx/hash.hpp>
 
 inline constexpr uint WORLD_FORMAT_VERSION = 1;
 
@@ -23,6 +21,7 @@ class Player;
 class Content;
 class ContentIndices;
 class World;
+struct WorldInfo;
 struct DebugSettings;
 
 namespace fs = std::filesystem;
@@ -35,21 +34,21 @@ class WorldFiles {
     bool doWriteLights = true;
 
     fs::path getWorldFile() const;
-    fs::path getIndicesFile() const;
     fs::path getPacksFile() const;
 
-    void writeWorldInfo(const World* world);
+    void writeWorldInfo(const WorldInfo& info);
     void writeIndices(const ContentIndices* indices);
 public:
-    WorldFiles(const fs::path &directory);
-    WorldFiles(const fs::path &directory, const DebugSettings& settings);
+    WorldFiles(const fs::path& directory);
+    WorldFiles(const fs::path& directory, const DebugSettings& settings);
     ~WorldFiles();
 
     fs::path getPlayerFile() const;
+    fs::path getIndicesFile() const;
     fs::path getResourcesFile() const;
     void createDirectories();
 
-    bool readWorldInfo(World* world);
+    std::optional<WorldInfo> readWorldInfo();
     bool readResourcesData(const Content* content);
 
     /// @brief Write all unsaved data to world files
@@ -74,5 +73,3 @@ public:
         return doWriteLights;
     }
 };
-
-#endif // FILES_WORLD_FILES_HPP_

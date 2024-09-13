@@ -1,13 +1,13 @@
-#ifndef VOXELS_CHUNKSSTORAGE_HPP_
-#define VOXELS_CHUNKSSTORAGE_HPP_
+#pragma once
 
 #include <memory>
 #include <unordered_map>
+
+#include "typedefs.hpp"
 #include "voxel.hpp"
-#include "../typedefs.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
-#include "glm/gtx/hash.hpp"
+#include <glm/gtx/hash.hpp>
 
 class Chunk;
 class Level;
@@ -23,9 +23,6 @@ public:
     std::shared_ptr<Chunk> get(int x, int z) const;
     void store(const std::shared_ptr<Chunk>& chunk);
     void remove(int x, int y);
-    void getVoxels(VoxelsVolume* volume, bool backlight=false) const;
+    void getVoxels(VoxelsVolume* volume, bool backlight = false) const;
     std::shared_ptr<Chunk> create(int x, int z);
 };
-
-
-#endif // VOXELS_CHUNKSSTORAGE_HPP_

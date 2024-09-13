@@ -1,12 +1,11 @@
-#ifndef FILES_SETTINGS_IO_HPP_
-#define FILES_SETTINGS_IO_HPP_
+#pragma once
 
-#include "../data/dynamic.hpp"
-
-#include <string>
 #include <memory>
-#include <vector>
+#include <string>
 #include <unordered_map>
+#include <vector>
+
+#include "data/dynamic.hpp"
 
 class Setting;
 struct EngineSettings;
@@ -30,5 +29,3 @@ public:
 
     std::vector<Section>& getSections();
 };
-
-#endif // FILES_SETTINGS_IO_HPP_

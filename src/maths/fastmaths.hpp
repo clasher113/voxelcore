@@ -1,7 +1,6 @@
-#ifndef MATHS_FASTMATHS_HPP_
-#define MATHS_FASTMATHS_HPP_
+#pragma once
 
-#include "../typedefs.hpp"
+#include "typedefs.hpp"
 
 class FastRandom {
     uint seed;
@@ -12,12 +11,10 @@ public:
 
     inline int rand() {
         seed = (214013 * seed + 2531011);
-        return (seed>>16) & 0x7FFF;   
+        return (seed >> 16) & 0x7FFF;
     }
 
     inline float randFloat() {
         return rand() / float(0x7FFF);
     }
 };
-
-#endif // MATHS_FASTMATHS_HPP_

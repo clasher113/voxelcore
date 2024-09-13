@@ -1,13 +1,12 @@
-#ifndef OBJECTS_ENTITY_DEF_HPP_
-#define OBJECTS_ENTITY_DEF_HPP_
+#pragma once
 
 #include <string>
 #include <vector>
 #include <glm/glm.hpp>
 
-#include "../typedefs.hpp"
-#include "../maths/aabb.hpp"
-#include "../physics/Hitbox.hpp"
+#include "typedefs.hpp"
+#include "maths/aabb.hpp"
+#include "physics/Hitbox.hpp"
 
 namespace rigging {
     class SkeletonConfig;
@@ -25,12 +24,12 @@ struct EntityDef {
 
     /// @brief Hitbox size
     glm::vec3 hitbox {0.25f};
-    
+
     /// @brief 'aabb' sensors
     std::vector<std::pair<size_t, AABB>> boxSensors {};
     /// @brief 'radius' sensors
     std::vector<std::pair<size_t, float>> radialSensors {};
-    
+
     /// @brief Skeleton ID
     std::string skeletonName = name;
 
@@ -57,6 +56,6 @@ struct EntityDef {
 
     EntityDef(const std::string& name) : name(name) {}
     EntityDef(const EntityDef&) = delete;
+    void cloneTo(EntityDef& dst);
 };
 
-#endif // OBJECTS_ENTITY_DEF_HPP_

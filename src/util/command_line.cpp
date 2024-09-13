@@ -1,22 +1,23 @@
 #include "command_line.hpp"
 
-#include "../files/engine_paths.hpp"
-
-#include <iostream>
-#include <filesystem>
-#include <string>
 #include <cstring>
+#include <filesystem>
+#include <iostream>
 #include <stdexcept>
+#include <string>
+
+#include "files/engine_paths.hpp"
 
 namespace fs = std::filesystem;
 
 class ArgsReader {
-    int argc;
-    char** argv;
-    int pos = 0;
     const char* last = "";
+    char** argv;
+    int argc;
+    int pos = 0;
 public:
-    ArgsReader(int argc, char** argv) : argc(argc), argv(argv) {}
+    ArgsReader(int argc, char** argv) : argv(argv), argc(argc) {
+    }
 
     void skip() {
         pos++;
@@ -39,20 +40,22 @@ public:
     }
 };
 
-bool perform_keyword(ArgsReader& reader, const std::string& keyword, EnginePaths& paths) {
+bool perform_keyword(
+    ArgsReader& reader, const std::string& keyword, EnginePaths& paths
+) {
     if (keyword == "--res") {
         auto token = reader.next();
         if (!fs::is_directory(fs::path(token))) {
-            throw std::runtime_error(token+" is not a directory");
+            throw std::runtime_error(token + " is not a directory");
         }
-        paths.setResources(fs::path(token));
+        paths.setResourcesFolder(fs::path(token));
         std::cout << "resources folder: " << token << std::endl;
     } else if (keyword == "--dir") {
         auto token = reader.next();
         if (!fs::is_directory(fs::path(token))) {
             fs::create_directories(fs::path(token));
         }
-        paths.setUserfiles(fs::path(token));
+        paths.setUserFilesFolder(fs::path(token));
         std::cout << "userfiles folder: " << token << std::endl;
     } else if (keyword == "--help" || keyword == "-h") {
         std::cout << "VoxelEngine command-line arguments:" << std::endl;

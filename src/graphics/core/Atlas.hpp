@@ -1,5 +1,4 @@
-#ifndef GRAPHICS_CORE_ATLAS_HPP_
-#define GRAPHICS_CORE_ATLAS_HPP_
+#pragma once
 
 #include <set>
 #include <string>
@@ -7,8 +6,9 @@
 #include <vector>
 #include <optional>
 #include <unordered_map>
-#include "../../maths/UVRegion.hpp"
-#include "../../typedefs.hpp"
+
+#include "maths/UVRegion.hpp"
+#include "typedefs.hpp"
 
 class ImageData;
 class Texture;
@@ -47,7 +47,7 @@ class AtlasBuilder {
     std::vector<atlasentry> entries;
     std::set<std::string> names;
 public:
-    AtlasBuilder() {}
+    AtlasBuilder() = default;
     void add(const std::string& name, std::unique_ptr<ImageData> image);
     bool has(const std::string& name) const;
     const std::set<std::string>& getNames() { return names; };
@@ -59,5 +59,3 @@ public:
     /// @param maxResolution max atlas resolution
     std::unique_ptr<Atlas> build(uint extrusion, bool prepare=true, uint maxResolution=0);
 };
-
-#endif // GRAPHICS_CORE_ATLAS_HPP_

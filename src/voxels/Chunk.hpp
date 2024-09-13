@@ -1,16 +1,15 @@
-#ifndef VOXELS_CHUNK_HPP_
-#define VOXELS_CHUNK_HPP_
+#pragma once
+
+#include <stdlib.h>
 
 #include <memory>
-#include <stdlib.h>
 #include <unordered_map>
 
+#include "constants.hpp"
+#include "lighting/Lightmap.hpp"
 #include "voxel.hpp"
 
-#include "../constants.hpp"
-#include "../lighting/Lightmap.hpp"
-
-inline constexpr int CHUNK_DATA_LEN = CHUNK_VOL*4;
+inline constexpr int CHUNK_DATA_LEN = CHUNK_VOL * 4;
 
 class Lightmap;
 class ContentLUT;
@@ -20,7 +19,8 @@ namespace dynamic {
     class Map;
 }
 
-using chunk_inventories_map = std::unordered_map<uint, std::shared_ptr<Inventory>>;
+using chunk_inventories_map =
+    std::unordered_map<uint, std::shared_ptr<Inventory>>;
 
 class Chunk {
 public:
@@ -29,13 +29,13 @@ public:
     voxel voxels[CHUNK_VOL] {};
     Lightmap lightmap;
     struct {
-        bool modified: 1;
-        bool ready: 1;
-        bool loaded: 1;
-        bool lighted: 1;
-        bool unsaved: 1;
-        bool loadedLights: 1;
-        bool entities: 1;
+        bool modified : 1;
+        bool ready : 1;
+        bool loaded : 1;
+        bool lighted : 1;
+        bool unsaved : 1;
+        bool loadedLights : 1;
+        bool entities : 1;
     } flags {};
 
     /// @brief Block inventories map where key is index of block in voxels array
@@ -73,5 +73,3 @@ public:
 
     static void convert(ubyte* data, const ContentLUT* lut);
 };
-
-#endif /* VOXELS_CHUNK_HPP_ */

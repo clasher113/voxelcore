@@ -1,13 +1,13 @@
 #include "ModelBatch.hpp"
 
-#include "../core/Mesh.hpp"
-#include "../core/Model.hpp"
-#include "../core/Atlas.hpp"
-#include "../core/Texture.hpp"
-#include "../../assets/Assets.hpp"
-#include "../../window/Window.hpp"
-#include "../../voxels/Chunks.hpp"
-#include "../../lighting/Lightmap.hpp"
+#include "graphics/core/Mesh.hpp"
+#include "graphics/core/Model.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/Texture.hpp"
+#include "assets/Assets.hpp"
+#include "window/Window.hpp"
+#include "voxels/Chunks.hpp"
+#include "lighting/Lightmap.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/ext/matrix_transform.hpp>
@@ -64,8 +64,7 @@ ModelBatch::ModelBatch(size_t capacity, Assets* assets, Chunks* chunks)
     blank = Texture::from(&image);
 }
 
-ModelBatch::~ModelBatch() {
-}
+ModelBatch::~ModelBatch() = default;
 
 void ModelBatch::draw(const model::Mesh& mesh, const glm::mat4& matrix, 
                       const glm::mat3& rotation, glm::vec3 tint,

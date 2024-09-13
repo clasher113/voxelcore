@@ -1,10 +1,9 @@
-#ifndef ASSETS_ASSET_LOADERS_HPP_
-#define ASSETS_ASSET_LOADERS_HPP_
+#pragma once
+
+#include <memory>
+#include <string>
 
 #include "Assets.hpp"
-
-#include <string>
-#include <memory>
 
 class ResPaths;
 class Assets;
@@ -30,7 +29,7 @@ namespace assetload {
     );
     postfunc atlas(
         AssetsLoader*,
-        const ResPaths* paths, 
+        const ResPaths* paths,
         const std::string& directory,
         const std::string& name,
         const std::shared_ptr<AssetCfg>& settings
@@ -64,5 +63,3 @@ namespace assetload {
         const std::shared_ptr<AssetCfg>& settings
     );
 }
-
-#endif // ASSETS_ASSET_LOADERS_HPP_

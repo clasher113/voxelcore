@@ -1,11 +1,10 @@
-#ifndef CODERS_COMMONS_HPP_
-#define CODERS_COMMONS_HPP_
+#pragma once
 
-#include "../data/dynamic.hpp"
-#include "../typedefs.hpp"
-
-#include <string>
 #include <stdexcept>
+#include <string>
+
+#include "data/dynamic.hpp"
+#include "typedefs.hpp"
 
 inline int is_box(int c) {
     switch (c) {
@@ -17,7 +16,7 @@ inline int is_box(int c) {
             return 8;
         case 'X':
         case 'x':
-            return 16; 
+            return 16;
     }
     return 10;
 }
@@ -31,7 +30,8 @@ inline bool is_whitespace(int c) {
 }
 
 inline bool is_identifier_start(int c) {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == '.';
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' ||
+           c == '.';
 }
 
 inline bool is_identifier_part(int c) {
@@ -61,10 +61,10 @@ public:
 
     parsing_error(
         const std::string& message,
-        std::string_view filename, 
-        std::string_view source, 
-        uint pos, 
-        uint line, 
+        std::string_view filename,
+        std::string_view source,
+        uint pos,
+        uint line,
         uint linestart
     );
     std::string errorLog() const;
@@ -86,16 +86,15 @@ protected:
     void expect(const std::string& substring);
     bool isNext(const std::string& substring);
     void expectNewLine();
-    void goBack(size_t count=1);
+    void goBack(size_t count = 1);
     void reset();
 
     int64_t parseSimpleInt(int base);
     dynamic::Value parseNumber(int sign);
     dynamic::Value parseNumber();
-    std::string parseString(char chr, bool closeRequired=true);
+    std::string parseString(char chr, bool closeRequired = true);
 
     parsing_error error(const std::string& message);
-
 public:
     std::string_view readUntil(char c);
     std::string_view readUntilEOL();
@@ -108,5 +107,3 @@ public:
 
     BasicParser(std::string_view file, std::string_view source);
 };
-
-#endif // CODERS_COMMONS_HPP_

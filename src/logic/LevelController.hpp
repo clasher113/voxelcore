@@ -1,11 +1,10 @@
-#ifndef LOGIC_LEVEL_CONTROLLER_HPP_
-#define LOGIC_LEVEL_CONTROLLER_HPP_
+#pragma once
 
 #include <memory>
 
-#include "PlayerController.hpp"
 #include "BlocksController.hpp"
 #include "ChunksController.hpp"
+#include "PlayerController.hpp"
 
 class Level;
 class Player;
@@ -25,14 +24,10 @@ public:
     /// @param delta time elapsed since the last update
     /// @param input is user input allowed to be handled
     /// @param pause is world and player simulation paused
-    void update(
-        float delta,
-        bool input, 
-        bool pause
-    );
+    void update(float delta, bool input, bool pause);
 
     void saveWorld();
-    
+
     void onWorldQuit();
 
     Level* getLevel();
@@ -41,5 +36,3 @@ public:
     BlocksController* getBlocksController();
     PlayerController* getPlayerController();
 };
-
-#endif // LOGIC_LEVEL_CONTROLLER_HPP_

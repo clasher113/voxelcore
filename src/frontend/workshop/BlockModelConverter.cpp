@@ -88,7 +88,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 						const blockid_t id = block.rt.id;
 						removePanels(1);
 						initialize();
-						Block* converting = indices->blocks.get(id);
+						Block* converting = indices->blocks.getIterable().at(id);
 						if (!append) {
 							converting->modelBoxes.clear();
 							converting->modelTextures.clear();

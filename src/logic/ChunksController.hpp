@@ -1,8 +1,8 @@
-#ifndef VOXELS_CHUNKSCONTROLLER_HPP_
-#define VOXELS_CHUNKSCONTROLLER_HPP_
+#pragma once
 
-#include "../typedefs.hpp"
 #include <memory>
+
+#include "typedefs.hpp"
 
 class Level;
 class Chunk;
@@ -30,5 +30,3 @@ public:
     /// @param maxDuration milliseconds reserved for chunks loading
     void update(int64_t maxDuration);
 };
-
-#endif // VOXELS_CHUNKSCONTROLLER_HPP_

@@ -19,7 +19,7 @@ namespace workshop {
 			container.setScrollable(false);
 
 			std::vector<ContentPack> scanned;
-			ContentPack::scanFolder(engine->getPaths()->getResources() / "content", scanned);
+			ContentPack::scanFolder(engine->getPaths()->getResourcesFolder() / "content", scanned);
 
 			gui::TextBox& textbox = createTextBox(container, elem.id, L"Dependency ID");
 			std::unordered_map<DependencyLevel, std::wstring> levels = {
@@ -128,7 +128,7 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 		createTextBox(panel, currentPack.version, L"1.0");
 		panel += new gui::Label("ID");
 		std::vector<ContentPack> scanned;
-		ContentPack::scanFolder(engine->getPaths()->getResources() / "content", scanned);
+		ContentPack::scanFolder(engine->getPaths()->getResourcesFolder() / "content", scanned);
 		gui::TextBox& id = createTextBox(panel, currentPack.id, L"example_pack");
 		id.setTextValidator([this, &id, scanned](const std::wstring&) {
 			return checkPackId(id.getInput(), scanned) || util::wstr2str_utf8(id.getInput()) == currentPack.id;

@@ -2,13 +2,13 @@
 
 #include <utility>
 
-#include "../coders/json.hpp"
-#include "../coders/commons.hpp"
-#include "../content/ContentPack.hpp"
-#include "../files/files.hpp"
-#include "../util/stringutil.hpp"
-#include "../data/dynamic.hpp"
-#include "../debug/Logger.hpp"
+#include "coders/json.hpp"
+#include "coders/commons.hpp"
+#include "content/ContentPack.hpp"
+#include "files/files.hpp"
+#include "util/stringutil.hpp"
+#include "data/dynamic.hpp"
+#include "debug/Logger.hpp"
 
 static debug::Logger logger("locale");
 
@@ -146,7 +146,7 @@ void langs::load(const fs::path& resdir,
     if (locale != fallback) {
         load(resdir, locale, packs, *lang.get());
     }
-    current.reset(lang.release());
+    current = std::move(lang);
 }
 
 void langs::setup(const fs::path& resdir,

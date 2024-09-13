@@ -2,17 +2,23 @@
 
 #include <utility>
 
-#include "../core_defs.hpp"
-#include "../util/stringutil.hpp"
+#include "core_defs.hpp"
+#include "util/stringutil.hpp"
 
 std::string to_string(BlockModel model) {
     switch (model) {
-        case BlockModel::none: return "none";
-        case BlockModel::block: return "block";
-        case BlockModel::xsprite: return "X";
-        case BlockModel::aabb: return "aabb";
-        case BlockModel::custom: return "custom";
-        default: return "unknown";
+        case BlockModel::none:
+            return "none";
+        case BlockModel::block:
+            return "block";
+        case BlockModel::xsprite:
+            return "X";
+        case BlockModel::aabb:
+            return "aabb";
+        case BlockModel::custom:
+            return "custom";
+        default:
+            return "unknown";
     }
 }
 
@@ -32,8 +38,7 @@ std::optional<BlockModel> BlockModel_from(std::string_view str) {
 }
 
 CoordSystem::CoordSystem(glm::ivec3 axisX, glm::ivec3 axisY, glm::ivec3 axisZ)
-  : axisX(axisX), axisY(axisY), axisZ(axisZ)
-{
+    : axisX(axisX), axisY(axisY), axisZ(axisZ) {
     fix = glm::ivec3(0);
     if (isVectorHasNegatives(axisX)) fix -= axisX;
     if (isVectorHasNegatives(axisY)) fix -= axisY;
@@ -50,39 +55,86 @@ void CoordSystem::transform(AABB& aabb) const {
     aabb.b += fix;
 }
 
-const BlockRotProfile BlockRotProfile::NONE {"none", {
-        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, // North
-        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, // East
-        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, // South
-        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, // West
-        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, // Up
-        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, // Down
-}};
+const BlockRotProfile BlockRotProfile::NONE {
+    "none",
+    {
+        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},  // North
+        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},  // East
+        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},  // South
+        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},  // West
+        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},  // Up
+        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},  // Down
+    }
+};
 
+const BlockRotProfile BlockRotProfile::PIPE {
+    "pipe",
+    {
+        {{1, 0, 0}, {0, 0, 1}, {0, -1, 0}},    // North
+        {{0, 0, 1}, {-1, 0, 0}, {0, -1, 0}},   // East
+        {{-1, 0, 0}, {0, 0, -1}, {0, -1, 0}},  // South
+        {{0, 0, -1}, {1, 0, 0}, {0, -1, 0}},   // West
+        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},     // Up
+        {{1, 0, 0}, {0, -1, 0}, {0, 0, -1}},   // Down
+    }
+};
 
-const BlockRotProfile BlockRotProfile::PIPE {"pipe", {
-        { { 1, 0, 0 }, { 0, 0, 1 }, { 0, -1, 0 }}, // North
-        { { 0, 0, 1 }, {-1, 0, 0 }, { 0, -1, 0 }}, // East
-        { {-1, 0, 0 }, { 0, 0,-1 }, { 0, -1, 0 }}, // South
-        { { 0, 0,-1 }, { 1, 0, 0 }, { 0, -1, 0 }}, // West
-        { { 1, 0, 0 }, { 0, 1, 0 }, { 0,  0, 1 }}, // Up
-        { { 1, 0, 0 }, { 0,-1, 0 }, { 0,  0,-1 }}, // Down
-}};
-
-const BlockRotProfile BlockRotProfile::PANE {"pane", {
-        { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 }}, // North
-        { { 0, 0,-1 }, { 0, 1, 0 }, { 1, 0, 0 }}, // East
-        { {-1, 0, 0 }, { 0, 1, 0 }, { 0, 0,-1 }}, // South
-        { { 0, 0, 1 }, { 0, 1, 0 }, {-1, 0, 0 }}, // West
-}};
+const BlockRotProfile BlockRotProfile::PANE {
+    "pane",
+    {
+        {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},    // North
+        {{0, 0, -1}, {0, 1, 0}, {1, 0, 0}},   // East
+        {{-1, 0, 0}, {0, 1, 0}, {0, 0, -1}},  // South
+        {{0, 0, 1}, {0, 1, 0}, {-1, 0, 0}},   // West
+    }
+};
 
 Block::Block(const std::string& name)
-    : name(name), 
+    : name(name),
       caption(util::id_to_caption(name)),
-      textureFaces {TEXTURE_NOTFOUND,TEXTURE_NOTFOUND,TEXTURE_NOTFOUND,
-                      TEXTURE_NOTFOUND,TEXTURE_NOTFOUND,TEXTURE_NOTFOUND}
-{}
+      textureFaces {
+          TEXTURE_NOTFOUND,
+          TEXTURE_NOTFOUND,
+          TEXTURE_NOTFOUND,
+          TEXTURE_NOTFOUND,
+          TEXTURE_NOTFOUND,
+          TEXTURE_NOTFOUND
+      } {
+}
 
-Block::Block(std::string name, const std::string& texture) : name(std::move(name)),
-        textureFaces{texture,texture,texture,texture,texture,texture}
-{}
+Block::Block(std::string name, const std::string& texture)
+    : name(std::move(name)),
+      textureFaces {texture, texture, texture, texture, texture, texture} {
+}
+void Block::cloneTo(Block& dst) {
+    dst.caption = caption;
+    for (int i = 0; i < 6; i++) {
+            dst.textureFaces[i] = textureFaces[i];
+    }
+    dst.modelTextures = modelTextures;
+    dst.modelBoxes = modelBoxes;
+    dst.modelExtraPoints = modelExtraPoints;
+    dst.modelUVs = modelUVs;
+    dst.material = material;
+    std::copy(&emission[0], &emission[3], dst.emission);
+    dst.size = size;
+    dst.model = model;
+    dst.lightPassing = lightPassing;
+    dst.skyLightPassing = skyLightPassing;
+    dst.shadeless = shadeless;
+    dst.ambientOcclusion = ambientOcclusion;
+    dst.obstacle = obstacle;
+    dst.selectable = selectable;
+    dst.replaceable = replaceable;
+    dst.breakable = breakable;
+    dst.rotatable = rotatable;
+    dst.grounded = grounded;
+    dst.hidden = hidden;
+    dst.hitboxes = hitboxes;
+    dst.rotations = rotations;
+    dst.pickingItem = pickingItem;
+    dst.scriptName = scriptName;
+    dst.uiLayout = uiLayout;
+    dst.inventorySize = inventorySize;
+    dst.tickInterval = tickInterval;
+}

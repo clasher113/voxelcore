@@ -1,11 +1,11 @@
 #include "Label.hpp"
 
 #include <utility>
-#include "../../core/DrawContext.hpp"
-#include "../../core/Batch2D.hpp"
-#include "../../core/Font.hpp"
-#include "../../../assets/Assets.hpp"
-#include "../../../util/stringutil.hpp"
+#include "graphics/core/DrawContext.hpp"
+#include "graphics/core/Batch2D.hpp"
+#include "graphics/core/Font.hpp"
+#include "assets/Assets.hpp"
+#include "util/stringutil.hpp"
 
 using namespace gui;
 
@@ -145,7 +145,7 @@ uint Label::getLineByYOffset(int offset) const {
 
 uint Label::getLineByTextIndex(size_t index) const {
     for (size_t i = 0; i < cache.lines.size(); i++) {
-        if (cache.lines.at(i).offset > index) {
+        if (cache.lines[i].offset > index) {
             return i-1;
         }
     }
@@ -195,7 +195,7 @@ void Label::draw(const DrawContext* pctx, Assets* assets) {
 
     if (multiline) {
         for (size_t i = 0; i < cache.lines.size(); i++) {
-            auto& line = cache.lines.at(i);
+            auto& line = cache.lines[i];
             size_t offset = line.offset;
             std::wstring_view view(text.c_str()+offset, text.length()-offset);
             if (i < cache.lines.size()-1) {

@@ -40,7 +40,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 			if (i->iconType == item_icon_type::block) return previewAtlas;
 			return getAtlas(assets, i->icon);
 		};
-		auto texName = [](ItemDef* item) {
+		auto texName = [](const ItemDef* item) {
 			if (item->iconType == item_icon_type::none) return std::string("transparent");
 			if (item->iconType == item_icon_type::block) return item->icon;
 			return getTexName(item->icon);

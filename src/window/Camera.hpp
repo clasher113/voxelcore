@@ -1,5 +1,4 @@
-#ifndef WINDOW_CAMERA_HPP_
-#define WINDOW_CAMERA_HPP_
+#pragma once
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -29,11 +28,9 @@ public:
     void rotate(float x, float y, float z);
 
     glm::mat4 getProjection();
-    glm::mat4 getView(bool position=true);
-    glm::mat4 getProjView(bool position=true);
+    glm::mat4 getView(bool position = true);
+    glm::mat4 getProjView(bool position = true);
 
     void setFov(float fov);
     float getFov() const;
 };
-
-#endif // WINDOW_CAMERA_HPP_

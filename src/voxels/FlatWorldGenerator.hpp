@@ -1,18 +1,15 @@
-#ifndef VOXELS_FLATWORLDGENERATOR_HPP_
-#define VOXELS_FLATWORLDGENERATOR_HPP_
+#pragma once
 
-#include "../typedefs.hpp"
-#include "../voxels/WorldGenerator.hpp"
+#include "typedefs.hpp"
+#include "WorldGenerator.hpp"
 
 struct voxel;
 class Content;
 
 class FlatWorldGenerator : WorldGenerator {
 public:
-
-    FlatWorldGenerator(const Content* content) : WorldGenerator(content) {}
+    FlatWorldGenerator(const Content* content) : WorldGenerator(content) {
+    }
 
     void generate(voxel* voxels, int x, int z, int seed);
 };
-
-#endif // VOXELS_FLATWORLDGENERATOR_HPP_

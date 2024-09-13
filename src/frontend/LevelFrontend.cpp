@@ -2,16 +2,16 @@
 
 #include "ContentGfxCache.hpp"
 
-#include "../assets/Assets.hpp"
-#include "../audio/audio.hpp"
-#include "../content/Content.hpp"
-#include "../graphics/core/Atlas.hpp"
-#include "../graphics/render/BlocksPreview.hpp"
-#include "../logic/LevelController.hpp"
-#include "../logic/PlayerController.hpp"
-#include "../objects/Player.hpp"
-#include "../voxels/Block.hpp"
-#include "../world/Level.hpp"
+#include "assets/Assets.hpp"
+#include "audio/audio.hpp"
+#include "content/Content.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/render/BlocksPreview.hpp"
+#include "logic/LevelController.hpp"
+#include "logic/PlayerController.hpp"
+#include "objects/Player.hpp"
+#include "voxels/Block.hpp"
+#include "world/Level.hpp"
 
 LevelFrontend::LevelFrontend(
     Player* currentPlayer, LevelController* controller, Assets* assets
@@ -25,8 +25,8 @@ LevelFrontend::LevelFrontend(
         "block-previews"
     );
     controller->getBlocksController()->listenBlockInteraction(
-        [=](Player* player, glm::ivec3 pos, const Block* def, BlockInteraction type) {
-            auto material = level->content->findBlockMaterial(def->material);
+        [=](Player* player, glm::ivec3 pos, const Block& def, BlockInteraction type) {
+            auto material = level->content->findBlockMaterial(def.material);
             if (material == nullptr) {
                 return;
             }
@@ -81,8 +81,7 @@ LevelFrontend::LevelFrontend(
     );
 }
 
-LevelFrontend::~LevelFrontend() {
-}
+LevelFrontend::~LevelFrontend() = default;
 
 Level* LevelFrontend::getLevel() const {
     return level;
