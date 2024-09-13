@@ -577,21 +577,24 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 		});
 
 		panel += new gui::Button(L"Find unused textures", glm::vec4(10.f), [this](gui::GUI*) {
-			fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
-			fs::path itemsTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::ITEMS_FOLDER);
+			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
+			const fs::path itemsTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::ITEMS_FOLDER);
 
 			std::unordered_multimap<DefType, fs::path> unusedTextures;
 
 			for (const auto& path : getFiles(blocksTexturesPath, false)) {
+				if (!fs::is_regular_file(path)) continue;
 				const std::string fileName = path.stem().string();
 				bool inUse = false;
 				for (size_t i = 0; i < indices->blocks.count() && !inUse; i++) {
 					const Block* const block = indices->blocks.get(i);
+					if (block->name.find(currentPackId) == std::string::npos) continue;
 					if (std::find(std::begin(block->textureFaces), std::end(block->textureFaces), fileName) != std::end(block->textureFaces)) inUse = true;
 					if (std::find(block->modelTextures.begin(), block->modelTextures.end(), fileName) != block->modelTextures.end()) inUse = true;
 				}
 				for (size_t i = 0; i < indices->items.count() && !inUse; i++) {
 					const ItemDef* const item = indices->items.get(i);
+					if (item->name.find(currentPackId) == std::string::npos) continue;
 					if (item->iconType == item_icon_type::sprite && getTexName(item->icon) == fileName) inUse = true;
 				}
 				if (!inUse) unusedTextures.emplace(DefType::BLOCK, path);
@@ -631,6 +634,89 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 						});
 						panel += button;
 					}
+				}
+
+				return std::ref(panel);
+			}, 2);
+		});
+
+		panel += new gui::Button(L"Find texture duplicates", glm::vec4(10.f), [this](gui::GUI*) {
+			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
+			const Texture* const blocksTexture = blocksAtlas->getTexture();
+			ubyte* imageData = blocksAtlas->getImage()->getData();
+
+			std::unordered_map<fs::path, std::set<fs::path>> duplicates;
+
+			std::vector<fs::path> files = getFiles(blocksTexturesPath, false);
+			std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) {
+				return a.stem().string() < b.stem().string();
+			});
+
+			std::vector<std::vector<ubyte>> filesBytes;
+			for (const auto& file : files){
+				filesBytes.emplace_back(files::read_bytes(file));
+			}
+			std::set<fs::path> skipList;
+
+			for (size_t i = 0; i < filesBytes.size(); i++) {
+				for (size_t j = i + 1; j < filesBytes.size(); j++) {
+					if (skipList.find(files[j]) != skipList.end()) continue;
+					if (filesBytes[i] == filesBytes[j]) {
+						if (duplicates.find(files[i]) == duplicates.end()){
+							duplicates.emplace(files[i], std::set<fs::path>{files[j]});
+						}
+						else {
+							duplicates.at(files[i]).insert(files[j]);
+						}
+						skipList.insert(files[j]);
+					}
+				}
+			}
+			createPanel([this, duplicates]() {
+				gui::Panel& panel = *new gui::Panel(glm::vec2(300));
+
+				std::vector<fs::path> files;
+
+				if (duplicates.empty()){
+					panel += new gui::Label("Duplicated textures not found");
+				}
+				else {					
+					gui::Panel& filesList = *new gui::Panel(panel.getSize());
+					filesList.setMaxLength(500);
+
+					for (const auto& pair : duplicates){
+						filesList += new gui::Label(pair.first.stem().string());
+						for (const auto& duplicate : pair.second){
+							std::string file = duplicate.stem().string();
+							files.emplace_back(duplicate);
+							filesList += *new gui::IconButton(glm::vec2(panel.getSize().x, 50.f), file, blocksAtlas, file);
+						}
+					}
+					optimizeContainer(filesList);
+					panel += new gui::Label("Found " + std::to_string(files.size()) + " duplicated textures");
+					panel += filesList;
+					panel += new gui::Button(L"Delete duplicates", glm::vec4(10.f), [this, duplicates, files](gui::GUI*) {
+						for (const auto& pair : duplicates) {
+							const std::string uniqueTexName = pair.first.stem().string();
+							for (const auto& duplicate : pair.second) {
+								const std::string duplicateTexName = duplicate.stem().string();
+								for (size_t i = 0; i < indices->blocks.count(); i++) {
+									Block* const block = indices->blocks.get(i);
+									if (block->name.find(currentPackId) == std::string::npos) continue;
+									for (std::string& blockTexture : block->modelTextures){
+										if (blockTexture == duplicateTexName) blockTexture = uniqueTexName;
+									}
+									for (std::string& blockTexture : block->textureFaces) {
+										if (blockTexture == duplicateTexName) blockTexture = uniqueTexName;
+									}
+								}
+							}
+						}
+						createFileDeletingConfirmationPanel(files, 3, [this]() {
+							initialize();
+							createUtilsPanel();
+						});
+					});
 				}
 
 				return std::ref(panel);

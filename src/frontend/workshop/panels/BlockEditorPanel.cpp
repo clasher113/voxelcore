@@ -58,6 +58,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		panel += pickingItem;
 
 		gui::Panel& texturePanel = *new gui::Panel(glm::vec2(panel.getSize().x, 35.f));
+		texturePanel.setColor(glm::vec4(0.f));
 		panel += texturePanel;
 
 		auto processModelChange = [this, &texturePanel, &panel](Block& block) {
