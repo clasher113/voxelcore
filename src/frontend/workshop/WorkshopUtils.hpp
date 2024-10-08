@@ -22,30 +22,22 @@ namespace gui {
 }
 
 inline const std::string NOT_SET = "[not set]";
-inline const std::string BLOCKS_PREVIEW_ATLAS = "blocks_preview";
+inline const std::string BLOCKS_PREVIEW_ATLAS = "block-previews";
+inline const std::string REMOVABLE_MARK = "removable";
 inline const std::filesystem::path SETTINGS_FILE("worlds/workshop_settings.json");
 inline constexpr float PANEL_POSITION_AUTO = std::numeric_limits<float>::min();
 
 namespace workshop {
 	enum class PrimitiveType : unsigned int {
-		AABB = 0,
-		TETRAGON,
-		HITBOX,
-
-		COUNT
+		AABB = 0, TETRAGON, HITBOX, COUNT
 	};
 
-	enum class DefAction {
-		CREATE_NEW = 0,
-		RENAME,
-		DELETE
+	enum class ContentAction {
+		CREATE_NEW = 0, RENAME, DELETE
 	};
 
-	enum class DefType {
-		BLOCK = 0,
-		ITEM,
-		BOTH,
-		UI_LAYOUT
+	enum class ContentType {
+		BLOCK = 0, ITEM, BOTH, UI_LAYOUT, ENTITY
 	};
 
 	enum UIElementsArgs : unsigned long long {
@@ -65,17 +57,19 @@ namespace workshop {
 	extern Atlas* getAtlas(Assets* assets, const std::string& fullName, const std::string& delimiter = ":");
 
 	extern std::string getTexName(const std::string& fullName, const std::string& delimiter = ":");
-	extern std::string getDefName(DefType type);
+	extern std::string getDefName(ContentType type);
 	extern std::string getDefName(const std::string& fullName);
 	extern std::string getScriptName(const ContentPack& pack, const std::string& scriptName);
 	extern std::string getUILayoutName(Assets* assets, const std::string& layoutName);
+	extern std::string getPrimitiveName(PrimitiveType type);
 
-	extern std::string getDefFolder(DefType type);
-	extern std::string getDefFileFormat(DefType type);
+	extern std::string getDefFolder(ContentType type);
+	extern std::string getDefFileFormat(ContentType type);
 
 	extern bool operator==(const UVRegion& left, const UVRegion& right);
 	extern gui::Container& operator+=(gui::Container& left, gui::UINode& right);
 	extern gui::Container& operator+=(gui::Container& left, gui::UINode* right);
+	extern bool operator==(const AABB& left, const AABB& right);
 
 	extern std::vector<glm::vec3> aabb2tetragons(const AABB& aabb);
 
@@ -84,6 +78,9 @@ namespace workshop {
 	extern void setSelectable(const gui::Panel& panel);
 	extern void placeNodesHorizontally(gui::Container& container);
 	extern void optimizeContainer(gui::Container& container);
+	extern gui::UINode* markRemovable(gui::UINode* node);
+	extern gui::UINode& markRemovable(gui::UINode& node);
+	extern void removeRemovable(gui::Container& container);
 
 	extern void validateBlock(Assets* assets, Block& block);
 	extern void validateItem(Assets* assets, ItemDef& item);

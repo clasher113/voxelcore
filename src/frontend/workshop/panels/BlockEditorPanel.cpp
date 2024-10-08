@@ -1,17 +1,19 @@
 #include "../WorkshopScreen.hpp"
 
-#include "../../../content/Content.hpp"
-#include "../../../items/ItemDef.hpp"
+#include "content/Content.hpp"
+#include "items/ItemDef.hpp"
 #include "../BlockModelConverter.hpp"
 #include "../IncludeCommons.hpp"
 #include "../WorkshopPreview.hpp"
 #include "../WorkshopSerializer.hpp"
+#include "core_defs.hpp"
 
 void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 	createPanel([this, &block]() {
 		validateBlock(assets, block);
+		preview->setBlock(&block);
 
-		const std::string actualName(block.name.substr(currentPackId.size() + 1));
+		const std::string actualName(getDefName(block.name));
 
 		gui::Panel& panel = *new gui::Panel(glm::vec2(settings.blockEditorWidth));
 
@@ -31,41 +33,65 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		createFullCheckBox(panel, L"Grounded", block.grounded, L"Can the block exist without physical support be a solid block below");
 		createFullCheckBox(panel, L"Hidden", block.hidden, L"Turns off block item generation");
 
+		panel += new gui::Label(L"Parent block");
+		auto parentIcoName = [](const Block* const parent) {
+			return parent ? parent->name : NOT_SET;
+		};
+		auto parentIcoTexName = [parentIcoName](const Block* const parent) {
+			return parentIcoName(parent) == NOT_SET ? CORE_AIR : parent->name;
+		};
+		BackupData& backupData = blocksList[actualName];
+		const Block* currentParent = content->blocks.find(backupData.currentParent);
+		const Block* newParent = content->blocks.find(backupData.newParent);
+
+		gui::IconButton& parentBlock = *new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), parentIcoName(newParent), previewAtlas, parentIcoTexName(newParent));
+		parentBlock.listenAction([=, &panel, &backupData, &parentBlock, &block](gui::GUI*) {
+			createContentList(ContentType::BLOCK, true, 5, panel.calcPos().x + panel.getSize().x, [=, &backupData, &parentBlock, &block](const std::string& string) {
+				const Block* parent = content->blocks.find(string);
+				if (parent->name == CORE_AIR || parent->name == block.name) parent = nullptr;
+				backupData.newParent = parent ? string : "";
+				parentBlock.setIcon(previewAtlas, parentIcoTexName(parent));
+				parentBlock.setText(parentIcoName(parent));
+				removePanels(5);
+			});
+		});
+		panel += parentBlock;
+
 		panel += new gui::Label(L"Picking item");
-		auto item = [this](std::string pickingItem) {
+		auto item = [this](const std::string& pickingItem) {
 			return (content->items.find(pickingItem) == nullptr ? content->items.find("core:empty") : content->items.find(pickingItem));
 		};
-		auto atlas = [this, item, &block](std::string pickingItem) {
+		auto atlas = [this, item, &block](const std::string& pickingItem) {
 			const ItemDef* const i = item(pickingItem);
 			if (i->iconType == item_icon_type::block) return previewAtlas;
 			return getAtlas(assets, i->icon);
 		};
-		auto texName = [](const ItemDef* item) {
+		auto texName = [](const ItemDef* const item) {
 			if (item->iconType == item_icon_type::none) return std::string("transparent");
 			if (item->iconType == item_icon_type::block) return item->icon;
 			return getTexName(item->icon);
 		};
-		gui::IconButton& pickingItem = *new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), texName(item(block.pickingItem)), atlas(block.pickingItem),
+		gui::IconButton& pickingItem = *new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), block.pickingItem, atlas(block.pickingItem),
 			texName(item(block.pickingItem)));
 		pickingItem.listenAction([this, &pickingItem, &panel, texName, item, atlas, &block](gui::GUI*) {
-			createContentList(DefType::ITEM, 5, true, [this, &pickingItem, texName, item, atlas, &block](std::string name) {
+			createContentList(ContentType::ITEM, true, 5, panel.calcPos().x + panel.getSize().x, [this, &pickingItem, texName, item, atlas, &block](std::string name) {
 				block.pickingItem = name;
 				pickingItem.setIcon(atlas(block.pickingItem), texName(item(block.pickingItem)));
-				pickingItem.setText(item(block.pickingItem)->name);
+				pickingItem.setText(name);
 				removePanels(5);
-			}, panel.calcPos().x + panel.getSize().x);
+			});
 		});
 		panel += pickingItem;
 
-		gui::Panel& texturePanel = *new gui::Panel(glm::vec2(panel.getSize().x, 35.f));
+		gui::Panel& texturePanel = *new gui::Panel(glm::vec2(panel.getSize().x, 35.f), glm::vec4(0.f));
 		texturePanel.setColor(glm::vec4(0.f));
 		panel += texturePanel;
 
 		auto processModelChange = [this, &texturePanel, &panel](Block& block) {
-			clearRemoveList(texturePanel);
+			removeRemovable(texturePanel);
 			if (block.model == BlockModel::custom) {
 				createCustomModelEditor(block, 0, PrimitiveType::AABB);
-				texturePanel += removeList.emplace_back(new gui::Button(L"Import model", glm::vec4(10), [this, &panel, &block](gui::GUI*) {
+				texturePanel += markRemovable(new gui::Button(L"Import model", glm::vec4(10), [this, &panel, &block](gui::GUI*) {
 					createBlockConverterPanel(block, panel.getPos().x + panel.getSize().x);
 				}));
 			}
@@ -80,9 +106,8 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 
 		gui::Button* button = new gui::Button(L"Model: " + util::str2wstr_utf8(to_string(block.model)), glm::vec4(10.f), gui::onaction());
 		button->listenAction([&block, button, processModelChange](gui::GUI*) {
-			BlockModel model = incrementEnumClass(block.model, 1);
-			if (model > BlockModel::custom) model = BlockModel::none;
-			block.model = model;
+			block.model = incrementEnumClass(block.model, 1);
+			if (block.model > BlockModel::custom) block.model = BlockModel::none;
 			button->setText(L"Model: " + util::str2wstr_utf8(to_string(block.model)));
 			processModelChange(block);
 		});
@@ -161,15 +186,15 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		panel += new gui::Label("Tick interval (1 - 20)");
 		panel += createNumTextBox<uint>(block.tickInterval, L"1 - 20tps, 2 - 10tps", 1, 20);
 
-		panel += new gui::Button(L"Save", glm::vec4(10.f), [this, &block, actualName](gui::GUI*) {
-			blocksList[actualName] = stringify(block, actualName, false);
-			saveBlock(block, currentPack.folder, actualName);
+		panel += new gui::Button(L"Save", glm::vec4(10.f), [this, &block, actualName, currentParent, &backupData](gui::GUI*) {
+			backupData.string = stringify(toJson(block, actualName, currentParent, backupData.newParent), false);
+			saveBlock(block, currentPack.folder, actualName, currentParent, backupData.newParent);
 		});
 		panel += new gui::Button(L"Rename", glm::vec4(10.f), [this, actualName](gui::GUI*) {
-			createDefActionPanel(DefAction::RENAME, DefType::BLOCK, actualName);
+			createDefActionPanel(ContentAction::RENAME, ContentType::BLOCK, actualName);
 		});
 		panel += new gui::Button(L"Delete", glm::vec4(10.f), [this, actualName](gui::GUI*) {
-			createDefActionPanel(DefAction::DELETE, DefType::BLOCK, actualName);
+			createDefActionPanel(ContentAction::DELETE, ContentType::BLOCK, actualName);
 		});
 
 		return std::ref(panel);

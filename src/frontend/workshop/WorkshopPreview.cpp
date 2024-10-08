@@ -20,8 +20,10 @@
 #include "../ContentGfxCache.hpp"
 #include "files/WorldFiles.hpp"
 #include "WorkshopUtils.hpp"
+#include "maths/rays.hpp"
 
 #include <cstring>
+#include <glm/gtx/intersect.hpp>
 
 using namespace workshop;
 
@@ -39,7 +41,8 @@ cameraPosition(0.f),
 lineBatch(1024),
 batch2d(1024),
 batch3d(1024),
-mesh(nullptr)
+mesh(nullptr),
+primitiveType(PrimitiveType::COUNT)
 {
 	level->chunksStorage->store(std::shared_ptr<Chunk>(chunk));
 	memset(chunk->voxels, 0, sizeof(chunk->voxels));
@@ -48,7 +51,7 @@ mesh(nullptr)
 void Preview::update(float delta, float sensitivity) {
 	glm::vec3 offset(0.f);
 	if (!lockedKeyboardInput) {
-		bool lctrl = Events::pressed(keycode::LEFT_CONTROL);
+		const bool lctrl = Events::pressed(keycode::LEFT_CONTROL);
 		const float rotateFactor = (100.f * delta) /** sensitivity*/;
 		if (Events::pressed(keycode::D)) {
 			if (lctrl) offset.x -= 2.f;
@@ -181,6 +184,43 @@ void Preview::refillInventory() {
 	}
 }
 
+bool workshop::Preview::rayCast(float cursorX, float cursorY, size_t& returnIndex) {
+	if (currentBlock) {
+		glm::vec3 dir = glm::unProject(glm::vec3(cursorX, framebuffer.getHeight() - cursorY, 1.f), camera.getView(),
+			camera.getProjection() , glm::vec4(0.f, 0.f, framebuffer.getWidth(), framebuffer.getHeight()));
+
+		Ray ray(camera.position + 0.5f, glm::normalize(dir));
+
+		scalar_t distanceMin = std::numeric_limits<scalar_t>::max();
+		glm::ivec3 normal;
+		for (const auto& box : currentBlock->modelBoxes) {
+			scalar_t distance = 0.f;
+			if (ray.intersectAABB(glm::dvec3(0.0), box, 100.f, normal, distance) > RayRelation::None && distance < distanceMin) {
+				lookAtPrimitive = PrimitiveType::AABB;
+				lookAtAABB.a = box.a + (box.b - box.a) / 2.f - 0.5f;
+				lookAtAABB.b = box.b - box.a;
+				returnIndex =  &box - &currentBlock->modelBoxes.front();
+				distanceMin = distance;
+			}
+		}
+		for (size_t i = 0; i < currentBlock->modelExtraPoints.size(); i += 4) {
+			const glm::vec3* const elem = &currentBlock->modelExtraPoints[i];
+			glm::vec2 distance(std::numeric_limits<float>::max());
+			if ((glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[1], elem[2], glm::vec2(), distance.x) ||
+				glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[2], elem[3], glm::vec2(), distance.y)) &&
+				std::min(distance.x, distance.y) < distanceMin) {
+				lookAtPrimitive = PrimitiveType::TETRAGON;
+				for (size_t j = 0; j < 4; j++) {
+					lookAtTetragon[j] = elem[j] - 0.5f;
+				}
+				returnIndex = i / 4;
+				distanceMin = std::min(distance.x, distance.y);
+			} 
+		}
+	}
+	return lookAtPrimitive == PrimitiveType::AABB || lookAtPrimitive == PrimitiveType::TETRAGON;
+}
+
 void Preview::rotate(float x, float y) {
 	previewRotation.x += x;
 	previewRotation.y = std::clamp(previewRotation.y + y, -89.f, 89.f);
@@ -215,6 +255,13 @@ void Preview::drawBlock() {
 	camera.dir *= -1.f;
 	camera.front *= -1.f;
 
+	auto drawTetragon = [lb = &lineBatch](const glm::vec3* const tetragon, const glm::vec4& color) {
+		for (size_t i = 0; i < 4; i++) {
+			const size_t next = (i + 1 < 4 ? i + 1 : 0);
+			lb->line(tetragon[i], tetragon[next], color);
+		}
+	};
+
 	if (drawGrid) {
 		for (float i = -3.f; i < 3; i++) {
 			lineBatch.line(glm::vec3(i + 0.5f, -0.5f, -3.f), glm::vec3(i + 0.5f, -0.5f, 3.f), glm::vec4(0.f, 0.f, 1.f, 1.f));
@@ -223,16 +270,13 @@ void Preview::drawBlock() {
 			lineBatch.line(glm::vec3(-3.f, -0.5f, i + 0.5f), glm::vec3(3.f, -0.5f, i + 0.5f), glm::vec4(1.f, 0.f, 0.f, 1.f));
 		}
 	}
-	if (drawBlockSize) lineBatch.box(glm::vec3(cameraOffset), glm::vec3(blockSize), glm::vec4(1.f));
+	if (drawBlockSize) lineBatch.box(cameraOffset, glm::vec3(blockSize), glm::vec4(1.f));
+	if (lookAtPrimitive == PrimitiveType::AABB) lineBatch.box(lookAtAABB.a, lookAtAABB.b, glm::vec4(1.f));
+	else if (lookAtPrimitive == PrimitiveType::TETRAGON) drawTetragon(lookAtTetragon, glm::vec4(1.f));
 	if (drawBlockHitbox && primitiveType == PrimitiveType::HITBOX) lineBatch.box(currentHitbox.a, currentHitbox.b, glm::vec4(1.f, 1.f, 0.f, 1.f));
 	if (drawCurrentAABB && primitiveType == PrimitiveType::AABB) lineBatch.box(currentAABB.a, currentAABB.b, glm::vec4(1.f, 0.f, 1.f, 1.f));
+	if (drawCurrentTetragon && primitiveType == PrimitiveType::TETRAGON) drawTetragon(currentTetragon, glm::vec4(1.f, 0.f, 1.f, 1.f));
 
-	if (drawCurrentTetragon && primitiveType == PrimitiveType::TETRAGON) {
-		for (size_t i = 0; i < 4; i++) {
-			const size_t next = (i + 1 < 4 ? i + 1 : 0);
-			lineBatch.line(currentTetragon[i], currentTetragon[next], glm::vec4(1.f, 0.f, 1.f, 1.f));
-		}
-	}
 	if (drawDirection) {
 		shader3d->use();
 		shader3d->uniformMatrix("u_apply", glm::mat4(1.f));

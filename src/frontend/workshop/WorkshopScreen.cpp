@@ -1,24 +1,24 @@
 #include "WorkshopScreen.hpp"
 
-#include "../../audio/audio.hpp"
-#include "../../coders/png.hpp"
-#include "../../coders/xml.hpp"
-#include "../../content/Content.hpp"
-#include "../../content/ContentLoader.hpp"
-#include "../../engine.hpp"
-#include "../../files/files.hpp"
-#include "../../graphics/core/Atlas.hpp"
-#include "../../graphics/core/Shader.hpp"
-#include "../../graphics/core/Texture.hpp"
-#include "../../graphics/render/BlocksPreview.hpp"
-#include "../../graphics/ui/elements/Menu.hpp"
-#include "../../graphics/ui/GUI.hpp"
-#include "../../items/ItemDef.hpp"
-#include "../../util/stringutil.hpp"
-#include "../../window/Camera.hpp"
-#include "../../window/Events.hpp"
-#include "../../window/Window.hpp"
-#include "../../world/Level.hpp"
+#include "audio/audio.hpp"
+#include "coders/png.hpp"
+#include "coders/xml.hpp"
+#include "content/Content.hpp"
+#include "content/ContentLoader.hpp"
+#include "engine.hpp"
+#include "files/files.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/Shader.hpp"
+#include "graphics/core/Texture.hpp"
+#include "graphics/render/BlocksPreview.hpp"
+#include "graphics/ui/elements/Menu.hpp"
+#include "graphics/ui/GUI.hpp"
+#include "items/ItemDef.hpp"
+#include "util/stringutil.hpp"
+#include "window/Camera.hpp"
+#include "window/Events.hpp"
+#include "window/Window.hpp"
+#include "world/Level.hpp"
 #include "../ContentGfxCache.hpp"
 #include "IncludeCommons.hpp"
 #include "menu_workshop.hpp"
@@ -26,10 +26,15 @@
 #include "WorkshopPreview.hpp"
 #include "WorkshopSerializer.hpp"
 #include "WorkshopUtils.hpp"
+#include "coders/imageio.hpp"
+#include "debug/Logger.hpp"
+#include "objects/EntityDef.hpp"
 
 #define NOMINMAX
 #include "libs/portable-file-dialogs.h"
 #include "../screens/MenuScreen.hpp"
+
+static debug::Logger logger("workshop");
 
 using namespace workshop;
 
@@ -203,16 +208,19 @@ void WorkShopScreen::createNavigationPanel() {
 		createPackInfoPanel();
 	});
 	panel += new gui::Button(L"Blocks", glm::vec4(10.f), [this](gui::GUI*) {
-		createContentList(DefType::BLOCK);
+		createContentList(ContentType::BLOCK);
 	});
 	panel += new gui::Button(L"Block Materials", glm::vec4(10.f), [this](gui::GUI*) {
 		createMaterialsList();
 	});
+	panel += new gui::Button(L"Items", glm::vec4(10.f), [this](gui::GUI*) {
+		createContentList(ContentType::ITEM);
+	});
+	panel += new gui::Button(L"Entities", glm::vec4(10.f), [this](gui::GUI*) {
+		createEntitiesList();
+	});
 	panel += new gui::Button(L"Textures", glm::vec4(10.f), [this](gui::GUI*) {
 		createTextureList(50.f);
-	});
-	panel += new gui::Button(L"Items", glm::vec4(10.f), [this](gui::GUI*) {
-		createContentList(DefType::ITEM);
 	});
 	panel += new gui::Button(L"Sounds", glm::vec4(10.f), [this](gui::GUI*) {
 		createSoundList();
@@ -287,18 +295,6 @@ void WorkShopScreen::removePanels(unsigned int column) {
 	}
 }
 
-void WorkShopScreen::clearRemoveList(gui::Panel& panel) {
-	removeList.erase(std::remove_if(removeList.begin(), removeList.end(), [&panel](gui::UINode* node) {
-		for (const auto& elem : panel.getNodes()) {
-			if (elem.get() == node) {
-				panel.remove(elem);
-				return true;
-			}
-		}
-		return false;
-	}), removeList.end());
-}
-
 void WorkShopScreen::createPanel(const std::function<gui::Panel& ()>& lambda, unsigned int column, float posX) {
 	removePanels(column);
 
@@ -320,8 +316,6 @@ void WorkShopScreen::createPanel(const std::function<gui::Panel& ()>& lambda, un
 }
 
 void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model) {
-	panel.setColor(glm::vec4(0.f));
-
 	const char* const faces[] = { "East:", "West:", "Bottom:", "Top:", "South:", "North:" };
 
 	size_t buttonsNum = 0;
@@ -337,12 +331,12 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 		default: break;
 	}
 	if (buttonsNum == 0) return;
-	panel += removeList.emplace_back(new gui::Label(buttonsNum == 1 ? L"Texture" : L"Texture faces"));
+	panel += markRemovable(new gui::Label(buttonsNum == 1 ? L"Texture" : L"Texture faces"));
 	for (size_t i = 0; i < buttonsNum; i++) {
 		gui::IconButton* button = new gui::IconButton(glm::vec2(panel.getSize().x, iconSize), textures[i], blocksAtlas, textures[i],
 			(buttonsNum == 6 ? faces[i] : ""));
 		button->listenAction([this, button, model, textures, iconSize, i](gui::GUI*) {
-			createTextureList(35.f, 5, DefType::BLOCK, button->calcPos().x + button->getSize().x, true,
+			createTextureList(35.f, 5, ContentType::BLOCK, button->calcPos().x + button->getSize().x, true,
 			[this, button, model, textures, iconSize, i](const std::string& texName) {
 				textures[i] = getTexName(texName);
 				removePanel(5);
@@ -353,7 +347,7 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 				preview->updateCache();
 			});
 		});
-		panel += removeList.emplace_back(button);
+		panel += markRemovable(button);
 		if (model == BlockModel::xsprite && i == 0) i = 3;
 	}
 
@@ -379,15 +373,15 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 			button->setText(texName());
 		};
 		if (iconType == item_icon_type::sprite) {
-			createTextureList(35.f, 5, DefType::BOTH, PANEL_POSITION_AUTO, true, callback);
+			createTextureList(35.f, 5, ContentType::BOTH, PANEL_POSITION_AUTO, true, callback);
 		}
 		else {
-			createContentList(DefType::BLOCK, 5, true, callback);
+			createContentList(ContentType::BLOCK, true, 5, PANEL_POSITION_AUTO, callback);
 		}
 		button->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
 		button->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
 	});
-	panel += removeList.emplace_back(button);
+	panel += markRemovable(button);
 }
 
 void WorkShopScreen::createAddingUIElementPanel(float posX, const std::function<void(const std::string&)>& callback, unsigned int filter) {
@@ -403,51 +397,6 @@ void WorkShopScreen::createAddingUIElementPanel(float posX, const std::function<
 		}
 		return std::ref(panel);
 	}, 5, posX);
-}
-
-void WorkShopScreen::createMaterialsList(bool showAll, unsigned int column, float posX, const std::function<void(const std::string&)>& callback) {
-	createPanel([this, showAll, callback]() {
-		gui::Panel& panel = *new gui::Panel(glm::vec2(200));
-
-		for (auto& elem : content->getBlockMaterials()) {
-			if (!showAll && elem.first.substr(0, currentPackId.length()) != currentPackId) continue;
-			gui::Button& button = *new gui::Button(util::str2wstr_utf8(elem.first), glm::vec4(10.f), [this, &elem, callback](gui::GUI*) {
-				if (callback) callback(elem.first);
-				else createMaterialEditor(const_cast<BlockMaterial&>(*elem.second));
-			});
-			button.setTextAlign(gui::Align::left);
-			panel += button;
-		}
-
-		return std::ref(panel);
-	}, column, posX);
-}
-
-void WorkShopScreen::createScriptList(unsigned int column, float posX, const std::function<void(const std::string&)>& callback) {
-	createPanel([this, callback]() {
-		gui::Panel& panel = *new gui::Panel(glm::vec2(200));
-
-		fs::path scriptsFolder(currentPack.folder / "scripts/");
-		std::vector<fs::path> scripts = getFiles(scriptsFolder, true);
-		if (callback) scripts.emplace(scripts.begin(), fs::path());
-
-		for (const auto& elem : scripts) {
-			fs::path parentDir(fs::relative(elem.parent_path(), scriptsFolder));
-			std::string fullScriptName = parentDir.string() + "/" + elem.stem().string();
-			std::string scriptName = fs::path(getScriptName(currentPack, fullScriptName)).stem().string();
-			gui::Button& button = *new gui::Button(util::str2wstr_utf8(scriptName), glm::vec4(10.f),
-				[this, elem, fullScriptName, callback](gui::GUI*) {
-				if (callback) callback(fullScriptName);
-				else createScriptInfoPanel(elem);
-			});
-			button.setTextAlign(gui::Align::left);
-			panel += button;
-		}
-
-		setSelectable<gui::Button>(panel);
-
-		return std::ref(panel);
-	}, column, posX);
 }
 
 void WorkShopScreen::createScriptInfoPanel(const fs::path& file) {
@@ -466,24 +415,6 @@ void WorkShopScreen::createScriptInfoPanel(const fs::path& file) {
 
 		return std::ref(panel);
 	}, 2);
-}
-
-void WorkShopScreen::createSoundList() {
-	createPanel([this]() {
-		gui::Panel& panel = *new gui::Panel(glm::vec2(200));
-
-		std::vector<fs::path> sounds = getFiles(currentPack.folder / SOUNDS_FOLDER, true);
-
-		for (const auto& elem : sounds) {
-			gui::Button& button = *new gui::Button(util::str2wstr_utf8(elem.stem().string()), glm::vec4(10.f), [this, elem](gui::GUI*) {
-				createSoundInfoPanel(elem);
-			});
-			button.setTextAlign(gui::Align::left);
-			panel += button;
-		}
-
-		return std::ref(panel);
-	}, 1);
 }
 
 void WorkShopScreen::createSoundInfoPanel(const fs::path& file) {
@@ -581,7 +512,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
 			const fs::path itemsTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::ITEMS_FOLDER);
 
-			std::unordered_multimap<DefType, fs::path> unusedTextures;
+			std::unordered_multimap<ContentType, fs::path> unusedTextures;
 
 			for (const auto& path : getFiles(blocksTexturesPath, false)) {
 				if (!fs::is_regular_file(path)) continue;
@@ -598,7 +529,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 					if (item->name.find(currentPackId) == std::string::npos) continue;
 					if (item->iconType == item_icon_type::sprite && getTexName(item->icon) == fileName) inUse = true;
 				}
-				if (!inUse) unusedTextures.emplace(DefType::BLOCK, path);
+				if (!inUse) unusedTextures.emplace(ContentType::BLOCK, path);
 			}
 			for (const auto& path : getFiles(itemsTexturesPath, false)) {
 				const std::string fileName = path.stem().string();
@@ -607,7 +538,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 					const ItemDef* const item = indices->items.get(i);
 					if (item->iconType == item_icon_type::sprite && getTexName(item->icon) == fileName) inUse = true;
 				}
-				if (!inUse) unusedTextures.emplace(DefType::ITEM, path);
+				if (!inUse) unusedTextures.emplace(ContentType::ITEM, path);
 			}
 			createPanel([this, unusedTextures]() {
 				gui::Panel& panel = *new gui::Panel(glm::vec2(300));
@@ -728,7 +659,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 	}, 1);
 }
 
-void WorkShopScreen::createTextureInfoPanel(const std::string& texName, DefType type, unsigned int column) {
+void WorkShopScreen::createTextureInfoPanel(const std::string& texName, ContentType type, unsigned int column) {
 	createPanel([this, texName, type]() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(350));
 
@@ -758,15 +689,15 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, DefType 
 	}, column);
 }
 
-void WorkShopScreen::createImportPanel(DefType type, std::string mode) {
+void WorkShopScreen::createImportPanel(ContentType type, std::string mode) {
 	createPanel([this, type, mode]() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(200));
 
 		panel += new gui::Label(L"Import texture");
 		panel += new gui::Button(L"Import as: " + util::str2wstr_utf8(getDefName(type)), glm::vec4(10.f), [this, type, mode](gui::GUI*) {
 			switch (type) {
-				case DefType::BLOCK: createImportPanel(DefType::ITEM, mode); break;
-				case DefType::ITEM: createImportPanel(DefType::BLOCK, mode); break;
+				case ContentType::BLOCK: createImportPanel(ContentType::ITEM, mode); break;
+				case ContentType::ITEM: createImportPanel(ContentType::BLOCK, mode); break;
 			}
 		});
 		panel += new gui::Button(L"Import mode: " + util::str2wstr_utf8(mode), glm::vec4(10.f), [this, type, mode](gui::GUI*) {
@@ -846,16 +777,29 @@ void WorkShopScreen::createMaterialEditor(BlockMaterial& material) {
 	}, 2);
 }
 
-void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type) {
-	createPanel([this, type]() {
+void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type, Block& block) {
+	createPanel([this, type, &block]() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(300));
 		gui::Image& image = *new gui::Image(preview->getTexture(), glm::vec2(panel.getSize().x));
 		panel += image;
-		panel.listenInterval(0.01f, [this, &panel, &image]() {
+		gui::Label* lookAtInfo = new gui::Label("");
+		lookAtInfo->setMultiline(true);
+		lookAtInfo->setSize(lookAtInfo->getSize() * 4.f);
+		lookAtInfo->setLineInterval(1.2f);
+		panel.listenInterval(0.01f, [this, lookAtInfo, type, &panel, &image, &block]() {
+			if (type != PrimitiveType::HITBOX) lookAtInfo->setText(L"\nYou can select a primitive with the mouse\n\n");
 			if (panel.isHover() && image.isInside(Events::cursor)) {
 				if (Events::jclicked(mousecode::BUTTON_1)) preview->lmb = true;
 				if (Events::jclicked(mousecode::BUTTON_2)) preview->rmb = true;
 				if (Events::scroll) preview->scale(-Events::scroll / 10.f);
+				size_t index;
+				preview->lookAtPrimitive = PrimitiveType::COUNT;
+				if (type != PrimitiveType::HITBOX && preview->rayCast(Events::cursor.x - image.calcPos().x, Events::cursor.y - image.calcPos().y, index)) {
+					if (Events::jclicked(mousecode::BUTTON_1))
+						createCustomModelEditor(block, index, preview->lookAtPrimitive);
+					lookAtInfo->setText(L"\nPointing at: " + util::str2wstr_utf8(getPrimitiveName(preview->lookAtPrimitive)) + 
+						L"\nPrimitive index: " + std::to_wstring(index) + L"\nPress LMB to choose");
+				}
 			}
 			panel.setSize(glm::vec2(Window::width - panel.calcPos().x - 2.f, Window::height));
 			image.setSize(glm::vec2(panel.getSize().x, Window::height / 2.f));
@@ -872,11 +816,20 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type)
 			createFullCheckBox(panel, L"Highlight current AABB", preview->drawCurrentAABB);
 		else if (type == PrimitiveType::TETRAGON)
 			createFullCheckBox(panel, L"Highlight current Tetragon", preview->drawCurrentTetragon);
+		panel += new gui::Button(L"Take screenshot", glm::vec4(10.f), [this](gui::GUI*) {
+			auto data = preview->getTexture()->readData();
+			data->flipY();
+			fs::path filename = engine->getPaths()->getNewScreenshotFile("png");
+			imageio::write(filename.string(), data.get());
+			logger.info() << "saved screenshot as " << filename.u8string();
+		});
+
 		panel += new gui::Label("");
 		panel += new gui::Label("Camera control");
 		panel += new gui::Label("Position: Left Control + W, S, A, D or RMB + mouse");
 		panel += new gui::Label("Rotate: W, S, A, D or LMB + mouse");
 		panel += new gui::Label("Zoom: Left Shift/Space or Scroll Wheel");
+		panel += lookAtInfo;
 
 		return std::ref(panel);
 	}, column);
@@ -900,33 +853,57 @@ void WorkShopScreen::createUIPreview() {
 	}, 3);
 }
 
-void workshop::WorkShopScreen::backupDefs() {
-	blocksList.clear();
-	itemsList.clear();
-	for (size_t i = 0; i < indices->blocks.count(); i++) {
-		const Block* const block = indices->blocks.get(i);
-		if (block->name.find(currentPackId) == std::string::npos) continue;
-		std::string blockName(getDefName(block->name));
-		blocksList[blockName] = stringify(*block, blockName, false);
-	}
-	for (size_t i = 0; i < indices->items.count(); i++) {
-		const ItemDef* const item = indices->items.get(i);
-		if (item->name.find(currentPackId) == std::string::npos) continue;
-		std::string itemName(getDefName(item->name));
-		itemsList[itemName] = stringify(*item, itemName, false);
+static std::string findParent(const fs::path& path, ContentType type, const std::string& actualName){
+	std::string parentName;
+	fs::path file(path / getDefFolder(type) / (actualName + getDefFileFormat(type)));
+	if (!fs::is_regular_file(file)) return parentName;
+	auto map = files::read_json(file);
+	if (map->has("parent")) parentName = map->get<std::string>("parent");
+	return parentName;
+}
+
+template<typename T>
+static void backup(std::unordered_map<std::string, BackupData>& dst, const ContentUnitIndices<T>& src, const ContentUnitDefs<T>& content, 
+	ContentType type, const std::string& packId, fs::path& packPath
+){
+	for (size_t i = 0; i < src.count(); i++) {
+		const T* const def = src.get(i);
+		if (def->name.find(packId) == std::string::npos) continue;
+		std::string defName(getDefName(def->name));
+		BackupData& data = dst[defName];
+		data.currentParent = data.newParent = findParent(packPath, type, defName);
+		data.string = stringify(toJson(*def, defName, content.find(data.currentParent), data.newParent), false);
 	}
 }
 
+void workshop::WorkShopScreen::backupDefs() {
+	blocksList.clear();
+	itemsList.clear();
+	entityList.clear();
+	backup<Block>(blocksList, indices->blocks, content->blocks, ContentType::BLOCK, currentPackId, currentPack.folder);
+	backup<ItemDef>(itemsList, indices->items, content->items, ContentType::ITEM, currentPackId, currentPack.folder);
+	backup<EntityDef>(entityList, indices->entities, content->entities, ContentType::ENTITY, currentPackId, currentPack.folder);
+}
+
 bool workshop::WorkShopScreen::showUnsaved(const std::function<void()>& callback) {
-	std::unordered_multimap<DefType, std::string> unsavedList;
+	std::unordered_multimap<ContentType, std::string> unsavedList;
 
 	for (const auto& elem : blocksList) {
-		if (elem.second != stringify(*content->blocks.find(currentPackId + ':' + elem.first), elem.first, false))
-			unsavedList.emplace(DefType::BLOCK, elem.first);
+		const Block* parent = content->blocks.find(elem.second.currentParent);
+		if (elem.second.string != stringify(toJson(*content->blocks.find(currentPackId + ':' + elem.first), elem.first, parent, elem.second.newParent), false))
+			unsavedList.emplace(ContentType::BLOCK, elem.first);
 	}
 	for (const auto& elem : itemsList) {
-		if (elem.second != stringify(*content->items.find(currentPackId + ':' + elem.first), elem.first, false))
-			unsavedList.emplace(DefType::ITEM, elem.first);
+		const ItemDef* item = content->items.find(currentPackId + ':' + elem.first);
+		if (item->generated) continue;
+		const ItemDef* parent = content->items.find(elem.second.currentParent);
+		if (elem.second.string != stringify(toJson(*item, elem.first, parent, elem.second.newParent), false))
+			unsavedList.emplace(ContentType::ITEM, elem.first);
+	}
+	for (const auto& elem : entityList) {
+		const EntityDef* parent = content->entities.find(elem.second.currentParent);
+		if (elem.second.string != stringify(toJson(*content->entities.find(currentPackId + ':' + elem.first), elem.first, parent, elem.second.newParent), false))
+			unsavedList.emplace(ContentType::ENTITY, elem.first);
 	}
 
 	if (unsavedList.empty() || ignoreUnsaved) {
@@ -960,10 +937,16 @@ bool workshop::WorkShopScreen::showUnsaved(const std::function<void()>& callback
 	buttonsContainer += new gui::Button(L"Back", glm::vec4(10.f), [this, containerPtr](gui::GUI*) { gui->remove(containerPtr); });
 	buttonsContainer += new gui::Button(L"Save all", glm::vec4(10.f), [this, containerPtr, unsavedList, callback](gui::GUI*) {
 		for (const auto& pair : unsavedList) {
-			if (pair.first == DefType::BLOCK)
-				saveBlock(*content->blocks.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second);
-			else if (pair.first == DefType::ITEM)
-				saveItem(*content->items.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second);
+			const BackupData& backup = (pair.first == ContentType::BLOCK ? blocksList.at(pair.second) : itemsList.at(pair.second));
+			if (pair.first == ContentType::BLOCK)
+				saveBlock(*content->blocks.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second, 
+					content->blocks.find(backup.currentParent), backup.newParent);
+			else if (pair.first == ContentType::ITEM)
+				saveItem(*content->items.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second,
+					content->items.find(backup.currentParent), backup.newParent);
+			else if (pair.first == ContentType::ENTITY)
+				saveEntity(*content->entities.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second,
+					content->entities.find(backup.currentParent), backup.newParent);
 		}
 		backupDefs();
 		gui->remove(containerPtr);

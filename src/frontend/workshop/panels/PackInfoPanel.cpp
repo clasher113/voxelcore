@@ -9,20 +9,20 @@
 
 namespace workshop {
 
-	static gui::Panel& createDependencyList(gui::Panel& panel, ContentPack& pack, Engine* engine) {
-		panel.clear();
+	static void createDependencyList(gui::Panel& dependencyList, gui::Panel& panel, ContentPack& pack, Engine* engine) {
+		dependencyList.clear();
 
 		for (auto& elem : pack.dependencies) {
 			const size_t dependencyIndex = &elem - pack.dependencies.data();
 
-			gui::Container& container = *new gui::Container(glm::vec2(panel.getSize().x));
+			gui::Container& container = *new gui::Container(glm::vec2(dependencyList.getSize().x));
 			container.setScrollable(false);
 
 			std::vector<ContentPack> scanned;
 			ContentPack::scanFolder(engine->getPaths()->getResourcesFolder() / "content", scanned);
 
 			gui::TextBox& textbox = createTextBox(container, elem.id, L"Dependency ID");
-			std::unordered_map<DependencyLevel, std::wstring> levels = {
+			const std::unordered_map<DependencyLevel, std::wstring> levels = {
 				{ DependencyLevel::required, L"required" },
 				{ DependencyLevel::optional, L"optional" },
 				{ DependencyLevel::weak, L"weak" }
@@ -50,12 +50,11 @@ namespace workshop {
 			button.setSize(size);
 			button.setPos(glm::vec2(size.x + interval, 0.f));
 
-			imageContainer.setHoverColor(textbox.getHoverColor());
 			imageContainer.setPos(glm::vec2(size.x * 2.f + interval, 0.f));
-			imageContainer.setScrollable(false);
-			imageContainer.listenAction([engine, &panel, &pack, dependencyIndex](gui::GUI*) {
+			imageContainer.listenAction([engine, &dependencyList, &panel, &pack, dependencyIndex](gui::GUI*) {
 				pack.dependencies.erase(pack.dependencies.begin() + dependencyIndex);
-				createDependencyList(panel, pack, engine);
+				createDependencyList(dependencyList, panel, pack, engine);
+				panel.refresh();
 			});
 			imageContainer += image;
 
@@ -63,10 +62,9 @@ namespace workshop {
 			container += button;
 			container.setSize(glm::vec2(container.getSize().x, size.y));
 
-			panel += container;
+			dependencyList += container;
 		}
-		panel.cropToContent();
-		return panel;
+		dependencyList.cropToContent();
 	}
 }
 
@@ -142,11 +140,11 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 		dependencyList.setColor(glm::vec4(0.f));
 		panel += dependencyList;
 
-		createDependencyList(dependencyList, currentPack, engine);
+		createDependencyList(dependencyList, panel, currentPack, engine);
 
-		panel += new gui::Button(L"Add dependency", glm::vec4(10.f), [this, &dependencyList](gui::GUI*) {
+		panel += new gui::Button(L"Add dependency", glm::vec4(10.f), [this, &dependencyList, &panel](gui::GUI*) {
 			currentPack.dependencies.emplace_back();
-			createDependencyList(dependencyList, currentPack, engine);
+			createDependencyList(dependencyList, panel, currentPack, engine);
 		});
 
 		panel += new gui::Button(L"Save", glm::vec4(10.f), [this, &id](gui::GUI*) {

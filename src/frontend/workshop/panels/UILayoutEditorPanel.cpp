@@ -7,21 +7,21 @@
 #include "../WorkshopScreen.hpp"
 #include "../WorkshopSerializer.hpp"
 
-void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const std::string& fullName, const std::string& actualName,
-	std::vector<size_t> docPath)
-{
-	createPanel([this, path, fullName, actualName, docPath]() {
+void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const std::string& fullName, std::vector<size_t> docPath) {
+	createPanel([this, path, fullName, docPath]() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(250));
 
 		if (xmlDocs.find(fullName) == xmlDocs.end()) {
 			xmlDocs.emplace(fullName, xml::parse(path.u8string(), files::read_string(path)));
 		}
 
-		std::shared_ptr<xml::Document> xmlDoc(xmlDocs[fullName]);
+		std::shared_ptr<xml::Document> xmlDoc(xml::parse(path.u8string(), files::read_string(path)));
 		auto updatePreview = [this, xmlDoc](bool forceUpdate = true) {
 			preview->setUiDocument(xmlDoc, engine->getContent()->getPackRuntime(currentPackId)->getEnvironment(), forceUpdate);
 		};
 		updatePreview(false);
+
+		const std::string actualName = getDefName(fullName);
 
 		panel += new gui::Label(actualName);
 		panel += new gui::Label("Root type: " + xmlDoc->getRoot()->getTag());
@@ -58,8 +58,8 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			"bottom-center", "bottom-right"
 		};
 
-		auto goTo = [this, path, fullName, actualName](const std::vector<size_t> docPath) {
-			createUILayoutEditor(path, fullName, actualName, docPath);
+		auto goTo = [this, path, fullName](const std::vector<size_t> docPath) {
+			createUILayoutEditor(path, fullName, docPath);
 		};
 
 		if (!root) {
@@ -388,21 +388,21 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 					currentElement->removeAttr(modes[1]);
 					currentElement->removeAttr(modes[2]);
 				}
-				clearRemoveList(invEditorPanel);
+				removeRemovable(invEditorPanel);
 				if (mode == 0 || mode == 2) {
 					if (changing) currentElement->set("rows", "1");
-					invEditorPanel += removeList.emplace_back(new gui::Label("Rows"));
-					removeList.emplace_back(&createVector(invEditorPanel, 1, "rows", { L"Rows" }, 1, true).get());
+					invEditorPanel += markRemovable(new gui::Label("Rows"));
+					markRemovable(createVector(invEditorPanel, 1, "rows", { L"Rows" }, 1, true).get());
 				}
 				if (mode == 1 || mode == 2) {
 					if (changing) currentElement->set("cols", "1");
-					invEditorPanel += removeList.emplace_back(new gui::Label("Columns"));
-					removeList.emplace_back(&createVector(invEditorPanel, 1, "cols", { L"Columns" }, 1, true).get());
+					invEditorPanel += markRemovable(new gui::Label("Columns"));
+					markRemovable(createVector(invEditorPanel, 1, "cols", { L"Columns" }, 1, true).get());
 				}
 				if (mode == 0 || mode == 1) {
 					if (changing) currentElement->set("count", "1");
-					invEditorPanel += removeList.emplace_back(new gui::Label("Slot count"));
-					removeList.emplace_back(&createVector(invEditorPanel, 1, "count", { L"Count" }, 0, true).get());
+					invEditorPanel += markRemovable(new gui::Label("Slot count"));
+					markRemovable(createVector(invEditorPanel, 1, "count", { L"Count" }, 0, true).get());
 				}
 				return std::ref(invEditorPanel);
 			};
@@ -538,10 +538,10 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			saveDocument(xmlDoc, currentPack.folder, actualName);
 		});
 		panel += new gui::Button(L"Rename", glm::vec4(10.f), [this, actualName](gui::GUI*) {
-			createDefActionPanel(DefAction::RENAME, DefType::UI_LAYOUT, actualName);
+			createDefActionPanel(ContentAction::RENAME, ContentType::UI_LAYOUT, actualName);
 		});
 		panel += new gui::Button(L"Delete", glm::vec4(10.f), [this, actualName](gui::GUI*) {
-			createDefActionPanel(DefAction::DELETE, DefType::UI_LAYOUT, actualName);
+			createDefActionPanel(ContentAction::DELETE, ContentType::UI_LAYOUT, actualName);
 		});
 
 		return std::ref(panel);

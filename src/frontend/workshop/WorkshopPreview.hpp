@@ -38,6 +38,7 @@ namespace workshop {
 		void updateMesh();
 		void updateCache();
 
+		bool rayCast(float cursorX, float cursorY, size_t& returnIndex);
 		void rotate(float x, float y);
 		void scale(float value);
 
@@ -63,13 +64,14 @@ namespace workshop {
 		bool drawCurrentTetragon = false;
 		bool drawBlockHitbox = false;
 		bool drawDirection = true;
+		PrimitiveType lookAtPrimitive;
 
 	private:
 		float refillTimer = 0.f;
 		float viewDistance = 2.f;
 		glm::i8vec3 blockSize;
 		glm::vec2 previewRotation{ 225.f, 45.f };
-		glm::vec3 currentTetragon[4]{};
+		glm::vec3 currentTetragon[4]{}, lookAtTetragon[4]{};
 		glm::vec3 cameraOffset, cameraPosition;
 		PrimitiveType primitiveType;
 
@@ -93,7 +95,7 @@ namespace workshop {
 		Batch3D batch3d;
 		std::shared_ptr<Mesh> mesh;
 
-		AABB currentAABB, currentHitbox;
+		AABB currentAABB, currentHitbox, lookAtAABB;
 
 		void refillInventory();
 	};

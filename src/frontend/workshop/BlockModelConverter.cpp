@@ -53,7 +53,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 					}
 				}
 
-				clearRemoveList(panel);
+				removeRemovable(panel);
 
 				std::vector<gui::UINode*> nodes;
 				gui::Label& createTexturesLabel = *new gui::Label(std::to_wstring(newTextures) + L" Texture(s) will be created");
@@ -66,7 +66,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 				for (auto& pair : textureMap) {
 					gui::IconButton& textureButton = *new gui::IconButton(glm::vec2(50.f), pair.second, blocksAtlas, pair.second, pair.first);
 					textureButton.listenAction([this, &textureButton, &panel, converter, &createTexturesLabel, &pair](gui::GUI*) {
-						createTextureList(50.f, 6, DefType::BLOCK, panel.getPos().x + panel.getSize().x, true, [this, &textureButton, converter, &createTexturesLabel, &pair](const std::string& textureName) {
+						createTextureList(50.f, 6, ContentType::BLOCK, panel.getPos().x + panel.getSize().x, true, [this, &textureButton, converter, &createTexturesLabel, &pair](const std::string& textureName) {
 							pair.second = getTexName(textureName);
 							textureButton.setIcon(getAtlas(assets, textureName), pair.second);
 							textureButton.setText(pair.second);
@@ -101,7 +101,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 						preview->updateCache();
 						preview->setBlock(converting);
 
-						createContentList(DefType::BLOCK);
+						createContentList(ContentType::BLOCK);
 						createBlockEditor(*converting);
 						createCustomModelEditor(*converting, 0, PrimitiveType::AABB);
 						delete converted;
@@ -109,7 +109,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 				}));
 
 				for (gui::UINode* node : nodes) {
-					panel += removeList.emplace_back(node);
+					panel += markRemovable(node);
 				}
 			});
 		});

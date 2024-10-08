@@ -11,7 +11,7 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 
 	createPanel([this, &block, index, type]() mutable {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(settings.customModelEditorWidth));
-		createBlockPreview(4, type);
+		createBlockPreview(4, type, block);
 
 		std::vector<AABB>& aabbArr = (type == PrimitiveType::AABB ? block.modelBoxes : block.hitboxes);
 		const std::wstring primitives[] = { L"AABB", L"Tetragon", L"Hitbox" };
@@ -29,7 +29,6 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 			panel += new gui::Button(L"Primitive: " + currentPrimitiveName, glm::vec4(10.f), [this, &block, type](gui::GUI*) {
 				if (type == PrimitiveType::AABB) createCustomModelEditor(block, 0, PrimitiveType::TETRAGON);
 				else if (type == PrimitiveType::TETRAGON) createCustomModelEditor(block, 0, PrimitiveType::AABB);
-
 			});
 		}
 		const size_t size = (type == PrimitiveType::TETRAGON ? block.modelExtraPoints.size() / 4 : aabbArr.size());
@@ -134,11 +133,11 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 			preview->setCurrentTetragon(&block.modelExtraPoints[index * 4]);
 
 			createInput = [this, &block, index, &inputPanel, &panel, updateTetragon](unsigned int type) {
-				clearRemoveList(inputPanel);
+				removeRemovable(inputPanel);
 				for (size_t i = 0; i < 4; i++) {
 					if (i == 2) continue;
 					glm::vec3* vec = &block.modelExtraPoints[index * 4];
-					inputPanel += removeList.emplace_back(&createVectorPanel(vec[i], glm::vec3(settings.customModelRange.x),
+					inputPanel += markRemovable(createVectorPanel(vec[i], glm::vec3(settings.customModelRange.x),
 						glm::max(glm::vec3(settings.customModelRange.y), glm::vec3(block.size)),
 						panel.getSize().x, type, [this, updateTetragon, vec]() {
 						updateTetragon(vec);
@@ -154,11 +153,11 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 			preview->setCurrentAABB(aabb, type);
 
 			createInput = [this, &aabb, &inputPanel, &panel, type, &block](unsigned int inputType) {
-				clearRemoveList(inputPanel);
-				inputPanel += removeList.emplace_back(&createVectorPanel(aabb.a, glm::vec3(settings.customModelRange.x),
+				removeRemovable(inputPanel);
+				inputPanel += markRemovable(createVectorPanel(aabb.a, glm::vec3(settings.customModelRange.x),
 					glm::max(glm::vec3(settings.customModelRange.y), glm::vec3(block.size)), panel.getSize().x, inputType,
 					[this, &aabb, type]() { preview->setCurrentAABB(aabb, type); preview->updateMesh(); }));
-				inputPanel += removeList.emplace_back(&createVectorPanel(aabb.b, glm::vec3(settings.customModelRange.x),
+				inputPanel += markRemovable(createVectorPanel(aabb.b, glm::vec3(settings.customModelRange.x),
 					glm::max(glm::vec3(settings.customModelRange.y), glm::vec3(block.size)), panel.getSize().x, inputType,
 					[this, &aabb, type]() { preview->setCurrentAABB(aabb, type); preview->updateMesh(); }));
 			};
@@ -183,6 +182,22 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 				preview->updateCache();
 			});
 		}
+
+		panel += new gui::Label("Go to:");
+		gui::TextBox* goTo = new gui::TextBox(L"Primitive index");
+		goTo->setTextConsumer([this, goTo, size, type, &block](const std::wstring&) {
+			try {
+				int result = stoi(goTo->getInput());
+				if (result >= 1 && result <= size) {
+					createCustomModelEditor(block, result - 1, type);
+				}
+				else goTo->setText(L"");
+			}
+			catch (const std::exception&) {
+				goTo->setText(L"");
+			}
+		});
+		panel += goTo;
 
 		return std::ref(panel);
 	}, 3);

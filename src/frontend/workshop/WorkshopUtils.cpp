@@ -54,34 +54,28 @@ Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName, const std
 	return assets->get<Atlas>(BLOCKS_PREVIEW_ATLAS);
 }
 
-std::string workshop::getDefName(DefType type) {
-	switch (type) {
-		case DefType::BLOCK: return "block";
-		case DefType::ITEM: return "item";
-		case DefType::BOTH: return "[both]";
-		case DefType::UI_LAYOUT: return "layout";
-	}
-	return "";
+std::string workshop::getDefName(ContentType type) {
+	const char* const names[] = { "block", "item", "[both]", "layout", "entity" };
+	if (static_cast<size_t>(type) >= std::size(names)) return "";
+	return names[static_cast<size_t>(type)];
 }
 
 std::string workshop::getDefName(const std::string& fullName) {
 	return getTexName(fullName, ":");
 }
 
-std::string workshop::getDefFolder(DefType type) {
-	switch (type) {
-		case DefType::BLOCK: return ContentPack::BLOCKS_FOLDER.string();
-		case DefType::ITEM: return ContentPack::ITEMS_FOLDER.string();
-		case DefType::UI_LAYOUT: return LAYOUTS_FOLDER;
-	}
-	return "";
+std::string workshop::getDefFolder(ContentType type) {
+	const std::string folders[] = { ContentPack::BLOCKS_FOLDER.string(), ContentPack::ITEMS_FOLDER.string(), "", LAYOUTS_FOLDER, ContentPack::ENTITIES_FOLDER.string() };
+	if (static_cast<size_t>(type) >= std::size(folders)) return "";
+	return folders[static_cast<size_t>(type)];
 }
 
-std::string workshop::getDefFileFormat(DefType type) {
+std::string workshop::getDefFileFormat(ContentType type) {
 	switch (type) {
-		case DefType::BLOCK:
-		case DefType::ITEM: return ".json";
-		case DefType::UI_LAYOUT: return ".xml";
+		case ContentType::BLOCK:
+		case ContentType::ENTITY:
+		case ContentType::ITEM: return ".json";
+		case ContentType::UI_LAYOUT: return ".xml";
 	}
 	return "";
 }
@@ -97,6 +91,10 @@ gui::Container& workshop::operator+=(gui::Container& left, gui::UINode& right) {
 gui::Container& workshop::operator+=(gui::Container& left, gui::UINode* right) {
 	left.add(std::shared_ptr<gui::UINode>(right));
 	return left;
+}
+
+bool workshop::operator==(const AABB& left, const AABB& right) {
+	return left.a == right.a && left.b == right.b;
 }
 
 std::vector<glm::vec3> workshop::aabb2tetragons(const AABB& aabb) {
@@ -157,17 +155,17 @@ template void workshop::setSelectable<gui::Button>(const gui::Panel&);
 template<typename T>
 void workshop::setSelectable(const gui::Panel& panel) {
 	for (const auto& elem : panel.getNodes()) {
-		T* node = dynamic_cast<T*>(elem.get());
-		if (!node) continue;
-		node->listenAction([node, &panel](gui::GUI* gui) {
-			for (const auto& elem : panel.getNodes()) {
-				if (typeid(*elem.get()) == typeid(T)) {
-					elem->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
-					elem->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
+		if (T* node = dynamic_cast<T*>(elem.get())) {
+			node->listenAction([node, &panel](gui::GUI* gui) {
+				for (const auto& elem : panel.getNodes()) {
+					if (typeid(*elem.get()) == typeid(T)) {
+						elem->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
+						elem->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
+					}
 				}
-			}
-			node->setColor(node->getHoverColor());
-		});
+				node->setColor(node->getHoverColor());
+			});
+		}
 	}
 }
 
@@ -196,6 +194,22 @@ void workshop::optimizeContainer(gui::Container& container) {
 				nodePos.x + nodeSize.x > pos.x && nodePos.x < pos.x + size.x);
 		}
 	});
+}
+
+gui::UINode* workshop::markRemovable(gui::UINode* node) {
+	node->setId(REMOVABLE_MARK);
+	return node;
+}
+
+gui::UINode& workshop::markRemovable(gui::UINode& node) {
+	return *markRemovable(&node);
+}
+
+void workshop::removeRemovable(gui::Container& container) {
+	for (int i = container.getNodes().size() - 1; i >= 0; i--) {
+		auto& node = container.getNodes().at(i);
+		if (node->getId() == REMOVABLE_MARK) container.remove(node);
+	}
 }
 
 void workshop::validateBlock(Assets* assets, Block& block) {
@@ -277,4 +291,10 @@ std::string workshop::getUILayoutName(Assets* assets, const std::string& layoutN
 	if (layoutName.empty()) return NOT_SET;
 	if (assets->get<UiDocument>(layoutName)) return layoutName;
 	return NOT_SET;
+}
+
+std::string workshop::getPrimitiveName(PrimitiveType type) {
+	const char* const names[] = { "AABB", "Tetragon", "Hitbox" };
+	if (static_cast<size_t>(type) >= std::size(names)) return std::string();
+	return names[static_cast<size_t>(type)];
 }
