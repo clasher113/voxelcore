@@ -221,8 +221,8 @@ void Preview::refillInventory() {
 
 bool workshop::Preview::rayCast(float cursorX, float cursorY, size_t& returnIndex) {
 	if (currentBlock) {
-		cursorX *= framebuffer.getWidth() / windowWidth;
-		cursorY *= framebuffer.getHeight() / windowHeight;
+		cursorX *= static_cast<float>(framebuffer.getWidth()) / windowWidth;
+		cursorY *= static_cast<float>(framebuffer.getHeight()) / windowHeight;
 
 		glm::vec3 dir = glm::unProject(glm::vec3(cursorX, framebuffer.getHeight() - cursorY, 1.f), camera.getView(),
 			camera.getProjection(), glm::vec4(0.f, 0.f, framebuffer.getWidth(), framebuffer.getHeight()));
@@ -322,7 +322,8 @@ void workshop::Preview::drawSkeleton() {
 
 	main->use();
 	if (currentSkeleton) {
-		currentSkeleton->render(engine->getAssets(), modelBatch, currentSkeleton->instance(), glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 1.f, 0.f)));
+		rigging::Skeleton skeleton = currentSkeleton->instance();
+		currentSkeleton->render(engine->getAssets(), modelBatch, skeleton, glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 1.f, 0.f)));
 		modelBatch.render();
 	}
 	endRenderer(ctx, false, false);

@@ -37,12 +37,12 @@ void WorkShopScreen::createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton
 
 		panel += new gui::Label(actualName);
 
-		panel += new gui::Button(L"Add bone", glm::vec4(10.f), [skeletonPath, goTo, &currentBone, &skeleton](gui::GUI*) mutable {
+		panel += new gui::Button(L"Add bone", glm::vec4(10.f), [sp = skeletonPath, goTo, &currentBone, &skeleton](gui::GUI*) mutable {
 			currentBone.bones.emplace_back(new rigging::Bone(0, "", "", std::vector<std::unique_ptr<rigging::Bone>>(), glm::vec3(0.f)));
-			skeletonPath.emplace_back(currentBone.bones.size() - 1);
+			sp.emplace_back(currentBone.bones.size() - 1);
 			skeleton.nodes.clear();
 			updateIndices(skeleton.nodes, skeleton.root.get());
-			goTo(skeletonPath);
+			goTo(sp);
 		});
 		if (!root) {
 			panel += new gui::Button(L"Remove current", glm::vec4(10.f), [goTo, getBone, sp = skeletonPath, &currentBone, &skeleton](gui::GUI*) mutable {
