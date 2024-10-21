@@ -11,6 +11,7 @@
 #include "WorkshopUtils.hpp"
 #include "constants.hpp"
 #include "util/stringutil.hpp"
+#include "objects/rigging.hpp"
 
 #include <algorithm>
 #include <map>
@@ -71,6 +72,7 @@ dynamic::Map_sptr workshop::toJson(const Block& block, const std::string& actual
 	if (NOT_EQUAL(tickInterval)) root.put("tick-interval", block.tickInterval);
 	if (NOT_EQUAL(inventorySize)) root.put("inventory-size", static_cast<int64_t>(block.inventorySize));
 	if (NOT_EQUAL(model)) root.put("model", to_string(block.model));
+	if ((NOT_EQUAL(rotatable)) || NOT_EQUAL(rotations.name)) root.put("rotation", block.rotatable ? block.rotations.name : "none");
 	if (NOT_EQUAL(pickingItem)) root.put("picking-item", block.pickingItem);
 	if (NOT_EQUAL(scriptName)) root.put("script-name", block.scriptName);
 	if (NOT_EQUAL(material)) root.put("material", block.material);
@@ -257,6 +259,30 @@ dynamic::Map_sptr workshop::toJson(const EntityDef& entity, const std::string& a
 #undef NOT_EQUAL
 }
 
+static void putBone(dynamic::Map& map, const rigging::Bone& bone){
+	if (!bone.getName().empty()) map.put("name", bone.getName());
+	if (!bone.model.name.empty()) map.put("model", bone.model.name);
+	if (bone.getOffset() != glm::vec3(0.f)) {
+		dynamic::List& list = map.putList("offset");
+		list.multiline = false;
+		putVec3(list, bone.getOffset());
+	}
+	if (!bone.getSubnodes().empty()) {
+		dynamic::List& list = map.putList("nodes");
+		for (const std::unique_ptr<rigging::Bone>& elem : bone.getSubnodes()) {
+			putBone(list.putMap(), *elem);
+		}
+	}
+}
+
+dynamic::Map_sptr workshop::toJson(const rigging::Bone& rootBone, const std::string& actualName) {
+	dynamic::Map& root = *new dynamic::Map();
+
+	putBone(root.putMap("root"), rootBone);
+
+	return std::shared_ptr<dynamic::Map>(&root);
+}
+
 void workshop::saveContentPack(const ContentPack& pack) {
 	dynamic::Map root;
 	if (!pack.id.empty()) root.put("id", pack.id);
@@ -291,6 +317,12 @@ void workshop::saveEntity(const EntityDef& entity, const std::filesystem::path& 
 	fs::path path = packFolder / ContentPack::ENTITIES_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
 	files::write_string(path / fs::path(actualName + ".json"), stringify(toJson(entity, actualName, parent, newParent), true));
+}
+
+void workshop::saveSkeleton(const rigging::Bone& root, const std::filesystem::path& packFolder, const std::string& actualName) {
+	fs::path path = packFolder / SKELETONS_FOLDER;
+	if (!fs::is_directory(path)) fs::create_directories(path);
+	files::write_string(path / fs::path(actualName + ".json"), stringify(toJson(root, actualName), true));
 }
 
 void workshop::saveDocument(std::shared_ptr<xml::Document> document, const fs::path& packFolder, const std::string& actualName) {

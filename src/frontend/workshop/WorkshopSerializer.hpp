@@ -13,6 +13,9 @@ struct ContentPack;
 namespace xml {
 	class Document;
 }
+namespace rigging {
+	class Bone;
+}
 
 namespace workshop {
 	extern std::string stringify(const dynamic::Map_sptr root, bool nice = true);
@@ -20,11 +23,13 @@ namespace workshop {
 	extern dynamic::Map_sptr toJson(const Block& block, const std::string& actualName, const Block* const parent, const std::string& newParent);
 	extern dynamic::Map_sptr toJson(const ItemDef& item, const std::string& actualName, const ItemDef* const parent, const std::string& newParent);
 	extern dynamic::Map_sptr toJson(const EntityDef& entity, const std::string& actualName, const EntityDef* const parent, const std::string& newParent);
+	extern dynamic::Map_sptr toJson(const rigging::Bone& rootBone, const std::string& actualName);
 
 	extern void saveContentPack(const ContentPack& pack);
 	extern void saveBlock(const Block& block, const std::filesystem::path& packFolder, const std::string& actualName, const Block* const parent, const std::string& newParent);
 	extern void saveItem(const ItemDef& item, const std::filesystem::path& packFolder, const std::string& actualName, const ItemDef* const parent, const std::string& newParent);
 	extern void saveEntity(const EntityDef& entity, const std::filesystem::path& packFolder, const std::string& actualName, const EntityDef* const parent, const std::string& newParent);
+	extern void saveSkeleton(const rigging::Bone& root, const std::filesystem::path& packFolder, const std::string& actualName);
 	extern void saveDocument(std::shared_ptr<xml::Document> document, const std::filesystem::path& packFolder, const std::string& actualName);
 }
 

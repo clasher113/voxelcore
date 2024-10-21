@@ -1,26 +1,29 @@
 #include "WorkshopPreview.hpp"
 
-#include "../../assets/AssetsLoader.hpp"
-#include "../../content/Content.hpp"
-#include "../../engine.hpp"
-#include "../../graphics/core/Atlas.hpp"
-#include "../../graphics/core/DrawContext.hpp"
-#include "../../graphics/core/Shader.hpp"
-#include "../../graphics/core/Texture.hpp"
-#include "../../graphics/core/Viewport.hpp"
-#include "../../graphics/ui/gui_xml.hpp"
-#include "../../items/ItemDef.hpp"
-#include "../../voxels/Block.hpp"
-#include "../../voxels/Chunk.hpp"
-#include "../../voxels/ChunksStorage.hpp"
-#include "../../window/Events.hpp"
-#include "../../window/Window.hpp"
-#include "../../world/Level.hpp"
-#include "../../world/World.hpp"
+#include "assets/AssetsLoader.hpp"
+#include "content/Content.hpp"
+#include "engine.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/DrawContext.hpp"
+#include "graphics/core/Shader.hpp"
+#include "graphics/core/Texture.hpp"
+#include "graphics/core/Viewport.hpp"
+#include "graphics/ui/gui_xml.hpp"
+#include "items/ItemDef.hpp"
+#include "voxels/Block.hpp"
+#include "voxels/Chunk.hpp"
+#include "voxels/ChunksStorage.hpp"
+#include "window/Events.hpp"
+#include "window/Window.hpp"
+#include "world/Level.hpp"
+#include "world/World.hpp"
 #include "../ContentGfxCache.hpp"
 #include "files/WorldFiles.hpp"
 #include "WorkshopUtils.hpp"
 #include "maths/rays.hpp"
+#include "objects/EntityDef.hpp"
+#include "objects/rigging.hpp"
+#include "graphics/core/Model.hpp"
 
 #include <cstring>
 #include <glm/gtx/intersect.hpp>
@@ -41,8 +44,11 @@ cameraPosition(0.f),
 lineBatch(1024),
 batch2d(1024),
 batch3d(1024),
+chunks(CHUNK_W, CHUNK_D, 0, 0, nullptr, level),
+modelBatch(8192, engine->getAssets(), &chunks),
 mesh(nullptr),
-primitiveType(PrimitiveType::COUNT)
+primitiveType(PrimitiveType::COUNT),
+lookAtPrimitive(PrimitiveType::COUNT)
 {
 	level->chunksStorage->store(std::shared_ptr<Chunk>(chunk));
 	memset(chunk->voxels, 0, sizeof(chunk->voxels));
@@ -112,6 +118,31 @@ void Preview::setBlock(Block* block) {
 	updateMesh();
 }
 
+static void updateTextures(rigging::Bone& bone, Assets* assets) {
+	if (!bone.model.name.empty()) {
+		if (bone.model.model == nullptr) bone.model.refresh(assets);
+		if (bone.model.model != nullptr) {
+			for (auto& mesh : bone.model.model->meshes) {
+				if (mesh.texture.empty() || (!mesh.texture.empty() && mesh.texture.at(0) == '$')) mesh.texture = "blocks:notfound";
+			}
+		}
+	};
+	for (auto& subBone : bone.getSubnodes()) {
+		updateTextures(*subBone, assets);
+	}
+}
+void workshop::Preview::setSkeleton(const rigging::SkeletonConfig* skeleton) {
+	currentSkeleton = skeleton;
+	if (currentSkeleton) updateTextures(*currentSkeleton->getRoot(), engine->getAssets());
+}
+
+void workshop::Preview::setModel(model::Model* model) {
+	currentModel = model;
+	for (auto& mesh : currentModel->meshes) {
+		if (mesh.texture.empty() || (!mesh.texture.empty() && mesh.texture.at(0) == '$')) mesh.texture = "blocks:notfound";
+	}
+}
+
 void Preview::setCurrentAABB(const AABB& aabb, PrimitiveType type) {
 	primitiveType = type;
 	AABB& aabb_ = (type == PrimitiveType::AABB ? currentAABB : currentHitbox);
@@ -160,8 +191,12 @@ void Preview::setUiDocument(const std::shared_ptr<xml::Document> document, std::
 }
 
 void Preview::setResolution(uint width, uint height) {
+	windowWidth = width;
+	windowHeight = height;
+	width = static_cast<float>(width) * Window::height / height;
+	height = Window::height;
 	framebuffer.resize(width, height);
-	camera.aspect = (float)width / height;
+	camera.aspect = static_cast<float>(width) / height;
 }
 
 void workshop::Preview::setBlockSize(const glm::i8vec3& size) {
@@ -186,8 +221,11 @@ void Preview::refillInventory() {
 
 bool workshop::Preview::rayCast(float cursorX, float cursorY, size_t& returnIndex) {
 	if (currentBlock) {
+		cursorX *= framebuffer.getWidth() / windowWidth;
+		cursorY *= framebuffer.getHeight() / windowHeight;
+
 		glm::vec3 dir = glm::unProject(glm::vec3(cursorX, framebuffer.getHeight() - cursorY, 1.f), camera.getView(),
-			camera.getProjection() , glm::vec4(0.f, 0.f, framebuffer.getWidth(), framebuffer.getHeight()));
+			camera.getProjection(), glm::vec4(0.f, 0.f, framebuffer.getWidth(), framebuffer.getHeight()));
 
 		Ray ray(camera.position + 0.5f, glm::normalize(dir));
 
@@ -199,15 +237,16 @@ bool workshop::Preview::rayCast(float cursorX, float cursorY, size_t& returnInde
 				lookAtPrimitive = PrimitiveType::AABB;
 				lookAtAABB.a = box.a + (box.b - box.a) / 2.f - 0.5f;
 				lookAtAABB.b = box.b - box.a;
-				returnIndex =  &box - &currentBlock->modelBoxes.front();
+				returnIndex = &box - &currentBlock->modelBoxes.front();
 				distanceMin = distance;
 			}
 		}
 		for (size_t i = 0; i < currentBlock->modelExtraPoints.size(); i += 4) {
 			const glm::vec3* const elem = &currentBlock->modelExtraPoints[i];
 			glm::vec2 distance(std::numeric_limits<float>::max());
-			if ((glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[1], elem[2], glm::vec2(), distance.x) ||
-				glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[2], elem[3], glm::vec2(), distance.y)) &&
+			glm::vec2 pos;
+			if ((glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[1], elem[2], pos, distance.x) ||
+				glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[2], elem[3], pos, distance.y)) &&
 				std::min(distance.x, distance.y) < distanceMin) {
 				lookAtPrimitive = PrimitiveType::TETRAGON;
 				for (size_t j = 0; j < 4; j++) {
@@ -215,7 +254,7 @@ bool workshop::Preview::rayCast(float cursorX, float cursorY, size_t& returnInde
 				}
 				returnIndex = i / 4;
 				distanceMin = std::min(distance.x, distance.y);
-			} 
+			}
 		}
 	}
 	return lookAtPrimitive == PrimitiveType::AABB || lookAtPrimitive == PrimitiveType::TETRAGON;
@@ -231,29 +270,10 @@ void Preview::scale(float value) {
 }
 
 void Preview::drawBlock() {
-	Window::viewport(0, 0, framebuffer.getWidth(), framebuffer.getHeight());
-	framebuffer.bind();
-	Window::setBgColor(glm::vec4(0.f));
-	Window::clear();
-
-	const Viewport viewport(Window::width, Window::height);
-	DrawContext ctx(nullptr, viewport, &batch2d);
-
-	ctx.setDepthTest(true);
-	ctx.setCullFace(true);
+	DrawContext* ctx = beginRenderer(true, true);
 
 	const Assets* const assets = engine->getAssets();
-	Shader* const lineShader = assets->get<Shader>("lines");
-	Shader* const shader = assets->get<Shader>("main");
-	Shader* const shader3d = assets->get<Shader>("ui3d");
 	Texture* const texture = assets->get<Atlas>("blocks")->getTexture();
-
-	camera.rotation = glm::mat4(1.f);
-	camera.rotate(glm::radians(previewRotation.y), glm::radians(previewRotation.x), 0);
-	camera.position = camera.front * viewDistance;
-	camera.position += cameraOffset + cameraPosition;
-	camera.dir *= -1.f;
-	camera.front *= -1.f;
 
 	auto drawTetragon = [lb = &lineBatch](const glm::vec3* const tetragon, const glm::vec4& color) {
 		for (size_t i = 0; i < 4; i++) {
@@ -262,14 +282,10 @@ void Preview::drawBlock() {
 		}
 	};
 
-	if (drawGrid) {
-		for (float i = -3.f; i < 3; i++) {
-			lineBatch.line(glm::vec3(i + 0.5f, -0.5f, -3.f), glm::vec3(i + 0.5f, -0.5f, 3.f), glm::vec4(0.f, 0.f, 1.f, 1.f));
-		}
-		for (float i = -3.f; i < 3; i++) {
-			lineBatch.line(glm::vec3(-3.f, -0.5f, i + 0.5f), glm::vec3(3.f, -0.5f, i + 0.5f), glm::vec4(1.f, 0.f, 0.f, 1.f));
-		}
-	}
+	Shader* main = setupMainShader(glm::vec3(-1.f));
+	drawDirectionArrow();
+	drawGridLines();
+
 	if (drawBlockSize) lineBatch.box(cameraOffset, glm::vec3(blockSize), glm::vec4(1.f));
 	if (lookAtPrimitive == PrimitiveType::AABB) lineBatch.box(lookAtAABB.a, lookAtAABB.b, glm::vec4(1.f));
 	else if (lookAtPrimitive == PrimitiveType::TETRAGON) drawTetragon(lookAtTetragon, glm::vec4(1.f));
@@ -277,26 +293,91 @@ void Preview::drawBlock() {
 	if (drawCurrentAABB && primitiveType == PrimitiveType::AABB) lineBatch.box(currentAABB.a, currentAABB.b, glm::vec4(1.f, 0.f, 1.f, 1.f));
 	if (drawCurrentTetragon && primitiveType == PrimitiveType::TETRAGON) drawTetragon(currentTetragon, glm::vec4(1.f, 0.f, 1.f, 1.f));
 
-	if (drawDirection) {
-		shader3d->use();
-		shader3d->uniformMatrix("u_apply", glm::mat4(1.f));
-		shader3d->uniformMatrix("u_projview", glm::translate(camera.getProjView(), glm::vec3(cameraOffset.x - 1.f, -0.98f, blockSize.z - 2.f)));
-		batch3d.begin();
-		batch3d.sprite(glm::vec3(1.f, 0.5f, 1.8f), glm::vec3(0.2f, 0.f, 0.f), glm::vec3(0.f, 0.f, 0.2f), 1.f, 1.f, UVRegion(), glm::vec4(0.8f));
-		batch3d.point(glm::vec3(1.f, 0.5f, 2.4f), glm::vec4(0.8f));
-		batch3d.point(glm::vec3(1.3f, 0.5f, 2.f), glm::vec4(0.8f));
-		batch3d.point(glm::vec3(0.7f, 0.5f, 2.f), glm::vec4(0.8f));
-		batch3d.flush();
+	lineBatch.flush();
+
+	main->use();
+	texture->bind();
+	mesh->draw();
+	endRenderer(ctx, false, false);
+}
+
+void Preview::drawUI() {
+	if (!currentUI) return;
+	DrawContext* ctx = beginRenderer(false, false);
+
+	batch2d.begin();
+
+	currentUI->draw(ctx, engine->getAssets());
+
+	endRenderer(ctx, false, false);
+}
+
+void workshop::Preview::drawSkeleton() {
+	DrawContext* ctx = beginRenderer(true, true);
+
+	Shader* const main = setupMainShader(glm::vec3(0.f));
+
+	drawGridLines();
+	drawDirectionArrow();
+
+	main->use();
+	if (currentSkeleton) {
+		currentSkeleton->render(engine->getAssets(), modelBatch, currentSkeleton->instance(), glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 1.f, 0.f)));
+		modelBatch.render();
+	}
+	endRenderer(ctx, false, false);
+}
+
+void workshop::Preview::drawModel() {
+	DrawContext* ctx = beginRenderer(true, true);
+
+	Shader* const main = setupMainShader(glm::vec3(0.f));
+
+	drawGridLines();
+	drawDirectionArrow();
+
+	main->use();
+	if (currentModel) {
+		modelBatch.draw(glm::mat4(1.f), glm::vec3(0.f), currentModel, nullptr);
+		modelBatch.render();
 	}
 
-	lineBatch.lineWidth(3.f);
-	lineShader->use();
-	lineShader->uniformMatrix("u_projview", camera.getProjView());
-	lineBatch.flush();
+	endRenderer(ctx, false, false);
+}
+
+DrawContext* workshop::Preview::beginRenderer(bool depthTest, bool cullFace) {
+	Window::viewport(0, 0, framebuffer.getWidth(), framebuffer.getHeight());
+	framebuffer.bind();
+	Window::setBgColor(glm::vec4(0.f));
+	Window::clear();
+	const Viewport viewport(Window::width, Window::height);
+	DrawContext* ctx = new DrawContext(nullptr, viewport, &batch2d);
+	ctx->setDepthTest(depthTest);
+	ctx->setCullFace(cullFace);
+	return ctx;
+}
+
+void workshop::Preview::endRenderer(DrawContext* context, bool depthTest, bool cullFace) {
+	Window::viewport(0, 0, Window::width, Window::height);
+	context->setDepthTest(depthTest);
+	context->setCullFace(cullFace);
+	framebuffer.unbind();
+	delete context;
+}
+
+Shader* workshop::Preview::setupMainShader(const glm::vec3& offset) {
+	camera.rotation = glm::mat4(1.f);
+	camera.rotate(glm::radians(previewRotation.y), glm::radians(previewRotation.x), 0);
+	camera.position = camera.front * viewDistance;
+	camera.position += cameraOffset + cameraPosition;
+	camera.dir *= -1.f;
+	camera.front *= -1.f;
+
+	Shader* const shader = engine->getAssets()->get<Shader>("main");
 	//glm::mat4 proj = glm::ortho(-1.f, 1.f, -1.f, 1.f, -100.0f, 100.0f);
 	//glm::mat4 view = glm::lookAt(glm::vec3(2, 2, 2), glm::vec3(0.5f), glm::vec3(0, 1, 0));
 	shader->use();
-	shader->uniformMatrix("u_model", glm::translate(glm::mat4(1.f), glm::vec3(-1.f)));
+	shader->uniformMatrix("u_model", glm::translate(glm::mat4(1.f), glm::vec3(offset)));
 	shader->uniformMatrix("u_proj", camera.getProjection());
 	shader->uniformMatrix("u_view", camera.getView());
 	shader->uniform1f("u_fogFactor", 0.f);
@@ -307,27 +388,44 @@ void Preview::drawBlock() {
 	//shader->uniform1f("u_torchlightDistance", 100.0f);
 	//shader->uniform1f("u_gamma", 0.1f);
 	shader->uniform1i("u_cubemap", 1);
-
-	texture->bind();
-	mesh->draw();
-	Window::viewport(0, 0, Window::width, Window::height);
-	ctx.setDepthTest(false);
-	ctx.setCullFace(false);
-	framebuffer.unbind();
+	return shader;
 }
 
-void Preview::drawUI() {
-	if (!currentUI) return;
-	framebuffer.bind();
-	Window::setBgColor(glm::vec4(0.f));
-	Window::clear();
+Shader* workshop::Preview::drawGridLines() {
+	const Assets* const assets = engine->getAssets();
+	Shader* const shader = assets->get<Shader>("lines");
+	if (!drawGrid) return shader;
 
-	const Viewport viewport(Window::width, Window::height);
-	DrawContext ctx(nullptr, viewport, &batch2d);
+	for (float i = -3.f; i < 3; i++) {
+		lineBatch.line(glm::vec3(i + 0.5f, -0.5f, -3.f), glm::vec3(i + 0.5f, -0.5f, 3.f), glm::vec4(0.f, 0.f, 1.f, 1.f));
+	}
+	for (float i = -3.f; i < 3; i++) {
+		lineBatch.line(glm::vec3(-3.f, -0.5f, i + 0.5f), glm::vec3(3.f, -0.5f, i + 0.5f), glm::vec4(1.f, 0.f, 0.f, 1.f));
+	}
 
-	batch2d.begin();
+	lineBatch.lineWidth(5.f);
+	shader->use();
+	shader->uniformMatrix("u_projview", camera.getProjView());
+	lineBatch.flush();
 
-	currentUI->draw(&ctx, engine->getAssets());
+	return shader;
+}
 
-	framebuffer.unbind();
+Shader* workshop::Preview::drawDirectionArrow() {
+	const Assets* const assets = engine->getAssets();
+	Shader* const shader = assets->get<Shader>("ui3d");
+
+	if (!drawDirection) return shader;
+	shader->use();
+	shader->uniformMatrix("u_apply", glm::mat4(1.f));
+	shader->uniformMatrix("u_projview", glm::translate(camera.getProjView(), glm::vec3(cameraOffset.x - 1.f, -0.98f, blockSize.z - 2.f)));
+
+	batch3d.begin();
+	batch3d.sprite(glm::vec3(1.f, 0.5f, 1.8f), glm::vec3(0.2f, 0.f, 0.f), glm::vec3(0.f, 0.f, 0.2f), 1.f, 1.f, UVRegion(), glm::vec4(0.8f));
+	batch3d.point(glm::vec3(1.f, 0.5f, 2.4f), glm::vec4(0.8f));
+	batch3d.point(glm::vec3(1.3f, 0.5f, 2.f), glm::vec4(0.8f));
+	batch3d.point(glm::vec3(0.7f, 0.5f, 2.f), glm::vec4(0.8f));
+	batch3d.flush();
+
+	return shader;
 }

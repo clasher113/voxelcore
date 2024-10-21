@@ -5,6 +5,7 @@
 #include "../IncludeCommons.hpp"
 #include "../WorkshopSerializer.hpp"
 #include "objects/EntityDef.hpp"
+#include "objects/rigging.hpp"
 
 void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, ContentType type, const std::string& name, bool reInitialize) {
 	createPanel([this, action, type, name, reInitialize]() {
@@ -79,6 +80,7 @@ void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, Conten
 				else if (type == ContentType::BLOCK) saveBlock(Block(':' + input), currentPack.folder, input, nullptr, "");
 				else if (type == ContentType::ITEM) saveItem(ItemDef(':' + input), currentPack.folder, input, nullptr, "");
 				else if (type == ContentType::ENTITY) saveEntity(EntityDef(':' + input), currentPack.folder, input, nullptr, "");
+				else if (type == ContentType::SKELETON) saveSkeleton(rigging::Bone(0, "", "", {}, glm::vec3(0.f)), currentPack.folder, input);
 			}
 			else if (action == ContentAction::RENAME) {
 				fs::rename(path / (name + fileFormat), path / (input + fileFormat));
@@ -94,6 +96,7 @@ void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, Conten
 			if (type == ContentType::ITEM || type == ContentType::BLOCK) createContentList(type, 1);
 			else if (type == ContentType::UI_LAYOUT) createUILayoutList();
 			else if (type == ContentType::ENTITY) createEntitiesList();
+			else if (type == ContentType::SKELETON) createSkeletonList();
 		});
 
 		return std::ref(panel);

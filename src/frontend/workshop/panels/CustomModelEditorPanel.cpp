@@ -104,13 +104,6 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 			}
 		});
 
-		auto updateTetragon = [](glm::vec3* p) {
-			const glm::vec3 p1 = p[0];
-			const glm::vec3 xw = p[1] - p1;
-			const glm::vec3 yh = p[3] - p1;
-			p[2] = p1 + xw + yh;
-		};
-
 		static unsigned int inputMode = 0;
 		auto createInputModeButton = [](const std::function<void(unsigned int)>& callback) {
 			std::wstring inputModes[] = { L"Slider", L"InputBox" };
@@ -132,15 +125,18 @@ void workshop::WorkShopScreen::createCustomModelEditor(Block& block, size_t inde
 		if (type == PrimitiveType::TETRAGON) {
 			preview->setCurrentTetragon(&block.modelExtraPoints[index * 4]);
 
-			createInput = [this, &block, index, &inputPanel, &panel, updateTetragon](unsigned int type) {
+			createInput = [this, &block, index, &inputPanel, &panel](unsigned int type) {
 				removeRemovable(inputPanel);
 				for (size_t i = 0; i < 4; i++) {
 					if (i == 2) continue;
 					glm::vec3* vec = &block.modelExtraPoints[index * 4];
 					inputPanel += markRemovable(createVectorPanel(vec[i], glm::vec3(settings.customModelRange.x),
 						glm::max(glm::vec3(settings.customModelRange.y), glm::vec3(block.size)),
-						panel.getSize().x, type, [this, updateTetragon, vec]() {
-						updateTetragon(vec);
+						panel.getSize().x, type, [this, vec]() {
+						const glm::vec3 p1 = vec[0];
+						const glm::vec3 xw = vec[1] - p1;
+						const glm::vec3 yh = vec[3] - p1;
+						vec[2] = p1 + xw + yh;
 						preview->setCurrentTetragon(vec);
 						preview->updateMesh();
 					}));

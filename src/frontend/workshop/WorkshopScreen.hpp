@@ -23,6 +23,9 @@ class ContentGfxCache;
 struct ItemDef;
 struct EntityDef;
 struct BlockMaterial;
+namespace rigging {
+	class SkeletonConfig;
+}
 namespace gui {
 	class Panel;
 	class UINode;
@@ -68,12 +71,14 @@ namespace workshop {
 
 		void createContentList(ContentType type, bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 		void createMaterialsList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
-		void createTextureList(float iconSize, unsigned int column = 1, ContentType type = ContentType::BOTH, float posX = PANEL_POSITION_AUTO, bool showAll = false,
-			const std::function<void(const std::string&)>& callback = 0);
+		void createTextureList(float iconSize, unsigned int column = 1, std::vector<ContentType> types = { ContentType::BLOCK, ContentType::ITEM },
+			float posX = PANEL_POSITION_AUTO, bool showAll = false, const std::function<void(const std::string&)>& callback = 0);
 		void createScriptList(unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 		void createUILayoutList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 		void createSoundList();
 		void createEntitiesList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
+		void createSkeletonList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
+		void createModelsList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 
 		void createPackInfoPanel();
 		void createTextureInfoPanel(const std::string& texName, ContentType type, unsigned int column = 2);
@@ -86,6 +91,7 @@ namespace workshop {
 		void createCustomModelEditor(Block& block, size_t index, PrimitiveType type);
 		void createItemEditor(ItemDef& item);
 		void createEntityEditorPanel(EntityDef& entity);
+		void createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton, std::vector<size_t> skeletonPath);
 		void createAdditionalEntityEditorPanel(EntityDef& entity, unsigned int mode);
 		void createUILayoutEditor(const std::filesystem::path& path, const std::string& fullName, std::vector<size_t> docPath);
 		void createMaterialEditor(BlockMaterial& material);
@@ -94,7 +100,10 @@ namespace workshop {
 		void createDefActionPanel(ContentAction action, ContentType type, const std::string& name = std::string(), bool reInitialize = true);
 		void createImportPanel(ContentType type = ContentType::BLOCK, std::string mode = "copy");
 		void createFileDeletingConfirmationPanel(const std::vector<std::filesystem::path>& files, unsigned int column, const std::function<void(void)>& callback);
+		void createPreview(unsigned int column, const std::function<void(gui::Panel&, gui::Image&)>& setupFunc);
 		void createBlockPreview(unsigned int column, PrimitiveType primitiveType, Block& block);
+		void createSkeletonPreview(unsigned int column);
+		void createModelPreview(unsigned int column);
 		void createUIPreview();
 
 		void backupDefs();
@@ -108,6 +117,7 @@ namespace workshop {
 		std::unordered_map<std::string, BackupData> blocksList;
 		std::unordered_map<std::string, BackupData> itemsList;
 		std::unordered_map<std::string, BackupData> entityList;
+		std::unordered_map<std::string, std::string> skeletons;
 		std::unique_ptr<Camera> uicamera;
 
 		ContentPack currentPack;

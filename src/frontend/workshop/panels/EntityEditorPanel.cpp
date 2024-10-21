@@ -5,6 +5,8 @@
 #include "objects/EntityDef.hpp"
 #include "../WorkshopSerializer.hpp"
 #include "graphics/core/Texture.hpp"
+#include "constants.hpp"
+#include "../WorkshopPreview.hpp"
 
 using namespace workshop;
 
@@ -57,7 +59,7 @@ void WorkShopScreen::createEntityEditorPanel(EntityDef& entity) {
 				if (parent && parent->name == entity.name) parent = nullptr;
 				backupData.newParent = parent ? string : "";
 				button->setText(util::str2wstr_utf8(parentName(parent)));
-				removePanels(5);
+				removePanel(5);
 			});
 		});
 		panel += button;
@@ -67,6 +69,23 @@ void WorkShopScreen::createEntityEditorPanel(EntityDef& entity) {
 			entity.bodyType = incrementEnumClass(entity.bodyType, 1);
 			if (entity.bodyType > BodyType::DYNAMIC) entity.bodyType = BodyType::STATIC;
 			button->setText(L"Body type: " + util::str2wstr_utf8(to_string(entity.bodyType)));
+		});
+		panel += button;
+
+		auto skeletonName = [this](const std::string& name) {
+			if (content->getSkeleton(name)) return name;
+			return NOT_SET;
+		};
+
+		panel += new gui::Label("Skeleton");
+		button = new gui::Button(util::str2wstr_utf8(skeletonName(entity.skeletonName)), glm::vec4(10.f), gui::onaction());
+		button->listenAction([this, button, &entity, &panel, skeletonName](gui::GUI*) {
+			createSkeletonList(true, 5, panel.calcPos().x + panel.getSize().x, [this, button, &entity, &panel, skeletonName](const std::string& string) {
+				entity.skeletonName = skeletonName(string) == NOT_SET ? (content->getSkeleton(entity.name) ? "" : entity.name) : string;
+				button->setText(util::str2wstr_utf8(skeletonName(entity.skeletonName)));
+				preview->setSkeleton(content->getSkeleton(entity.skeletonName));
+				removePanel(5);
+			});
 		});
 		panel += button;
 		
@@ -85,6 +104,8 @@ void WorkShopScreen::createEntityEditorPanel(EntityDef& entity) {
 		});
 
 		createAdditionalEntityEditorPanel(entity, MODE_COMPONENTS);
+
+		preview->setSkeleton(content->getSkeleton(entity.skeletonName));
 
 		return std::ref(panel);
 	}, 2);
@@ -175,6 +196,8 @@ void WorkShopScreen::createAdditionalEntityEditorPanel(EntityDef& entity, unsign
 			else if (mode == MODE_RADIAL_SENSORS) entity.radialSensors.emplace_back(sensorsCount, 1.f);
 			createList(listPanel, panel, entity, mode, assets);
 		});
+
+		createSkeletonPreview(4);
 
 		return std::ref(panel);
 	}, 3);

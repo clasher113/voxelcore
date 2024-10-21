@@ -55,7 +55,7 @@ Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName, const std
 }
 
 std::string workshop::getDefName(ContentType type) {
-	const char* const names[] = { "block", "item", "[both]", "layout", "entity" };
+	const char* const names[] = { "block", "item", "layout", "entity", "skeleton", "model" };
 	if (static_cast<size_t>(type) >= std::size(names)) return "";
 	return names[static_cast<size_t>(type)];
 }
@@ -65,7 +65,8 @@ std::string workshop::getDefName(const std::string& fullName) {
 }
 
 std::string workshop::getDefFolder(ContentType type) {
-	const std::string folders[] = { ContentPack::BLOCKS_FOLDER.string(), ContentPack::ITEMS_FOLDER.string(), "", LAYOUTS_FOLDER, ContentPack::ENTITIES_FOLDER.string() };
+	const std::string folders[] = { ContentPack::BLOCKS_FOLDER.string(), ContentPack::ITEMS_FOLDER.string(), LAYOUTS_FOLDER, 
+		ContentPack::ENTITIES_FOLDER.string(), SKELETONS_FOLDER, MODELS_FOLDER };
 	if (static_cast<size_t>(type) >= std::size(folders)) return "";
 	return folders[static_cast<size_t>(type)];
 }
@@ -74,8 +75,10 @@ std::string workshop::getDefFileFormat(ContentType type) {
 	switch (type) {
 		case ContentType::BLOCK:
 		case ContentType::ENTITY:
+		case ContentType::SKELETON:
 		case ContentType::ITEM: return ".json";
 		case ContentType::UI_LAYOUT: return ".xml";
+		case ContentType::MODEL: return ".obj";
 	}
 	return "";
 }
@@ -139,13 +142,12 @@ std::vector<glm::vec3> workshop::aabb2tetragons(const AABB& aabb) {
 	return result;
 }
 
-void workshop::formatTextureImage(gui::Image& image, const Atlas* atlas, float height, const std::string& texName) {
-	const UVRegion& region = atlas->get(texName);
-	const glm::vec2 textureSize((region.u2 - region.u1) * atlas->getTexture()->getWidth(), (region.v2 - region.v1) * atlas->getTexture()->getHeight());
+void workshop::formatTextureImage(gui::Image& image, Texture* const texture, float height, const UVRegion& region) {
+	const glm::vec2 textureSize((region.u2 - region.u1) * texture->getWidth(), (region.v2 - region.v1) * texture->getHeight());
 	const glm::vec2 multiplier(height / textureSize);
 	image.setSize(textureSize * std::min(multiplier.x, multiplier.y));
 	image.setPos(glm::vec2(height / 2.f - image.getSize().x / 2.f, height / 2.f - image.getSize().y / 2.f));
-	image.setTexture(atlas->getTexture());
+	image.setTexture(texture);
 	image.setUVRegion(region);
 }
 
@@ -190,8 +192,7 @@ void workshop::optimizeContainer(gui::Container& container) {
 		for (const auto& node : container.getNodes()) {
 			const glm::vec2 nodePos = node->calcPos();
 			const glm::vec2 nodeSize = node->getSize();
-			node->setVisible(nodePos.y + nodeSize.y > pos.y && nodePos.y < pos.y + size.y &&
-				nodePos.x + nodeSize.x > pos.x && nodePos.x < pos.x + size.x);
+			node->setVisible(nodePos.y + nodeSize.y * 2.f > pos.y && nodePos.y - nodeSize.y * 2.f < pos.y + size.y);
 		}
 	});
 }

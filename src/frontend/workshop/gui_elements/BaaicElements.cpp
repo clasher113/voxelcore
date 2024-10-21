@@ -51,7 +51,7 @@ gui::Container& workshop::createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, v
 			slider.setConsumer([&vec, i, coordsString, callback, &label](double value) {
 				vec[i] = static_cast<T>(value);
 				label.setText(coordsString(vec));
-				callback();
+				if (callback) callback();
 			});
 			panel += slider;
 		}
@@ -60,7 +60,7 @@ gui::Container& workshop::createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, v
 	gui::Container& container = *new gui::Container(glm::vec2(width, 0));
 
 	for (typename vec_t<L, T>::length_type i = 0; i < vec_t<L, T>::length(); i++) {
-		container += createNumTextBox(vec[i], coords[i], min[i], max[i], std::function<void(T)>([callback](T num) { callback(); }));
+		container += createNumTextBox(vec[i], coords[i], min[i], max[i], std::function<void(T)>([callback](T num) { if (callback) callback(); }));
 	}
 	placeNodesHorizontally(container);
 
@@ -103,14 +103,14 @@ gui::TextBox& workshop::createNumTextBox(T& value, const std::wstring& placehold
 		const std::wstring& input = textBox.getInput();
 		if (input.empty()) {
 			value = min;
-			callback(value);
+			if (callback) callback(value);
 			return;
 		}
 		try {
 			T result = static_cast<T>(stof(input));
 			if (result >= min && result <= max) {
 				value = result;
-				callback(value);
+				if (callback) callback(value);
 			}
 		}
 		catch (const std::exception&) {}

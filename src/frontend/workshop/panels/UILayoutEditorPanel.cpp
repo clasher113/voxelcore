@@ -84,7 +84,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 						node->add(tempNode);
 					}
 					currentElement->add(node);
-					_dp.push_back(currentElement->getElements().size() - 1);
+					_dp.emplace_back(currentElement->getElements().size() - 1);
 					updatePreview();
 					goTo(_dp);
 				}, (currentTag & INVENTORY ? 0 : SLOT | SLOTS_GRID));
@@ -108,7 +108,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 				std::string tag = elem->getTag();
 				if (elem->has("id")) tag.append(" id: " + elem->attr("id").getText());
 				elementPanel += new gui::Button(util::str2wstr_utf8(tag), glm::vec4(10.f), [i, dp = docPath, goTo](gui::GUI*) mutable {
-					dp.push_back(i);
+					dp.emplace_back(i);
 					goTo(dp);
 				});
 			}

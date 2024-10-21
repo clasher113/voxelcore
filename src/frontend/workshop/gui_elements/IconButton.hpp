@@ -5,6 +5,7 @@
 
 class Atlas;
 class Texture;
+struct UVRegion;
 
 namespace gui {
 	class Image;
@@ -12,7 +13,7 @@ namespace gui {
 
 	class IconButton : public Container {
 	public:
-		IconButton(glm::vec2 size, const std::string& text, Texture* const texture, const std::string& additionalText = "");
+		IconButton(glm::vec2 size, const std::string& text, Texture* const texture, const UVRegion& uv, const std::string& additionalText = "");
 		IconButton(glm::vec2 size, const std::string& text, const Atlas* atlas, const std::string& textureName, const std::string& additionalText = "");
 
 		void setIcon(const Atlas* const atlas, const std::string& textureName);

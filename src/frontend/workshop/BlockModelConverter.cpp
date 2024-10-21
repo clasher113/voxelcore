@@ -66,7 +66,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 				for (auto& pair : textureMap) {
 					gui::IconButton& textureButton = *new gui::IconButton(glm::vec2(50.f), pair.second, blocksAtlas, pair.second, pair.first);
 					textureButton.listenAction([this, &textureButton, &panel, converter, &createTexturesLabel, &pair](gui::GUI*) {
-						createTextureList(50.f, 6, ContentType::BLOCK, panel.getPos().x + panel.getSize().x, true, [this, &textureButton, converter, &createTexturesLabel, &pair](const std::string& textureName) {
+						createTextureList(50.f, 6, { ContentType::BLOCK }, panel.getPos().x + panel.getSize().x, true, [this, &textureButton, converter, &createTexturesLabel, &pair](const std::string& textureName) {
 							pair.second = getTexName(textureName);
 							textureButton.setIcon(getAtlas(assets, textureName), pair.second);
 							textureButton.setText(pair.second);

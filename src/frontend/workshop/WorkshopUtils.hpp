@@ -9,6 +9,7 @@
 
 class Assets;
 class Atlas;
+class Texture;
 class Block;
 struct ItemDef;
 struct ContentPack;
@@ -26,6 +27,8 @@ inline const std::string BLOCKS_PREVIEW_ATLAS = "block-previews";
 inline const std::string REMOVABLE_MARK = "removable";
 inline const std::filesystem::path SETTINGS_FILE("worlds/workshop_settings.json");
 inline constexpr float PANEL_POSITION_AUTO = std::numeric_limits<float>::min();
+inline constexpr unsigned int INPUT_TYPE_SLIDER = 0;
+inline constexpr unsigned int INPUT_TYPE_TEXTBOX = 1;
 
 namespace workshop {
 	enum class PrimitiveType : unsigned int {
@@ -37,7 +40,7 @@ namespace workshop {
 	};
 
 	enum class ContentType {
-		BLOCK = 0, ITEM, BOTH, UI_LAYOUT, ENTITY
+		BLOCK = 0, ITEM, UI_LAYOUT, ENTITY, SKELETON, MODEL
 	};
 
 	enum UIElementsArgs : unsigned long long {
@@ -73,7 +76,7 @@ namespace workshop {
 
 	extern std::vector<glm::vec3> aabb2tetragons(const AABB& aabb);
 
-	extern void formatTextureImage(gui::Image& image, const Atlas* atlas, float height, const std::string& texName);
+	extern void formatTextureImage(gui::Image& image, Texture* const texture, float height, const UVRegion& region);
 	template<typename T>
 	extern void setSelectable(const gui::Panel& panel);
 	extern void placeNodesHorizontally(gui::Container& container);

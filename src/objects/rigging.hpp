@@ -15,6 +15,10 @@ namespace model {
     struct Model;
 }
 
+namespace workshop {
+    class WorkShopScreen;
+}
+
 namespace rigging {
     struct Skeleton;
     class SkeletonConfig;
@@ -36,6 +40,7 @@ namespace rigging {
     };
 
     class Bone {
+        friend class workshop::WorkShopScreen;
         size_t index;
         std::string name;
         std::vector<std::unique_ptr<Bone>> bones;
@@ -87,6 +92,7 @@ namespace rigging {
     };
 
     class SkeletonConfig {
+        friend class workshop::WorkShopScreen;
         std::string name;
         std::unique_ptr<Bone> root;
         std::unordered_map<std::string, size_t> indices;
