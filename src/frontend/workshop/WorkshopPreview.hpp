@@ -43,6 +43,7 @@ namespace workshop {
 	class Preview {
 	public:
 		Preview(Engine* engine, ContentGfxCache* cache);
+		~Preview();
 
 		void update(float delta, float sensitivity);
 		void updateMesh();
@@ -121,7 +122,9 @@ namespace workshop {
 		DrawContext* beginRenderer(bool depthTest, bool cullFace);
 		void endRenderer(DrawContext* context, bool depthTest, bool cullFace);
 
-		Shader* setupMainShader(const glm::vec3& offset);
+		Shader* setupShader(const std::string& name, const glm::vec3& offset);
+		Shader* setupBlocksShader(const glm::vec3& offset);
+		Shader* setupEntitiesShader(const glm::vec3& offset);
 		Shader* drawGridLines();
 		Shader* drawDirectionArrow();
 	};

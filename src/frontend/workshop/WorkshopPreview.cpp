@@ -30,8 +30,6 @@
 
 using namespace workshop;
 
-vattr attr[] = { 0 };
-
 Preview::Preview(Engine* engine, ContentGfxCache* cache) : engine(engine), cache(cache),
 blockRenderer(32768, engine->getContent(), cache, &engine->getSettings()),
 chunk(new Chunk(0, 0)),
@@ -51,7 +49,13 @@ primitiveType(PrimitiveType::COUNT),
 lookAtPrimitive(PrimitiveType::COUNT)
 {
 	level->chunksStorage->store(std::shared_ptr<Chunk>(chunk));
+	chunks.putChunk(std::shared_ptr<Chunk>(chunk));
 	memset(chunk->voxels, 0, sizeof(chunk->voxels));
+	memset(chunk->lightmap.map, std::numeric_limits<light_t>::max(), sizeof(chunk->lightmap.map));
+}
+
+Preview::~Preview() {
+	delete world;
 }
 
 void Preview::update(float delta, float sensitivity) {
@@ -97,6 +101,13 @@ void Preview::update(float delta, float sensitivity) {
 	cameraPosition.x = std::clamp(cameraPosition.x, -5.f, 5.f);
 	cameraPosition.y = std::clamp(cameraPosition.y, -5.f, 5.f);
 	cameraPosition.z = std::clamp(cameraPosition.z, -5.f, 5.f);
+
+	camera.rotation = glm::mat4(1.f);
+	camera.rotate(glm::radians(previewRotation.y), glm::radians(previewRotation.x), 0);
+	camera.position = camera.front * viewDistance;
+	camera.position += cameraOffset + cameraPosition;
+	camera.dir *= -1.f;
+	camera.front *= -1.f;
 }
 
 void Preview::updateMesh() {
@@ -131,12 +142,12 @@ static void updateTextures(rigging::Bone& bone, Assets* assets) {
 		updateTextures(*subBone, assets);
 	}
 }
-void workshop::Preview::setSkeleton(const rigging::SkeletonConfig* skeleton) {
+void Preview::setSkeleton(const rigging::SkeletonConfig* skeleton) {
 	currentSkeleton = skeleton;
 	if (currentSkeleton) updateTextures(*currentSkeleton->getRoot(), engine->getAssets());
 }
 
-void workshop::Preview::setModel(model::Model* model) {
+void Preview::setModel(model::Model* model) {
 	currentModel = model;
 	for (auto& mesh : currentModel->meshes) {
 		if (mesh.texture.empty() || (!mesh.texture.empty() && mesh.texture.at(0) == '$')) mesh.texture = "blocks:notfound";
@@ -199,7 +210,7 @@ void Preview::setResolution(uint width, uint height) {
 	camera.aspect = static_cast<float>(width) / height;
 }
 
-void workshop::Preview::setBlockSize(const glm::i8vec3& size) {
+void Preview::setBlockSize(const glm::i8vec3& size) {
 	blockSize = size;
 	cameraOffset = (glm::vec3(size) + glm::vec3(0.f)) * 0.5f - 0.5f;
 }
@@ -219,7 +230,7 @@ void Preview::refillInventory() {
 	}
 }
 
-bool workshop::Preview::rayCast(float cursorX, float cursorY, size_t& returnIndex) {
+bool Preview::rayCast(float cursorX, float cursorY, size_t& returnIndex) {
 	if (currentBlock) {
 		cursorX *= static_cast<float>(framebuffer.getWidth()) / windowWidth;
 		cursorY *= static_cast<float>(framebuffer.getHeight()) / windowHeight;
@@ -282,7 +293,7 @@ void Preview::drawBlock() {
 		}
 	};
 
-	Shader* main = setupMainShader(glm::vec3(-1.f));
+	Shader* main = setupBlocksShader(glm::vec3(-1.f));
 	drawDirectionArrow();
 	drawGridLines();
 
@@ -312,10 +323,10 @@ void Preview::drawUI() {
 	endRenderer(ctx, false, false);
 }
 
-void workshop::Preview::drawSkeleton() {
+void Preview::drawSkeleton() {
 	DrawContext* ctx = beginRenderer(true, true);
 
-	Shader* const main = setupMainShader(glm::vec3(0.f));
+	Shader* const main = setupEntitiesShader(glm::vec3(0.f));
 
 	drawGridLines();
 	drawDirectionArrow();
@@ -329,24 +340,24 @@ void workshop::Preview::drawSkeleton() {
 	endRenderer(ctx, false, false);
 }
 
-void workshop::Preview::drawModel() {
+void Preview::drawModel() {
 	DrawContext* ctx = beginRenderer(true, true);
 
-	Shader* const main = setupMainShader(glm::vec3(0.f));
+	Shader* const main = setupEntitiesShader(glm::vec3(0.f));
 
 	drawGridLines();
 	drawDirectionArrow();
 
 	main->use();
 	if (currentModel) {
-		modelBatch.draw(glm::mat4(1.f), glm::vec3(0.f), currentModel, nullptr);
+		modelBatch.draw(glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 1.f, 0.f)), glm::vec3(1.f), currentModel, nullptr);
 		modelBatch.render();
 	}
 
 	endRenderer(ctx, false, false);
 }
 
-DrawContext* workshop::Preview::beginRenderer(bool depthTest, bool cullFace) {
+DrawContext* Preview::beginRenderer(bool depthTest, bool cullFace) {
 	Window::viewport(0, 0, framebuffer.getWidth(), framebuffer.getHeight());
 	framebuffer.bind();
 	Window::setBgColor(glm::vec4(0.f));
@@ -358,7 +369,7 @@ DrawContext* workshop::Preview::beginRenderer(bool depthTest, bool cullFace) {
 	return ctx;
 }
 
-void workshop::Preview::endRenderer(DrawContext* context, bool depthTest, bool cullFace) {
+void Preview::endRenderer(DrawContext* context, bool depthTest, bool cullFace) {
 	Window::viewport(0, 0, Window::width, Window::height);
 	context->setDepthTest(depthTest);
 	context->setCullFace(cullFace);
@@ -366,15 +377,8 @@ void workshop::Preview::endRenderer(DrawContext* context, bool depthTest, bool c
 	delete context;
 }
 
-Shader* workshop::Preview::setupMainShader(const glm::vec3& offset) {
-	camera.rotation = glm::mat4(1.f);
-	camera.rotate(glm::radians(previewRotation.y), glm::radians(previewRotation.x), 0);
-	camera.position = camera.front * viewDistance;
-	camera.position += cameraOffset + cameraPosition;
-	camera.dir *= -1.f;
-	camera.front *= -1.f;
-
-	Shader* const shader = engine->getAssets()->get<Shader>("main");
+Shader* Preview::setupShader(const std::string& name, const glm::vec3& offset) {
+	Shader* const shader = engine->getAssets()->get<Shader>(name);
 	//glm::mat4 proj = glm::ortho(-1.f, 1.f, -1.f, 1.f, -100.0f, 100.0f);
 	//glm::mat4 view = glm::lookAt(glm::vec3(2, 2, 2), glm::vec3(0.5f), glm::vec3(0, 1, 0));
 	shader->use();
@@ -392,7 +396,15 @@ Shader* workshop::Preview::setupMainShader(const glm::vec3& offset) {
 	return shader;
 }
 
-Shader* workshop::Preview::drawGridLines() {
+Shader* Preview::setupEntitiesShader(const glm::vec3& offset) {
+	return setupShader("entity", offset);
+}
+
+Shader* Preview::setupBlocksShader(const glm::vec3& offset) {
+	return setupShader("main", offset);
+}
+
+Shader* Preview::drawGridLines() {
 	const Assets* const assets = engine->getAssets();
 	Shader* const shader = assets->get<Shader>("lines");
 	if (!drawGrid) return shader;
@@ -412,7 +424,7 @@ Shader* workshop::Preview::drawGridLines() {
 	return shader;
 }
 
-Shader* workshop::Preview::drawDirectionArrow() {
+Shader* Preview::drawDirectionArrow() {
 	const Assets* const assets = engine->getAssets();
 	Shader* const shader = assets->get<Shader>("ui3d");
 
