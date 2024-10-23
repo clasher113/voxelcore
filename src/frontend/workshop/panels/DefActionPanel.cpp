@@ -93,7 +93,7 @@ void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, Conten
 				fs::remove(path / (name + fileFormat));
 			}
 			if (reInitialize) initialize();
-			if (type == ContentType::ITEM || type == ContentType::BLOCK) createContentList(type, 1);
+			if (type == ContentType::ITEM || type == ContentType::BLOCK) createContentList(type);
 			else if (type == ContentType::UI_LAYOUT) createUILayoutList();
 			else if (type == ContentType::ENTITY) createEntitiesList();
 			else if (type == ContentType::SKELETON) createSkeletonList();

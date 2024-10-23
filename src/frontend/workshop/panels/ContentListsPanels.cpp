@@ -18,6 +18,11 @@ struct ListButtonInfo{
 	std::string displayName;
 	UVRegion region;
 	Texture* texture;
+	static void sortAlphabetically(std::vector<ListButtonInfo>& list){
+		std::sort(list.begin(), list.end(), [](const ListButtonInfo& a, const ListButtonInfo& b) {
+			return a.displayName < b.displayName;
+		});
+	}
 };
 
 static void createList(const std::vector<ListButtonInfo> list, bool icons, gui::Panel& dstPanel, const std::function<void(const std::string&)>& callback = 0,
@@ -200,6 +205,7 @@ void WorkShopScreen::createMaterialsList(bool showAll, unsigned int column, floa
 			list.emplace_back(ListButtonInfo{ elem.first, (showAll ? elem.first : getDefName(elem.first)), UVRegion(), 0 });
 		}
 
+		ListButtonInfo::sortAlphabetically(list);
 		createList(list, false, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
 			else createMaterialEditor(const_cast<BlockMaterial&>(*content->findBlockMaterial(string)));
@@ -226,6 +232,7 @@ void WorkShopScreen::createScriptList(unsigned int column, float posX, const std
 			list.emplace_back(ListButtonInfo{ elem.string() + ';' + fullScriptName, scriptName, UVRegion(), 0 });
 		}
 
+		ListButtonInfo::sortAlphabetically(list);
 		createList(list, false, panel, [this, callback](const std::string& string) {
 			std::vector<std::string> split = util::split(string, ';');
 			if (callback) callback(split[1]);
@@ -246,6 +253,7 @@ void WorkShopScreen::createSoundList() {
 			list.emplace_back(ListButtonInfo{ elem.string(), elem.stem().string(), UVRegion(), 0 });
 		}
 
+		ListButtonInfo::sortAlphabetically(list);
 		createList(list, false, panel, [this](const std::string& string) {
 			createSoundInfoPanel(string);
 		});
@@ -279,6 +287,7 @@ void WorkShopScreen::createUILayoutList(bool showAll, unsigned int column, float
 			}
 		}
 
+		ListButtonInfo::sortAlphabetically(list);
 		createList(list, false, panel, [this, callback](const std::string& string) {
 			std::vector<std::string> split = util::split(string, ';');
 			if (callback) callback(split[1]);
@@ -305,6 +314,7 @@ void workshop::WorkShopScreen::createEntitiesList(bool showAll, unsigned int col
 			list.emplace_back(ListButtonInfo{ entity->name, showAll ? entity->name : getDefName(entity->name), UVRegion(), nullptr });
 		}
 
+		ListButtonInfo::sortAlphabetically(list);
 		createList(list, false, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
 			else createEntityEditorPanel(*const_cast<EntityDef*>(content->entities.find(string)));
@@ -333,6 +343,7 @@ void workshop::WorkShopScreen::createSkeletonList(bool showAll, unsigned int col
 			list.emplace_back(ListButtonInfo{ skeleton.first, showAll ? skeleton.first : getDefName(skeleton.first), UVRegion(), nullptr });
 		}
 
+		ListButtonInfo::sortAlphabetically(list);
 		createList(list, false, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
 			else createSkeletonEditorPanel(*const_cast<rigging::SkeletonConfig*>(content->getSkeleton(string)), {});
@@ -364,6 +375,8 @@ void workshop::WorkShopScreen::createModelsList(bool showAll, unsigned int colum
 				createImportPanel(ContentType::MODEL);
 			});
 		}
+
+		ListButtonInfo::sortAlphabetically(list);
 		createList(list, false, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
 			else {

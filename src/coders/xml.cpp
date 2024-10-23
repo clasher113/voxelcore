@@ -4,6 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <utility>
+#include <algorithm>
 
 #include "util/stringutil.hpp"
 
