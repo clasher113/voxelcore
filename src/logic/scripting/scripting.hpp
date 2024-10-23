@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "data/dynamic.hpp"
+#include "data/dv.hpp"
 #include "delegates.hpp"
 #include "typedefs.hpp"
 #include "scripting_functional.hpp"
@@ -32,6 +32,8 @@ class BlocksController;
 class LevelController;
 class Entity;
 struct EntityDef;
+class GeneratorScript;
+struct GeneratorDef;
 
 namespace scripting {
     extern Engine* engine;
@@ -87,15 +89,15 @@ namespace scripting {
         Player* player, const ItemDef& item, int x, int y, int z
     );
 
-    dynamic::Value get_component_value(
+    dv::value get_component_value(
         const scriptenv& env, const std::string& name
     );
     void on_entity_spawn(
         const EntityDef& def,
         entityid_t eid,
         const std::vector<std::unique_ptr<UserComponent>>& components,
-        dynamic::Map_sptr args,
-        dynamic::Map_sptr saved
+        const dv::value& args,
+        const dv::value& saved
     );
     void on_entity_despawn(const Entity& entity);
     void on_entity_grounded(const Entity& entity, float force);
@@ -111,7 +113,7 @@ namespace scripting {
     void on_entity_used(const Entity& entity, Player* player);
 
     /// @brief Called on UI view show
-    void on_ui_open(UiDocument* layout, std::vector<dynamic::Value> args);
+    void on_ui_open(UiDocument* layout, std::vector<dv::value> args);
 
     void on_ui_progress(UiDocument* layout, int workDone, int totalWork);
 
@@ -143,6 +145,12 @@ namespace scripting {
     );
 
     void load_entity_component(const std::string& name, const fs::path& file);
+
+    std::unique_ptr<GeneratorScript> load_generator(
+        const GeneratorDef& def,
+        const fs::path& file,
+        const std::string& dirPath
+    );
 
     /// @brief Load package-specific world script
     /// @param env environment

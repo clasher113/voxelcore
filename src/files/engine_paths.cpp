@@ -10,24 +10,17 @@
 #include <utility>
 
 #include "WorldFiles.hpp"
+#include "debug/Logger.hpp"
 
+static debug::Logger logger("engine-paths");
 
-/// @brief ENUM for accessing folder and file names
-enum F_F_NAME {
-    SCREENSHOTS_FOLDER,
-    CONTENT_FOLDER,
-    CONTROLS_FILE,
-    SETTINGS_FILE,
-
-    COUNT
-};
-
-/// @brief array for get file or folder name by enum `F_F_NAME`
-///
-/// example:
-/// `std::filesystem::path settings = f_f_names[SETTINGS_FILE];`
-static std::array<std::string, F_F_NAME::COUNT> f_f_names {
-    "screenshots", "content", "controls.toml", "settings.toml"};
+static inline auto SCREENSHOTS_FOLDER = std::filesystem::u8path("screenshots");
+static inline auto CONTENT_FOLDER = std::filesystem::u8path("content");
+static inline auto WORLDS_FOLDER = std::filesystem::u8path("worlds");
+static inline auto CONFIG_FOLDER = std::filesystem::u8path("config");
+static inline auto EXPORT_FOLDER = std::filesystem::u8path("export");
+static inline auto CONTROLS_FILE = std::filesystem::u8path("controls.toml");
+static inline auto SETTINGS_FILE = std::filesystem::u8path("settings.toml");
 
 static std::filesystem::path toCanonic(std::filesystem::path path) {
     std::stack<std::string> parts;
@@ -55,10 +48,17 @@ static std::filesystem::path toCanonic(std::filesystem::path path) {
 }
 
 void EnginePaths::prepare() {
-    auto contentFolder =
-        userFilesFolder / std::filesystem::path(f_f_names[CONTENT_FOLDER]);
+    auto contentFolder = userFilesFolder / CONTENT_FOLDER;
     if (!fs::is_directory(contentFolder)) {
         fs::create_directories(contentFolder);
+    }
+    auto exportFolder = userFilesFolder / EXPORT_FOLDER;
+    if (!fs::is_directory(exportFolder)) {
+        fs::create_directories(exportFolder);
+    }
+    auto configFolder = userFilesFolder / CONFIG_FOLDER;
+    if (!fs::is_directory(configFolder)) {
+        fs::create_directories(configFolder);
     }
 }
 
@@ -71,8 +71,7 @@ std::filesystem::path EnginePaths::getResourcesFolder() const {
 }
 
 std::filesystem::path EnginePaths::getNewScreenshotFile(const std::string& ext) {
-    auto folder =
-        userFilesFolder / std::filesystem::path(f_f_names[SCREENSHOTS_FOLDER]);
+    auto folder = userFilesFolder / SCREENSHOTS_FOLDER;
     if (!fs::is_directory(folder)) {
         fs::create_directory(folder);
     }
@@ -97,8 +96,12 @@ std::filesystem::path EnginePaths::getNewScreenshotFile(const std::string& ext) 
     return filename;
 }
 
-std::filesystem::path EnginePaths::getWorldsFolder() {
-    return userFilesFolder / std::filesystem::path("worlds");
+std::filesystem::path EnginePaths::getWorldsFolder() const {
+    return userFilesFolder / WORLDS_FOLDER;
+}
+
+std::filesystem::path EnginePaths::getConfigFolder() const {
+    return userFilesFolder / CONFIG_FOLDER;
 }
 
 std::filesystem::path EnginePaths::getCurrentWorldFolder() {
@@ -109,12 +112,12 @@ std::filesystem::path EnginePaths::getWorldFolderByName(const std::string& name)
     return getWorldsFolder() / std::filesystem::path(name);
 }
 
-std::filesystem::path EnginePaths::getControlsFile() {
-    return userFilesFolder / std::filesystem::path(f_f_names[CONTROLS_FILE]);
+std::filesystem::path EnginePaths::getControlsFile() const {
+    return userFilesFolder / CONTROLS_FILE;
 }
 
-std::filesystem::path EnginePaths::getSettingsFile() {
-    return userFilesFolder / std::filesystem::path(f_f_names[SETTINGS_FILE]);
+std::filesystem::path EnginePaths::getSettingsFile() const {
+    return userFilesFolder / SETTINGS_FILE;
 }
 
 std::vector<std::filesystem::path> EnginePaths::scanForWorlds() {
@@ -162,15 +165,23 @@ void EnginePaths::setContentPacks(std::vector<ContentPack>* contentPacks) {
     this->contentPacks = contentPacks;
 }
 
+std::tuple<std::string, std::string> EnginePaths::parsePath(std::string_view path) {
+    size_t separator = path.find(':');
+    if (separator == std::string::npos) {
+        return {"", std::string(path)};
+    }
+    auto prefix = std::string(path.substr(0, separator));
+    auto filename = std::string(path.substr(separator + 1));
+    return {prefix, filename};
+}
+
 std::filesystem::path EnginePaths::resolve(
     const std::string& path, bool throwErr
 ) {
-    size_t separator = path.find(':');
-    if (separator == std::string::npos) {
+    auto [prefix, filename] = EnginePaths::parsePath(path);
+    if (prefix.empty()) {
         throw files_access_error("no entry point specified");
     }
-    std::string prefix = path.substr(0, separator);
-    std::string filename = path.substr(separator + 1);
     filename = toCanonic(fs::u8path(filename)).u8string();
 
     if (prefix == "res" || prefix == "core") {
@@ -179,8 +190,14 @@ std::filesystem::path EnginePaths::resolve(
     if (prefix == "user") {
         return userFilesFolder / fs::u8path(filename);
     }
+    if (prefix == "config") {
+        return getConfigFolder() / fs::u8path(filename);
+    }
     if (prefix == "world") {
         return currentWorldFolder / fs::u8path(filename);
+    }
+    if (prefix == "export") {
+        return userFilesFolder / EXPORT_FOLDER / fs::u8path(filename);
     }
 
     if (contentPacks) {
@@ -248,6 +265,56 @@ std::vector<std::filesystem::path> ResPaths::listdir(
         }
     }
     return entries;
+}
+
+dv::value ResPaths::readCombinedList(const std::string& filename) const {
+    dv::value list = dv::list();
+    for (const auto& root : roots) {
+        auto path = root.path / fs::u8path(filename);
+        if (!fs::exists(path)) {
+            continue;
+        }
+        try {
+            auto value = files::read_object(path);
+            if (!value.isList()) {
+                logger.warning() << "reading combined list " << root.name << ":"
+                    << filename << " is not a list (skipped)";
+                continue;
+            }
+            for (const auto& elem : value) {
+                list.add(elem);
+            }
+        } catch (const std::runtime_error& err) {
+            logger.warning() << "reading combined list " << root.name << ":" 
+                << filename << ": " << err.what();
+        }
+    }
+    return list;
+}
+
+dv::value ResPaths::readCombinedObject(const std::string& filename) const {
+    dv::value object = dv::object();
+    for (const auto& root : roots) {
+        auto path = root.path / fs::u8path(filename);
+        if (!fs::exists(path)) {
+            continue;
+        }
+        try {
+            auto value = files::read_object(path);
+            if (!value.isObject()) {
+                logger.warning()
+                    << "reading combined object " << root.name << ": "
+                    << filename << " is not an object (skipped)";
+            }
+            for (const auto& [key, element] : value.asObject())  {
+                object[key] = element;
+            }
+        } catch (const std::runtime_error& err) {
+            logger.warning() << "reading combined object " << root.name << ":"
+                             << filename << ": " << err.what();
+        }
+    }
+    return object;
 }
 
 const std::filesystem::path& ResPaths::getMainRoot() const {

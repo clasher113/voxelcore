@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <string>
 
-#include "data/dynamic_fwd.hpp"
+#include "data/dv.hpp"
 
 class Block;
 struct ItemDef;
@@ -18,12 +18,12 @@ namespace rigging {
 }
 
 namespace workshop {
-	extern std::string stringify(const dynamic::Map_sptr root, bool nice = true);
+	extern std::string stringify(const dv::value& root, bool nice = true);
 
-	extern dynamic::Map_sptr toJson(const Block& block, const std::string& actualName, const Block* const parent, const std::string& newParent);
-	extern dynamic::Map_sptr toJson(const ItemDef& item, const std::string& actualName, const ItemDef* const parent, const std::string& newParent);
-	extern dynamic::Map_sptr toJson(const EntityDef& entity, const std::string& actualName, const EntityDef* const parent, const std::string& newParent);
-	extern dynamic::Map_sptr toJson(const rigging::Bone& rootBone, const std::string& actualName);
+	extern dv::value toJson(const Block& block, const std::string& actualName, const Block* const parent, const std::string& newParent);
+	extern dv::value toJson(const ItemDef& item, const std::string& actualName, const ItemDef* const parent, const std::string& newParent);
+	extern dv::value toJson(const EntityDef& entity, const std::string& actualName, const EntityDef* const parent, const std::string& newParent);
+	extern dv::value toJson(const rigging::Bone& rootBone, const std::string& actualName);
 
 	extern void saveContentPack(const ContentPack& pack);
 	extern void saveBlock(const Block& block, const std::filesystem::path& packFolder, const std::string& actualName, const Block* const parent, const std::string& newParent);

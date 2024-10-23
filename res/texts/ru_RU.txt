@@ -20,6 +20,7 @@ pack.remove-confirm=Удалить весь поставляемый паком/
 # Подсказки
 graphics.gamma.tooltip=Кривая яркости освещения
 graphics.backlight.tooltip=Подсветка, предотвращающая полную темноту
+controls.key.tooltip=Поиск по привязвнной кнопки управления
 
 # Меню
 menu.Apply=Применить
@@ -42,10 +43,13 @@ menu.Contents Menu=Меню контентпаков
 world.Seed=Зерно
 world.Name=Название
 world.World generator=Генератор мира
-world.generators.default=Обычный
+world.generators.default=По-умолчанию
 world.generators.flat=Плоский
 world.Create World=Создать Мир
 world.convert-request=Есть изменения в индексах! Конвертировать мир?
+world.upgrade-request=Формат мира устарел! Конвертировать мир?
+world.convert-with-loss=Конвертировать мир с потерями?
+world.convert-block-layouts=Есть изменения в полях блоков! Конвертировать мир?
 world.delete-confirm=Удалить мир безвозвратно?
 
 # Настройки
@@ -67,6 +71,7 @@ settings.Music=Музыка
 settings.Regular Sounds=Обычные Звуки
 settings.UI Sounds=Звуки Интерфейса
 settings.V-Sync=Вертикальная Синхронизация
+settings.Key=Кнопка
 
 # Управление
 chunks.reload=Перезагрузить Чанки

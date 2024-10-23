@@ -126,39 +126,35 @@ workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& 
 	glm::ivec2 textureSize(16);
 
 	std::string source = files::read_string(filePath);
-	auto model = json::parse(source);
+	dv::value model = json::parse(source);
 
-	auto textureMap = model->map("textures");
-	if (textureMap != nullptr) {
-		for (size_t i = 0; i < textureMap->size(); i++) {
-			auto it = textureMap->values.begin();
-			std::advance(it, i);
-			const std::string textureName = getTexName(std::get<std::string>(it->second), "/");
-			textureList.emplace(it->first, blocksAtlas && blocksAtlas->has(textureName) ? textureName : TEXTURE_NOTFOUND);
+	if (model.has("textures")) {
+		const dv::objects::Object& textureMap = model["textures"].asObject();
+		for (const auto& [key, value] : textureMap) {
+			const std::string textureName = getTexName(value.asString(), "/");
+			textureList.emplace(key, blocksAtlas && blocksAtlas->has(textureName) ? textureName : TEXTURE_NOTFOUND);
 		}
-	};
+	}
 
-	auto elementList = model->list("elements");
-	if (elementList != nullptr) {
-		for (size_t i = 0; i < elementList->size(); i++) {
-			const dynamic::Map_sptr& element = elementList->map(i);
-
+	if (model.has("elements")) {
+		const dv::objects::List& elementList = model["elements"].asList();
+		for (const dv::value& element : elementList) {
 			PrimitiveData primitiveData;
 
-			const dynamic::List_sptr& fromList = element->list("from");
-			const dynamic::List_sptr& toList = element->list("to");
+			const dv::objects::List& fromList = element["from"].asList();
+			const dv::objects::List& toList = element["to"].asList();
 
-			primitiveData.aabb.a = glm::vec3(1 - fromList->num(0) / gridSize, fromList->num(1) / gridSize, 1 - fromList->num(2) / gridSize);
-			primitiveData.aabb.b = glm::vec3(1 - toList->num(0) / gridSize, toList->num(1) / gridSize, 1 - toList->num(2) / gridSize);
+			primitiveData.aabb.a = glm::vec3(1 - fromList.at(0).asNumber() / gridSize, fromList.at(1).asNumber() / gridSize, 1 - fromList.at(2).asNumber() / gridSize);
+			primitiveData.aabb.b = glm::vec3(1 - toList.at(0).asNumber() / gridSize, toList.at(1).asNumber() / gridSize, 1 - toList.at(2).asNumber() / gridSize);
 
-			if (element->has("rotation")) {
-				const dynamic::Map_sptr& rotationMap = element->map("rotation");
+			if (element.has("rotation")) {
+				const dv::value& rotationMap = element["rotation"];
 				size_t axisIndex = 0;
 				float angle = 0;
 
-				if (rotationMap->has("axis")) {
+				if (rotationMap.has("axis")) {
 					const std::string a[] = { "x", "y", "z" };
-					const std::string axisStr = rotationMap->get<std::string>("axis");
+					const std::string axisStr = rotationMap["axis"].asString();
 					auto it = std::find(std::begin(a), std::end(a), axisStr);
 					if (it != std::end(a)) {
 						axisIndex = std::distance(std::begin(a), it);
@@ -166,16 +162,17 @@ workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& 
 				}
 				primitiveData.axis[axisIndex] = true;
 
-				if (rotationMap->has("angle")) {
-					angle = rotationMap->get<float>("angle");
+				if (rotationMap.has("angle")) {
+					angle = rotationMap["angle"].asNumber();
 					primitiveData.rotation[axisIndex] = angle;
 				}
 
-				const dynamic::List_sptr& originList = rotationMap->list("origin");
-				if (originList != nullptr)
-					primitiveData.origin = glm::vec3(1.f - originList->num(0) / gridSize, originList->num(1) / gridSize, originList->num(2) / gridSize);
+				if (rotationMap.has("origin")) {
+					const dv::objects::List& originList = rotationMap["origin"].asList();
+					primitiveData.origin = glm::vec3(1.f - originList.at(0).asNumber() / gridSize, originList.at(1).asNumber() / gridSize, originList.at(2).asNumber() / gridSize);
+				}
 
-				if (rotationMap->has("rescale") && rotationMap->get<bool>("rescale")) {
+				if (rotationMap.has("rescale") && rotationMap["rescale"].asBoolean()) {
 					glm::vec3 scale(1.f);
 					for (glm::length_t i = 0; i < glm::vec3::length(); i++) {
 						if (i == axisIndex) continue;
@@ -191,29 +188,28 @@ workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& 
 				}
 			}
 
-			const dynamic::Map_sptr& facesMap = element->map("faces");
-			if (facesMap != nullptr) {
+			if (element.has("faces")) {
+				const dv::value& facesMap = element["faces"];
 				std::vector<std::string> facesOrder;
 				const std::string facesNames[] = { "east", "west", "down", "up", "south", "north" };
 
-				for (const auto& elem : facesMap->values) {
-					size_t faceIndex = std::distance(std::begin(facesNames), std::find(std::begin(facesNames), std::end(facesNames), elem.first));
+				for (const auto& [faceName, faceMap] : facesMap.asObject()) {
+					size_t faceIndex = std::distance(std::begin(facesNames), std::find(std::begin(facesNames), std::end(facesNames), faceName));
 					TextureData& currentTexture = primitiveData.textures[faceIndex];
-					const dynamic::Map_sptr& faceMap = std::get<dynamic::Map_sptr>(elem.second);
-					facesOrder.emplace_back(elem.first);
+					facesOrder.emplace_back(faceName);
 
-					const dynamic::List_sptr& uvList = faceMap->list("uv");
-					if (uvList != nullptr) {
-						currentTexture.uv = UVRegion(uvList->num(0) / textureSize.x, 1 - uvList->num(1) / textureSize.y,
-							uvList->num(2) / textureSize.x, 1 - uvList->num(3) / textureSize.y);
+					if (faceMap.has("uv")){
+						const dv::objects::List& uvList = faceMap["uv"].asList();
+						currentTexture.uv = UVRegion(uvList.at(0).asNumber() / textureSize.x, 1 - uvList.at(1).asNumber() / textureSize.y,
+													 uvList.at(2).asNumber() / textureSize.x, 1 - uvList.at(3).asNumber() / textureSize.y);
 					}
-					if (faceMap->has("rotation")) {
-						currentTexture.rotation = faceMap->get<int>("rotation");
+					if (faceMap.has("rotation")) {
+						currentTexture.rotation = faceMap["rotation"].asInteger();
 					}
-					if (primitiveData.rotation == glm::vec3(0.f) && elem.first == facesNames[3])
+					if (primitiveData.rotation == glm::vec3(0.f) && faceName == facesNames[3])
 						currentTexture.rotation += 180;
-					if (faceMap->has("texture")) {
-						currentTexture.name = faceMap->get<std::string>("texture").erase(0, 1);
+					if (faceMap.has("texture")) {
+						currentTexture.name = faceMap["texture"].asString().substr(1);
 					}
 				}
 
@@ -235,7 +231,7 @@ workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& 
 
 			primitives.emplace_back(primitiveData);
 		}
-	};
+	}
 }
 
 size_t workshop::BlockModelConverter::prepareTextures() {
@@ -310,7 +306,7 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, co
 				if (primitive.axis.z) mat = glm::rotate(mat, glm::radians(primitive.rotation.z) * -1.f, glm::vec3(0.f, 0.f, 1.f));
 				mat = glm::translate(mat, -primitive.origin);
 
-				for (glm::vec3& vec : tetragons){
+				for (glm::vec3& vec : tetragons) {
 					vec = mat * glm::vec4(vec, 1.f);
 				}
 

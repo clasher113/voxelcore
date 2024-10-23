@@ -3,7 +3,7 @@
 #include "coders/json.hpp"
 #include "coders/xml.hpp"
 #include "content/ContentPack.hpp"
-#include "data/dynamic.hpp"
+#include "data/dv.hpp"
 #include "files/files.hpp"
 #include "items/ItemDef.hpp"
 #include "objects/EntityDef.hpp"
@@ -16,11 +16,11 @@
 #include <algorithm>
 #include <map>
 
-static void putVec3(dynamic::List& list, const glm::vec3& vector){
-	list.put(vector.x); list.put(vector.y); list.put(vector.z);
+static void putVec3(dv::value& list, const glm::vec3& vector){
+	list.add(vector.x); list.add(vector.y); list.add(vector.z);
 }
 
-static void putAABB(dynamic::List& list, AABB aabb){
+static void putAABB(dv::value& list, AABB aabb){
 	aabb.b -= aabb.a;
 	putVec3(list, aabb.a); putVec3(list, aabb.b);
 }
@@ -29,7 +29,7 @@ static std::string to_string(const glm::vec3& vector, char delimiter = ','){
 	return std::to_string(vector.x) + delimiter + std::to_string(vector.y) + delimiter + std::to_string(vector.z);
 }
 
-std::string workshop::stringify(const dynamic::Map_sptr root, bool nice) {
+std::string workshop::stringify(const dv::value& root, bool nice) {
 	json::precision = 5;
 	std::string result = json::stringify(root, nice, "  ");
 	json::precision = 15;
@@ -37,57 +37,58 @@ std::string workshop::stringify(const dynamic::Map_sptr root, bool nice) {
 	return result;
 }
 
-dynamic::Map_sptr workshop::toJson(const Block& block, const std::string& actualName, const Block* const parent, const std::string& newParent) {
+dv::value workshop::toJson(const Block& block, const std::string& actualName, const Block* const parent, const std::string& newParent) {
 	Block temp(block.name);
 	const Block& master = (parent ? *parent : temp);
 
-	dynamic::Map& root = *new dynamic::Map();
+	dv::value root = dv::object();
+
 	if (block.model != BlockModel::custom) {
 		if (!std::equal(block.textureFaces->begin(), block.textureFaces->end(), master.textureFaces->begin(), master.textureFaces->end())) {
 			if (std::all_of(std::cbegin(block.textureFaces), std::cend(block.textureFaces), [&r = block.textureFaces[0]](const std::string& value) {return value == r; })) {
-				root.put("texture", block.textureFaces[0]);
+				root["texture"] = block.textureFaces[0];
 			}
 			else {
-				auto& texarr = root.putList("texture-faces");
+				dv::value& texarr = root.list("texture-faces");
 				for (size_t i = 0; i < 6; i++) {
-					texarr.put(block.textureFaces[i]);
+					texarr.add(block.textureFaces[i]);
 				}
 			}
 		}
 	}
 #define NOT_EQUAL(MEMBER) master.MEMBER != block.MEMBER
 	
-	if (!newParent.empty()) root.put("parent", newParent);
-	if (NOT_EQUAL(ambientOcclusion)) root.put("ambient-occlusion", block.ambientOcclusion);
-	if (NOT_EQUAL(lightPassing)) root.put("light-passing", block.lightPassing);
-	if (NOT_EQUAL(skyLightPassing)) root.put("sky-light-passing", block.skyLightPassing);
-	if (NOT_EQUAL(obstacle)) root.put("obstacle", block.obstacle);
-	if (NOT_EQUAL(selectable)) root.put("selectable", block.selectable);
-	if (NOT_EQUAL(replaceable)) root.put("replaceable", block.replaceable);
-	if (NOT_EQUAL(breakable)) root.put("breakable", block.breakable);
-	if (NOT_EQUAL(grounded)) root.put("grounded", block.grounded);
-	if (NOT_EQUAL(drawGroup)) root.put("draw-group", static_cast<int64_t>(block.drawGroup));
-	if (NOT_EQUAL(hidden)) root.put("hidden", block.hidden);
-	if (NOT_EQUAL(shadeless)) root.put("shadeless", block.shadeless);
-	if (NOT_EQUAL(tickInterval)) root.put("tick-interval", block.tickInterval);
-	if (NOT_EQUAL(inventorySize)) root.put("inventory-size", static_cast<int64_t>(block.inventorySize));
-	if (NOT_EQUAL(model)) root.put("model", to_string(block.model));
-	if ((NOT_EQUAL(rotatable)) || NOT_EQUAL(rotations.name)) root.put("rotation", block.rotatable ? block.rotations.name : "none");
-	if (NOT_EQUAL(pickingItem)) root.put("picking-item", block.pickingItem);
-	if (NOT_EQUAL(scriptName)) root.put("script-name", block.scriptName);
-	if (NOT_EQUAL(material)) root.put("material", block.material);
-	if (NOT_EQUAL(uiLayout)) root.put("ui-layout", block.uiLayout);
+	if (!newParent.empty()) root["parent"] = newParent;
+	if (NOT_EQUAL(ambientOcclusion)) root["ambient-occlusion"] = block.ambientOcclusion;
+	if (NOT_EQUAL(lightPassing)) root["light-passing"] = block.lightPassing;
+	if (NOT_EQUAL(skyLightPassing)) root["sky-light-passing"] = block.skyLightPassing;
+	if (NOT_EQUAL(obstacle)) root["obstacle"] = block.obstacle;
+	if (NOT_EQUAL(selectable)) root["selectable"] = block.selectable;
+	if (NOT_EQUAL(replaceable)) root["replaceable"] = block.replaceable;
+	if (NOT_EQUAL(breakable)) root["breakable"] = block.breakable;
+	if (NOT_EQUAL(grounded)) root["grounded"] = block.grounded;
+	if (NOT_EQUAL(drawGroup)) root["draw-group"] = block.drawGroup;
+	if (NOT_EQUAL(hidden)) root["hidden"] = block.hidden;
+	if (NOT_EQUAL(shadeless)) root["shadeless"] = block.shadeless;
+	if (NOT_EQUAL(tickInterval)) root["tick-interval"] = block.tickInterval;
+	if (NOT_EQUAL(inventorySize)) root["inventory-size"] = block.inventorySize;
+	if (NOT_EQUAL(model)) root["model"] = to_string(block.model);
+	if ((NOT_EQUAL(rotatable)) || NOT_EQUAL(rotations.name)) root["rotation"] = block.rotatable ? block.rotations.name : "none";
+	if (NOT_EQUAL(pickingItem)) root["picking-item"] = block.pickingItem;
+	if (NOT_EQUAL(scriptName)) root["script-name"] = block.scriptName;
+	if (NOT_EQUAL(material)) root["material"] = block.material;
+	if (NOT_EQUAL(uiLayout)) root["ui-layout"] = block.uiLayout;
 	
 	if (!std::equal(std::begin(master.emission), std::end(master.emission), std::begin(block.emission))) {
-		auto& emissionarr = root.putList("emission");
+		dv::value& emissionarr = root.list("emission");
 		emissionarr.multiline = false;
 		for (size_t i = 0; i < 3; i++) {
-			emissionarr.put(static_cast<int64_t>(block.emission[i]));
+			emissionarr.add(block.emission[i]);
 		}
 	}
 
 	if (NOT_EQUAL(size)) {
-		dynamic::List& sizeList = root.putList("size");
+		dv::value& sizeList = root.list("size");
 		sizeList.multiline = false;
 		putVec3(sizeList, block.size);
 	}
@@ -99,7 +100,7 @@ dynamic::Map_sptr workshop::toJson(const Block& block, const std::string& actual
 			const AABB& hitbox = block.hitboxes.front();
 			AABB aabb;
 			if (block.model == BlockModel::custom || !(aabb == hitbox)) {
-				auto& boxarr = root.putList("hitbox");
+				dv::value& boxarr = root.list("hitbox");
 				boxarr.multiline = false;
 				putAABB(boxarr, hitbox);
 			}
@@ -108,9 +109,9 @@ dynamic::Map_sptr workshop::toJson(const Block& block, const std::string& actual
 			if (!std::equal(block.hitboxes.begin(), block.hitboxes.end(), block.modelBoxes.begin(), block.modelBoxes.end(), [](const AABB& hitbox, const AABB& modelBox) {
 				return hitbox == modelBox;
 			})) {
-				auto& hitboxesArr = root.putList("hitboxes");
+				dv::value& hitboxesArr = root.list("hitboxes");
 				for (const auto& hitbox : block.hitboxes) {
-					auto& hitboxArr = hitboxesArr.putList();
+					dv::value& hitboxArr = hitboxesArr.list();
 					hitboxArr.multiline = false;
 					putAABB(hitboxArr, hitbox);
 				}
@@ -122,20 +123,20 @@ dynamic::Map_sptr workshop::toJson(const Block& block, const std::string& actual
 		return std::all_of(std::cbegin(arr) + offset, std::cbegin(arr) + offset + numElements, [&r = arr[offset]](const std::string& value) {return value == r; });
 	};
 	if (block.model == BlockModel::custom) {
-		dynamic::Map& model = root.putMap("model-primitives");
+		dv::value& model = root.object("model-primitives");
 		size_t textureOffset = 0;
 		const size_t parentTexSize = parent ? parent->modelTextures.size() : 0;
 		if (!block.modelBoxes.empty()) {
 			const size_t parentPrimitiveSize = parent ? parent->modelBoxes.size() : 0;
 			if (parentPrimitiveSize != block.modelBoxes.size()) {
-				dynamic::List& aabbs = model.putList("aabbs");
+				dv::value& aabbs = model.list("aabbs");
 				for (size_t i = parentPrimitiveSize; i < block.modelBoxes.size(); i++) {
-					dynamic::List& aabb = aabbs.putList();
+					dv::value& aabb = aabbs.list();
 					aabb.multiline = false;
 					putAABB(aabb, block.modelBoxes[i]);
 					const size_t textures = (isElementsEqual(block.modelTextures, textureOffset, 6) ? 1 : 6);
 					for (size_t j = 0; j < textures; j++) {
-						aabb.put(block.modelTextures[textureOffset + j - parentTexSize]);
+						aabb.add(block.modelTextures[textureOffset + j - parentTexSize]);
 					}
 					textureOffset += 6;
 				}
@@ -144,35 +145,35 @@ dynamic::Map_sptr workshop::toJson(const Block& block, const std::string& actual
 		if (!block.modelExtraPoints.empty()) {
 			const size_t parentPrimitiveSize = parent ? parent->modelBoxes.size() : 0;
 			if (parentPrimitiveSize != block.modelExtraPoints.size()) {
-				dynamic::List& tetragons = model.putList("tetragons");
+				dv::value& tetragons = model.list("tetragons");
 				for (size_t i = parentPrimitiveSize; i < block.modelExtraPoints.size(); i += 4) {
-					dynamic::List& tetragon = tetragons.putList();
+					dv::value& tetragon = tetragons.list();
 					tetragon.multiline = false;
 					putVec3(tetragon, block.modelExtraPoints[i]);
 					putVec3(tetragon, block.modelExtraPoints[i + 1] - block.modelExtraPoints[i]);
 					putVec3(tetragon, block.modelExtraPoints[i + 3] - block.modelExtraPoints[i]);
-					tetragon.put(block.modelTextures[textureOffset - parentTexSize]);
+					tetragon.add(block.modelTextures[textureOffset - parentTexSize]);
 					textureOffset++;
 				}
 			}
 		}
-		if (model.size() == 0) root.remove("model-primitives");
+		if (model.size() == 0) root.erase("model-primitives");
 	}
 
-	return std::shared_ptr<dynamic::Map>(&root);
+	return root;
 #undef NOT_EQUAL
 }
 
-dynamic::Map_sptr workshop::toJson(const ItemDef& item, const std::string& actualName, const ItemDef* const parent, const std::string& newParent) {
+dv::value workshop::toJson(const ItemDef& item, const std::string& actualName, const ItemDef* const parent, const std::string& newParent) {
 	ItemDef temp(item.name);
 	const ItemDef& master = (parent ? *parent : temp);
 
 #define NOT_EQUAL(MEMBER) master.MEMBER != item.MEMBER
 
-	dynamic::Map& root = *new dynamic::Map();
+	dv::value root = dv::object();
 
-	if (!newParent.empty()) root.put("parent", newParent);
-	if (NOT_EQUAL(stackSize)) root.put("stack-size", static_cast<int64_t>(item.stackSize));
+	if (!newParent.empty()) root["parent"] = newParent;
+	if (NOT_EQUAL(stackSize)) root["stack-size"] = item.stackSize;
 	if (NOT_EQUAL(iconType)) {
 		std::string iconStr("");
 		switch (item.iconType) {
@@ -183,50 +184,50 @@ dynamic::Map_sptr workshop::toJson(const ItemDef& item, const std::string& actua
 			case item_icon_type::sprite: iconStr = "sprite";
 				break;
 		}
-		if (!iconStr.empty()) root.put("icon-type", iconStr);
+		if (!iconStr.empty()) root["icon-type"] = iconStr;
 	}
-	if (NOT_EQUAL(icon)) root.put("icon", item.icon);
-	if (NOT_EQUAL(placingBlock)) root.put("placing-block", item.placingBlock);
-	if (NOT_EQUAL(scriptName)) root.put("script-name", item.scriptName);
+	if (NOT_EQUAL(icon)) root["icon"] = item.icon;
+	if (NOT_EQUAL(placingBlock)) root["placing-block"] = item.placingBlock;
+	if (NOT_EQUAL(scriptName)) root["script-name"] = item.scriptName;
 
 	if (!std::equal(std::begin(master.emission), std::end(master.emission), std::begin(item.emission))) {
-		auto& emissionarr = root.putList("emission");
+		dv::value& emissionarr = root.list("emission");
 		emissionarr.multiline = false;
 		for (size_t i = 0; i < 3; i++) {
-			emissionarr.put(static_cast<int64_t>(item.emission[i]));
+			emissionarr.add(item.emission[i]);
 		}
 	}
 
-	return std::shared_ptr<dynamic::Map>(&root);
+	return root;
 #undef NOT_EQUAL
 }
 
-dynamic::Map_sptr workshop::toJson(const EntityDef& entity, const std::string& actualName, const EntityDef* const parent, const std::string& newParent) {
+dv::value workshop::toJson(const EntityDef& entity, const std::string& actualName, const EntityDef* const parent, const std::string& newParent) {
 	EntityDef temp(entity.name);
 	const EntityDef& master = (parent ? *parent : temp);
 
 #define NOT_EQUAL(MEMBER) master.MEMBER != entity.MEMBER
 
-	dynamic::Map& root = *new dynamic::Map();
+	dv::value root = dv::object();
 
-	if (!newParent.empty()) root.put("parent", newParent);
-	if (NOT_EQUAL(save.enabled)) root.put("save", entity.save.enabled);
-	if (NOT_EQUAL(save.skeleton.pose)) root.put("save-skeleton-pose", entity.save.skeleton.pose);
-	if (NOT_EQUAL(save.skeleton.textures)) root.put("save-skeleton-textures", entity.save.skeleton.textures);
-	if (NOT_EQUAL(save.body.velocity)) root.put("save-body-velocity", entity.save.body.velocity);
-	if (NOT_EQUAL(save.body.settings)) root.put("save-body-settings", entity.save.body.settings);
-	if (NOT_EQUAL(skeletonName)) root.put("skeleton-name", entity.skeletonName);
-	if (NOT_EQUAL(blocking)) root.put("blocking", entity.blocking);
-	if (NOT_EQUAL(bodyType)) root.put("body-type", to_string(entity.bodyType));
+	if (!newParent.empty()) root["parent"] = newParent;
+	if (NOT_EQUAL(save.enabled)) root["save"] = entity.save.enabled;
+	if (NOT_EQUAL(save.skeleton.pose)) root["save-skeleton-pose"] = entity.save.skeleton.pose;
+	if (NOT_EQUAL(save.skeleton.textures)) root["save-skeleton-textures"] = entity.save.skeleton.textures;
+	if (NOT_EQUAL(save.body.velocity)) root["save-body-velocity"] = entity.save.body.velocity;
+	if (NOT_EQUAL(save.body.settings)) root["save-body-settings"] = entity.save.body.settings;
+	if (NOT_EQUAL(skeletonName)) root["skeleton-name"] = entity.skeletonName;
+	if (NOT_EQUAL(blocking)) root["blocking"] = entity.blocking;
+	if (NOT_EQUAL(bodyType)) root["body-type"] = to_string(entity.bodyType);
 	if (NOT_EQUAL(hitbox)) {
-		dynamic::List& list = root.putList("hitbox");
+		dv::value& list = root.list("hitbox");
 		list.multiline = false;
 		putVec3(list, entity.hitbox);
 	}
 	if (NOT_EQUAL(components.size())) {
-		dynamic::List& list = root.putList("components");
+		dv::value& list = root.list("components");
 		for (size_t i = parent ? parent->components.size() : 0; i < entity.components.size(); i++) {
-			list.put(entity.components[i]);
+			list.add(entity.components[i]);
 		}
 	}
 	std::map<size_t, std::string> sensorsMap;
@@ -243,62 +244,63 @@ dynamic::Map_sptr workshop::toJson(const EntityDef& entity, const std::string& a
 		}
 	}
 	if (!sensorsMap.empty()){
-		dynamic::List& sensors = root.putList("sensors");
+		dv::value& sensors = root.list("sensors");
 		for (const auto& sensor : sensorsMap){
 			auto split = util::split(sensor.second, ',');
-			dynamic::List& list = sensors.putList();
+			dv::value& list = sensors.list();
 			list.multiline = false;
-			list.put(split[0]);
+			list.add(split[0]);
 			for (size_t i = 1; i < split.size(); i++) {
-				list.put(stof(split[i]));
+				list.add(stof(split[i]));
 			}
 		}
 	}
 
-	return std::shared_ptr<dynamic::Map>(&root);
+	return root;
 #undef NOT_EQUAL
 }
 
-static void putBone(dynamic::Map& map, const rigging::Bone& bone){
-	if (!bone.getName().empty()) map.put("name", bone.getName());
-	if (!bone.model.name.empty()) map.put("model", bone.model.name);
+static void putBone(dv::value& map, const rigging::Bone& bone){
+	if (!bone.getName().empty()) map["name"] = bone.getName();
+	if (!bone.model.name.empty()) map["model"] = bone.model.name;
 	if (bone.getOffset() != glm::vec3(0.f)) {
-		dynamic::List& list = map.putList("offset");
+		dv::value& list = map.list("offset");
 		list.multiline = false;
 		putVec3(list, bone.getOffset());
 	}
 	if (!bone.getSubnodes().empty()) {
-		dynamic::List& list = map.putList("nodes");
+		dv::value& list = map.list("nodes");
 		for (const std::unique_ptr<rigging::Bone>& elem : bone.getSubnodes()) {
-			putBone(list.putMap(), *elem);
+			dv::value& subMap = list.object();
+			putBone(subMap, *elem);
 		}
 	}
 }
 
-dynamic::Map_sptr workshop::toJson(const rigging::Bone& rootBone, const std::string& actualName) {
-	dynamic::Map& root = *new dynamic::Map();
+dv::value workshop::toJson(const rigging::Bone& rootBone, const std::string& actualName) {
+	dv::value root = dv::object();
 
-	putBone(root.putMap("root"), rootBone);
+	putBone(root["root"] = dv::object(), rootBone);
 
-	return std::shared_ptr<dynamic::Map>(&root);
+	return root;
 }
 
 void workshop::saveContentPack(const ContentPack& pack) {
-	dynamic::Map root;
-	if (!pack.id.empty()) root.put("id", pack.id);
-	if (!pack.title.empty()) root.put("title", pack.title);
-	if (!pack.version.empty()) root.put("version", pack.version);
-	if (!pack.creator.empty()) root.put("creator", pack.creator);
-	if (!pack.description.empty()) root.put("description", pack.description);
+	dv::value root = dv::object();
+	if (!pack.id.empty()) root["id"] = pack.id;
+	if (!pack.title.empty()) root["title"] = pack.title;
+	if (!pack.version.empty()) root["version"] = pack.version;
+	if (!pack.creator.empty()) root["creator"] = pack.creator;
+	if (!pack.description.empty()) root["description"] = pack.description;
 
 	if (!pack.dependencies.empty()) {
-		auto& dependencies = root.putList("dependencies");
+		dv::value& dependencies = root.list("dependencies");
 		for (const auto& elem : pack.dependencies) {
-			if (!elem.id.empty()) dependencies.put(elem.id);
+			if (!elem.id.empty()) dependencies.add(elem.id);
 		}
-		if (dependencies.size() == 0) root.remove("dependencies");
+		if (dependencies.size() == 0) root.erase("dependencies");
 	}
-	files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, &root);
+	files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, root);
 }
 
 void workshop::saveBlock(const Block& block, const fs::path& packFolder, const std::string& actualName, const Block* const parent, const std::string& newParent) {

@@ -55,7 +55,8 @@ WorldRenderer::WorldRenderer(
       frustumCulling(std::make_unique<Frustum>()),
       lineBatch(std::make_unique<LineBatch>()),
       modelBatch(std::make_unique<ModelBatch>(
-          20'000, engine->getAssets(), level->chunks.get()
+          20'000, engine->getAssets(), level->chunks.get(), 
+          &engine->getSettings()
       )) {
     renderer = std::make_unique<ChunksRenderer>(
         level, frontend->getContentGfxCache(), &engine->getSettings()
@@ -79,7 +80,7 @@ WorldRenderer::~WorldRenderer() = default;
 bool WorldRenderer::drawChunk(
     size_t index, Camera* camera, Shader* shader, bool culling
 ) {
-    auto chunk = level->chunks->chunks[index];
+    auto chunk = level->chunks->getChunks()[index];
     if (!chunk->flags.lighted) {
         return false;
     }
@@ -122,15 +123,16 @@ void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
     // [warning] this whole method is not thread-safe for chunks
 
     std::vector<size_t> indices;
-    for (size_t i = 0; i < chunks->volume; i++) {
-        if (chunks->chunks[i] == nullptr) continue;
+    for (size_t i = 0; i < chunks->getVolume(); i++) {
+        if (chunks->getChunks()[i] == nullptr) continue;
         indices.emplace_back(i);
     }
     float px = camera->position.x / static_cast<float>(CHUNK_W) - 0.5f;
     float pz = camera->position.z / static_cast<float>(CHUNK_D) - 0.5f;
     std::sort(indices.begin(), indices.end(), [chunks, px, pz](auto i, auto j) {
-        const auto a = chunks->chunks[i].get();
-        const auto b = chunks->chunks[j].get();
+        const auto& chunksBuffer = chunks->getChunks();
+        const auto a = chunksBuffer[i].get();
+        const auto b = chunksBuffer[j].get();
         auto adx = (a->x - px);
         auto adz = (a->z - pz);
         auto bdx = (b->x - px);
@@ -407,4 +409,8 @@ void WorldRenderer::drawBorders(
         lineBatch->line(ex, i, sz, sx, i, sz, 0, 0.8f, 0, 1);
     }
     lineBatch->flush();
+}
+
+void WorldRenderer::clear() {
+    renderer->clear();
 }

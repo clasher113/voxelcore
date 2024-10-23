@@ -1,7 +1,6 @@
 #include "Inventory.hpp"
 
-#include "content/ContentLUT.hpp"
-#include "data/dynamic.hpp"
+#include "content/ContentReport.hpp"
 
 Inventory::Inventory(int64_t id, size_t size) : id(id), slots(size) {
 }
@@ -46,52 +45,57 @@ void Inventory::move(
     }
 }
 
-void Inventory::deserialize(dynamic::Map* src) {
-    id = src->get("id", 1);
-    auto slotsarr = src->list("slots");
-    size_t slotscount = slotsarr->size();
+void Inventory::deserialize(const dv::value& src) {
+    id = src["id"].asInteger(1);
+    auto& slotsarr = src["slots"];
+    size_t slotscount = slotsarr.size();
     while (slots.size() < slotscount) {
         slots.emplace_back();
     }
     for (size_t i = 0; i < slotscount; i++) {
-        auto item = slotsarr->map(i);
-        itemid_t id = item->get("id", ITEM_EMPTY);
-        itemcount_t count = item->get("count", 0);
+        auto& item = slotsarr[i];
+        itemid_t id = item["id"].asInteger();
+        itemcount_t count = 0;
+        if (item.has("count")){
+            count = item["count"].asInteger();
+        }
         auto& slot = slots[i];
         slot.set(ItemStack(id, count));
     }
 }
 
-std::unique_ptr<dynamic::Map> Inventory::serialize() const {
-    auto map = std::make_unique<dynamic::Map>();
-    map->put("id", id);
+dv::value Inventory::serialize() const {
+    auto map = dv::object();
+    map["id"] = id;
+    auto& slotsarr = map.list("slots");
 
-    auto& slotsarr = map->putList("slots");
     for (size_t i = 0; i < slots.size(); i++) {
         auto& item = slots[i];
         itemid_t id = item.getItemId();
         itemcount_t count = item.getCount();
 
-        auto& slotmap = slotsarr.putMap();
-        slotmap.put("id", static_cast<int64_t>(id));
+        auto& slotmap = slotsarr.object();
+        slotmap["id"] = id;
         if (count) {
-            slotmap.put("count", static_cast<int64_t>(count));
+            slotmap["count"] = count;
         }
     }
     return map;
 }
 
-void Inventory::convert(dynamic::Map* data, const ContentLUT* lut) {
-    auto slotsarr = data->list("slots");
-    for (size_t i = 0; i < slotsarr->size(); i++) {
-        auto item = slotsarr->map(i);
-        itemid_t id = item->get("id", ITEM_EMPTY);
-        itemid_t replacement = lut->items.getId(id);
-        item->put("id", replacement);
-        if (replacement == 0 && item->has("count")) {
-            item->remove("count");
-        }
+void Inventory::convert(const ContentReport* report) {
+    for (auto& slot : slots) {
+        itemid_t id = slot.getItemId();
+        itemid_t replacement = report->items.getId(id);
+        slot.set(ItemStack(replacement, slot.getCount()));
     }
+}
+
+void Inventory::convert(dv::value& data, const ContentReport* report) {
+    Inventory inventory;
+    inventory.deserialize(data);
+    inventory.convert(report);
+    data = inventory.serialize();
 }
 
 const size_t Inventory::npos = -1;

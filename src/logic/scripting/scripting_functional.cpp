@@ -12,7 +12,7 @@ static debug::Logger logger("scripting_func");
 runnable scripting::create_runnable(
     const scriptenv& env, const std::string& src, const std::string& file
 ) {
-    auto L = lua::get_main_thread();
+    auto L = lua::get_main_state();
     try {
         lua::loadbuffer(L, *env, src, file);
         return lua::create_runnable(L);
@@ -25,7 +25,7 @@ runnable scripting::create_runnable(
 static lua::State* process_callback(
     const scriptenv& env, const std::string& src, const std::string& file
 ) {
-    auto L = lua::get_main_thread();
+    auto L = lua::get_main_state();
     try {
         if (lua::eval(L, *env, src, file) != 0) {
             return L;
@@ -160,15 +160,15 @@ vec2supplier scripting::create_vec2_supplier(
     };
 }
 
-dynamic::to_string_func scripting::create_tostring(
+value_to_string_func scripting::create_tostring(
     const scriptenv& env, const std::string& src, const std::string& file
 ) {
-    auto L = lua::get_main_thread();
+    auto L = lua::get_main_state();
     try {
         lua::loadbuffer(L, *env, src, file);
         lua::call(L, 0, 1);
         auto func = lua::create_lambda(L);
-        return [func](const dynamic::Value& value) {
+        return [func](const dv::value& value) {
             auto result = func({value});
             return json::stringify(result, true, "  ");
         };

@@ -31,6 +31,11 @@ std::unique_ptr<Content> ContentBuilder::build() {
         def.rt.solid = def.model == BlockModel::block;
         def.rt.extended = def.size.x > 1 || def.size.y > 1 || def.size.z > 1;
 
+        const float EPSILON = 0.01f;
+        if (def.rt.extended && glm::i8vec3(def.hitboxes[0].size() + EPSILON) == def.size) {
+            def.rt.solid = true;
+        }
+
         if (def.rotatable) {
             for (uint i = 0; i < BlockRotProfile::MAX_COUNT; i++) {
                 def.rt.hitboxes[i].reserve(def.hitboxes.size());
@@ -72,6 +77,7 @@ std::unique_ptr<Content> ContentBuilder::build() {
         blocks.build(),
         items.build(),
         entities.build(),
+        generators.build(),
         std::move(packs),
         std::move(blockMaterials),
         std::move(skeletons),
@@ -81,10 +87,15 @@ std::unique_ptr<Content> ContentBuilder::build() {
     // Now, it's time to resolve foreign keys
     for (Block* def : blockDefsIndices) {
         def->rt.pickingItem = content->items.require(def->pickingItem).rt.id;
+        def->rt.surfaceReplacement = content->blocks.require(def->surfaceReplacement).rt.id;
     }
 
     for (ItemDef* def : itemDefsIndices) {
         def->rt.placingBlock = content->blocks.require(def->placingBlock).rt.id;
+    }
+
+    for (auto& [name, def] : content->generators.getDefs()) {
+        def->prepare(content.get());
     }
 
     return content;

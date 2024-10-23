@@ -43,13 +43,13 @@ lineBatch(1024),
 batch2d(1024),
 batch3d(1024),
 chunks(CHUNK_W, CHUNK_D, 0, 0, nullptr, level),
-modelBatch(8192, engine->getAssets(), &chunks),
+modelBatch(8192, engine->getAssets(), &chunks, &engine->getSettings()),
 mesh(nullptr),
 primitiveType(PrimitiveType::COUNT),
 lookAtPrimitive(PrimitiveType::COUNT)
 {
 	level->chunksStorage->store(std::shared_ptr<Chunk>(chunk));
-	chunks.putChunk(std::shared_ptr<Chunk>(chunk));
+	chunks.putChunk(level->chunksStorage->get(0, 0));
 	memset(chunk->voxels, 0, sizeof(chunk->voxels));
 	memset(chunk->lightmap.map, std::numeric_limits<light_t>::max(), sizeof(chunk->lightmap.map));
 }

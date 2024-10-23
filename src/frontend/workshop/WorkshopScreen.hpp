@@ -5,7 +5,6 @@
 
 #include "content/ContentPack.hpp"
 #include "WorkshopUtils.hpp"
-#include "data/dynamic_fwd.hpp"
 
 #include <filesystem>
 #include <functional>

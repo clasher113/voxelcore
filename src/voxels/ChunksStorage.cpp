@@ -59,15 +59,15 @@ std::shared_ptr<Chunk> ChunksStorage::create(int x, int z) {
 
     auto chunk = std::make_shared<Chunk>(x, z);
     store(chunk);
-    auto data = regions.getChunk(chunk->x, chunk->z);
-    if (data) {
+    if (auto data = regions.getVoxels(chunk->x, chunk->z)) {
         chunk->decode(data.get());
 
         auto invs = regions.fetchInventories(chunk->x, chunk->z);
         chunk->setBlockInventories(std::move(invs));
 
-        if (auto map = regions.fetchEntities(chunk->x, chunk->z)) {
-            level->entities->loadEntities(std::move(map));
+        auto entitiesData = regions.fetchEntities(chunk->x, chunk->z);
+        if (entitiesData.getType() == dv::value_type::object) {
+            level->entities->loadEntities(std::move(entitiesData));
             chunk->flags.entities = true;
         }
 
@@ -77,17 +77,17 @@ std::shared_ptr<Chunk> ChunksStorage::create(int x, int z) {
         }
         verifyLoadedChunk(level->content->getIndices(), chunk.get());
     }
-
-    auto lights = regions.getLights(chunk->x, chunk->z);
-    if (lights) {
+    if (auto lights = regions.getLights(chunk->x, chunk->z)) {
         chunk->lightmap.set(lights.get());
         chunk->flags.loadedLights = true;
     }
+    chunk->blocksMetadata = regions.getBlocksData(chunk->x, chunk->z);
     return chunk;
 }
 
 // reduce nesting on next modification
 // 25.06.2024: not now
+// TODO: move to Chunks for performance improvement
 void ChunksStorage::getVoxels(VoxelsVolume* volume, bool backlight) const {
     const Content* content = level->content;
     auto indices = content->getIndices();
@@ -108,10 +108,10 @@ void ChunksStorage::getVoxels(VoxelsVolume* volume, bool backlight) const {
     int ecz = floordiv(z + d, CHUNK_D);
 
     int cw = ecx - scx + 1;
-    int ch = ecz - scz + 1;
+    int cd = ecz - scz + 1;
 
-    // cw*ch chunks will be scanned
-    for (int cz = scz; cz < scz + ch; cz++) {
+    // cw*cd chunks will be scanned
+    for (int cz = scz; cz < scz + cd; cz++) {
         for (int cx = scx; cx < scx + cw; cx++) {
             const auto& found = chunksMap.find(glm::ivec2(cx, cz));
             if (found == chunksMap.end()) {

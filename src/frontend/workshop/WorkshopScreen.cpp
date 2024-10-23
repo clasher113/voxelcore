@@ -59,19 +59,19 @@ assets(engine->getAssets())
 		createNavigationPanel();
 	}
 	if (fs::exists(SETTINGS_FILE)) {
-		dynamic::Map_sptr settingsMap = files::read_json(SETTINGS_FILE);
-		if (settingsMap->has("sensitivity")) settings.previewSensitivity = settingsMap->get<float>("sensitivity");
-		dynamic::List_sptr list = settingsMap->list("customModelInputRange");
-		if (list && list->size() == 2) {
-			settings.customModelRange.x = list->num(0);
-			settings.customModelRange.y = list->num(1);
+		dv::value settingsMap = files::read_json(SETTINGS_FILE);
+		if (settingsMap.has("sensitivity")) settings.previewSensitivity = settingsMap["sensitivity"].asNumber();
+		dv::value list = settingsMap["customModelInputRange"].list();
+		if (list.isList() && list.size() == 2) {
+			settings.customModelRange.x = list.asInteger(0);
+			settings.customModelRange.y = list.asInteger(1);
 		}
-		if (settingsMap->has("contentListWidth")) settings.contentListWidth = settingsMap->get<float>("contentListWidth");
-		if (settingsMap->has("blockEditorWidth")) settings.blockEditorWidth = settingsMap->get<float>("blockEditorWidth");
-		if (settingsMap->has("customModelEditorWidth")) settings.customModelEditorWidth = settingsMap->get<float>("customModelEditorWidth");
-		if (settingsMap->has("itemEditorWidth")) settings.itemEditorWidth = settingsMap->get<float>("itemEditorWidth");
-		if (settingsMap->has("entityEditorWidth")) settings.entityEditorWidth = settingsMap->get<float>("entityEditorWidth");
-		if (settingsMap->has("textureListWidth")) settings.textureListWidth = settingsMap->get<float>("textureListWidth");
+		if (settingsMap.has("contentListWidth")) settings.contentListWidth = settingsMap["contentListWidth"].asNumber();
+		if (settingsMap.has("blockEditorWidth")) settings.blockEditorWidth = settingsMap["blockEditorWidth"].asNumber();
+		if (settingsMap.has("customModelEditorWidth")) settings.customModelEditorWidth = settingsMap["customModelEditorWidth"].asNumber();
+		if (settingsMap.has("itemEditorWidth")) settings.itemEditorWidth = settingsMap["itemEditorWidth"].asNumber();
+		if (settingsMap.has("entityEditorWidth")) settings.entityEditorWidth = settingsMap["entityEditorWidth"].asNumber();
+		if (settingsMap.has("textureListWidth")) settings.textureListWidth = settingsMap["textureListWidth"].asNumber();
 	}
 }
 
@@ -80,18 +80,18 @@ WorkShopScreen::~WorkShopScreen() {
 		gui->remove(elem.second);
 	}
 
-	dynamic::Map settingsMap;
-	settingsMap.put("sensitivity", settings.previewSensitivity);
-	settingsMap.put("contentListWidth", settings.contentListWidth);
-	settingsMap.put("blockEditorWidth", settings.blockEditorWidth);
-	settingsMap.put("customModelEditorWidth", settings.customModelEditorWidth);
-	settingsMap.put("itemEditorWidth", settings.itemEditorWidth);
-	settingsMap.put("entityEditorWidth", settings.entityEditorWidth);
-	settingsMap.put("textureListWidth", settings.textureListWidth);
-	dynamic::List& list = settingsMap.putList("customModelInputRange");
-	list.put(settings.customModelRange.x);
-	list.put(settings.customModelRange.y);
-	files::write_json(SETTINGS_FILE, &settingsMap);
+	dv::value settingsMap = dv::object();
+	settingsMap["sensitivity"] = settings.previewSensitivity;
+	settingsMap["contentListWidth"] = settings.contentListWidth;
+	settingsMap["blockEditorWidth"] = settings.blockEditorWidth;
+	settingsMap["customModelEditorWidth"] = settings.customModelEditorWidth;
+	settingsMap["itemEditorWidth"] = settings.itemEditorWidth;
+	settingsMap["entityEditorWidth"] = settings.entityEditorWidth;
+	settingsMap["textureListWidth"] = settings.textureListWidth;
+	dv::value list = settingsMap.list("customModelInputRange");
+	list.add(settings.customModelRange.x);
+	list.add(settings.customModelRange.y);
+	files::write_json(SETTINGS_FILE, settingsMap);
 }
 
 void WorkShopScreen::update(float delta) {
@@ -908,18 +908,18 @@ void WorkShopScreen::createUIPreview() {
 	}, 3);
 }
 
-static std::string findParent(const fs::path& path, ContentType type, const std::string& actualName) {
+static std::string findParent(const fs::path& path, workshop::ContentType type, const std::string& actualName) {
 	std::string parentName;
 	fs::path file(path / getDefFolder(type) / (actualName + getDefFileFormat(type)));
 	if (!fs::is_regular_file(file)) return parentName;
-	auto map = files::read_json(file);
-	if (map->has("parent")) parentName = map->get<std::string>("parent");
+	dv::value map = files::read_json(file);
+	if (map.has("parent")) parentName = map.asString("parent");
 	return parentName;
 }
 
 template<typename T>
 static void backup(std::unordered_map<std::string, BackupData>& dst, const ContentUnitIndices<T>& src, const ContentUnitDefs<T>& content,
-	ContentType type, const std::string& packId, fs::path& packPath
+	workshop::ContentType type, const std::string& packId, fs::path& packPath
 ) {
 	for (size_t i = 0; i < src.count(); i++) {
 		const T* const def = src.get(i);

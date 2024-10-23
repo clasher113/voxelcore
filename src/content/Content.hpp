@@ -8,8 +8,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "data/dynamic_fwd.hpp"
 #include "content_fwd.hpp"
+#include "data/dv.hpp"
 
 using DrawGroups = std::set<ubyte>;
 template <class K, class V>
@@ -19,34 +19,37 @@ class Block;
 struct BlockMaterial;
 struct ItemDef;
 struct EntityDef;
+struct GeneratorDef;
 
 namespace rigging {
     class SkeletonConfig;
 }
 
-constexpr const char* contenttype_name(contenttype type) {
+constexpr const char* ContentType_name(ContentType type) {
     switch (type) {
-        case contenttype::none:
+        case ContentType::NONE:
             return "none";
-        case contenttype::block:
+        case ContentType::BLOCK:
             return "block";
-        case contenttype::item:
+        case ContentType::ITEM:
             return "item";
-        case contenttype::entity:
+        case ContentType::ENTITY:
             return "entity";
+        case ContentType::GENERATOR:
+            return "generator";
         default:
             return "unknown";
     }
 }
 
 class namereuse_error : public std::runtime_error {
-    contenttype type;
+    ContentType type;
 public:
-    namereuse_error(const std::string& msg, contenttype type)
+    namereuse_error(const std::string& msg, ContentType type)
         : std::runtime_error(msg), type(type) {
     }
 
-    inline contenttype getType() const {
+    inline ContentType getType() const {
         return type;
     }
 };
@@ -117,23 +120,36 @@ public:
         }
         return *found->second;
     }
+
+    const auto& getDefs() const {
+        return defs;
+    }
 };
 
 class ResourceIndices {
     std::vector<std::string> names;
     std::unordered_map<std::string, size_t> indices;
-    std::unique_ptr<std::vector<dynamic::Map_sptr>> savedData;
+    std::unique_ptr<std::vector<dv::value>> savedData;
 public:
     ResourceIndices()
-        : savedData(std::make_unique<std::vector<dynamic::Map_sptr>>()) {
+        : savedData(std::make_unique<std::vector<dv::value>>()) {
     }
 
     static constexpr size_t MISSING = SIZE_MAX;
 
-    void add(std::string name, dynamic::Map_sptr map) {
+    void add(const std::string& name, dv::value map) {
         indices[name] = names.size();
         names.push_back(name);
-        savedData->push_back(map);
+        savedData->push_back(std::move(map));
+    }
+
+    void addAlias(const std::string& name, const std::string& alias) {
+        size_t index = indexOf(name);
+        if (index == MISSING) {
+            throw std::runtime_error(
+                "resource does not exists: "+name);
+        }
+        indices[alias] = index;
     }
 
     const std::string& getName(size_t index) const {
@@ -148,12 +164,12 @@ public:
         return MISSING;
     }
 
-    dynamic::Map_sptr getSavedData(size_t index) const {
+    const dv::value& getSavedData(size_t index) const {
         return savedData->at(index);
     }
 
-    void saveData(size_t index, dynamic::Map_sptr map) const {
-        savedData->at(index) = map;
+    void saveData(size_t index, dv::value map) const {
+        savedData->at(index) = std::move(map);
     }
 
     size_t size() const {
@@ -189,6 +205,7 @@ public:
     ContentUnitDefs<Block> blocks;
     ContentUnitDefs<ItemDef> items;
     ContentUnitDefs<EntityDef> entities;
+    ContentUnitDefs<GeneratorDef> generators;
     std::unique_ptr<DrawGroups> const drawGroups;
     ResourceIndicesSet resourceIndices {};
 
@@ -198,6 +215,7 @@ public:
         ContentUnitDefs<Block> blocks,
         ContentUnitDefs<ItemDef> items,
         ContentUnitDefs<EntityDef> entities,
+        ContentUnitDefs<GeneratorDef> generators,
         UptrsMap<std::string, ContentPackRuntime> packs,
         UptrsMap<std::string, BlockMaterial> blockMaterials,
         UptrsMap<std::string, rigging::SkeletonConfig> skeletons,
