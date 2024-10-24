@@ -49,9 +49,11 @@ void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, Conten
 			nameInput->setTextValidator([this, nameInput, type](const std::wstring& text) {
 				std::wstring winput(nameInput->getInput());
 				std::string input(util::wstr2str_utf8(winput));
-				const bool found = (type == ContentType::BLOCK || type == ContentType::ITEM || type == ContentType::ENTITY ?
-					(blocksList.find(input) == blocksList.end() && itemsList.find(input) == itemsList.end() && entityList.find(input) == entityList.end()) :
-					!fs::is_regular_file(currentPack.folder / getDefFolder(type) / (input + ".xml")));
+				bool found = false;
+				if (type == ContentType::BLOCK || type == ContentType::ITEM || type == ContentType::ENTITY)
+					found = (blocksList.find(input) == blocksList.end() && itemsList.find(input) == itemsList.end() && entityList.find(input) == entityList.end());
+				else if (type == ContentType::UI_LAYOUT) found = !fs::is_regular_file(currentPack.folder / getDefFolder(type) / (input + ".xml"));
+				else if (type == ContentType::SKELETON) found = skeletons.find(input) == skeletons.end();
 				return found && !winput.empty() &&
 					std::all_of(winput.begin(), winput.end(), [](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); });
 			});

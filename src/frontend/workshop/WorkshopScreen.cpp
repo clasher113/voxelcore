@@ -939,34 +939,35 @@ void workshop::WorkShopScreen::backupDefs() {
 	backup<Block>(blocksList, indices->blocks, content->blocks, ContentType::BLOCK, currentPackId, currentPack.folder);
 	backup<ItemDef>(itemsList, indices->items, content->items, ContentType::ITEM, currentPackId, currentPack.folder);
 	backup<EntityDef>(entityList, indices->entities, content->entities, ContentType::ENTITY, currentPackId, currentPack.folder);
-	for (const auto& skeleton : content->getSkeletons()){
-		skeletons[skeleton.first] = stringify(toJson(*skeleton.second->getRoot(), skeleton.first), false);
+	for (const auto& [name, skeleton] : content->getSkeletons()){
+		if (name.find(currentPackId) != 0) continue;
+		skeletons[getDefName(name)] = stringify(toJson(*skeleton->getRoot(), getDefName(name)), false);
 	}
 }
 
 bool workshop::WorkShopScreen::showUnsaved(const std::function<void()>& callback) {
 	std::unordered_multimap<ContentType, std::string> unsavedList;
 
-	for (const auto& elem : blocksList) {
-		const Block* parent = content->blocks.find(elem.second.currentParent);
-		if (elem.second.string != stringify(toJson(*content->blocks.find(currentPackId + ':' + elem.first), elem.first, parent, elem.second.newParent), false))
-			unsavedList.emplace(ContentType::BLOCK, elem.first);
+	for (const auto& [name, data] : blocksList) {
+		const Block* parent = content->blocks.find(data.currentParent);
+		if (data.string != stringify(toJson(*content->blocks.find(currentPackId + ':' + name), name, parent, data.newParent), false))
+			unsavedList.emplace(ContentType::BLOCK, name);
 	}
-	for (const auto& elem : itemsList) {
-		const ItemDef* item = content->items.find(currentPackId + ':' + elem.first);
+	for (const auto& [name, data] : itemsList) {
+		const ItemDef* item = content->items.find(currentPackId + ':' + name);
 		if (item->generated) continue;
-		const ItemDef* parent = content->items.find(elem.second.currentParent);
-		if (elem.second.string != stringify(toJson(*item, elem.first, parent, elem.second.newParent), false))
-			unsavedList.emplace(ContentType::ITEM, elem.first);
+		const ItemDef* parent = content->items.find(data.currentParent);
+		if (data.string != stringify(toJson(*item, name, parent, data.newParent), false))
+			unsavedList.emplace(ContentType::ITEM, name);
 	}
-	for (const auto& elem : entityList) {
-		const EntityDef* parent = content->entities.find(elem.second.currentParent);
-		if (elem.second.string != stringify(toJson(*content->entities.find(currentPackId + ':' + elem.first), elem.first, parent, elem.second.newParent), false))
-			unsavedList.emplace(ContentType::ENTITY, elem.first);
+	for (const auto& [name, data] : entityList) {
+		const EntityDef* parent = content->entities.find(data.currentParent);
+		if (data.string != stringify(toJson(*content->entities.find(currentPackId + ':' + name), name, parent, data.newParent), false))
+			unsavedList.emplace(ContentType::ENTITY, name);
 	}
-	for (const auto& elem : skeletons){
-		if (elem.second != stringify(toJson(*content->getSkeleton(elem.first)->getRoot(), elem.first), false))
-			unsavedList.emplace(ContentType::SKELETON, elem.first);
+	for (const auto& [name, data] : skeletons){
+		if (data != stringify(toJson(*content->getSkeleton(currentPackId + ':' + name)->getRoot(), name), false))
+			unsavedList.emplace(ContentType::SKELETON, name);
 	}
 
 	if (unsavedList.empty() || ignoreUnsaved) {

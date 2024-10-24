@@ -11,6 +11,8 @@
 #include "graphics/core/Model.hpp"
 #include "graphics/core/Texture.hpp"
 
+#include <algorithm>
+
 using namespace workshop;
 
 struct ListButtonInfo{
@@ -377,6 +379,7 @@ void workshop::WorkShopScreen::createModelsList(bool showAll, unsigned int colum
 		}
 
 		ListButtonInfo::sortAlphabetically(list);
+		list.erase(std::unique(list.begin(), list.end(), [](const ListButtonInfo& a, const ListButtonInfo& b) {return a.displayName == b.displayName; }), list.end());
 		createList(list, false, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
 			else {

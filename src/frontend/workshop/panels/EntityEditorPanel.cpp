@@ -24,10 +24,11 @@ void WorkShopScreen::createEntityEditorPanel(EntityDef& entity) {
 
 		createFullCheckBox(panel, L"Blocking", entity.blocking, L"Does entity prevent blocks setup");
 		gui::Panel& savingPanel = *new gui::Panel(panel.getSize(), glm::vec4(0.f));
-		savingPanel.setColor(glm::vec4(0.f));
+		savingPanel.setColor(glm::vec4(0.5f, 0.5f, 0.5f, 0.25f));
 		auto processSavingChange = [&entity, &savingPanel, &panel]() {
 			removeRemovable(savingPanel);
 			if (entity.save.enabled) {
+				savingPanel += markRemovable(new gui::Label("Saving:"));
 				markRemovable(createFullCheckBox(savingPanel, L"Skeleton textures", entity.save.skeleton.textures));
 				markRemovable(createFullCheckBox(savingPanel, L"Skeleton pose", entity.save.skeleton.pose));
 				markRemovable(createFullCheckBox(savingPanel, L"Body settings", entity.save.body.settings));
