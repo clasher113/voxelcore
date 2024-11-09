@@ -1,6 +1,6 @@
 # ![voxel-core](dev/VoxelCore.png) VoxelCore
 
-- [Download](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod-0.22.3) | [Скачать](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod-0.22.3)
+- [Download](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod-0.23.3) | [Скачать](https://github.com/clasher113/VoxelEngine-Cpp/releases/tag/Workshop-mod-0.23.3)
 - [Documentation](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.22/doc/en/main-page.md) | [Документация](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.22/doc/ru/main-page.md)
 
 ## Build project in Linux
