@@ -25,7 +25,7 @@ LevelFrontend::LevelFrontend(
         "block-previews"
     );
     controller->getBlocksController()->listenBlockInteraction(
-        [=](Player* player, glm::ivec3 pos, const Block& def, BlockInteraction type) {
+        [=](auto player, const auto& pos, const auto& def, BlockInteraction type) {
             auto material = level->content->findBlockMaterial(def.material);
             if (material == nullptr) {
                 return;
@@ -37,10 +37,10 @@ LevelFrontend::LevelFrontend(
                 auto soundsCamera = currentPlayer->currentCamera.get();
                 if (soundsCamera == currentPlayer->spCamera.get() ||
                     soundsCamera == currentPlayer->tpCamera.get()) {
-                    soundsCamera = currentPlayer->camera.get();
+                    soundsCamera = currentPlayer->fpCamera.get();
                 }
                 bool relative = player == currentPlayer && 
-                    soundsCamera == currentPlayer->camera.get();
+                    soundsCamera == currentPlayer->fpCamera.get();
                 if (!relative) {
                     pos = player->getPosition();
                 }

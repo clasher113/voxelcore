@@ -32,7 +32,10 @@ class Chunks {
         const Block& def, blockstate state, int x, int y, int z
     );
     void setRotationExtended(
-        const Block& def, blockstate state, glm::ivec3 origin, uint8_t rotation
+        const Block& def,
+        blockstate state,
+        const glm::ivec3& origin,
+        uint8_t rotation
     );
 
     util::AreaMap2D<std::shared_ptr<Chunk>, int32_t> areaMap;
@@ -55,13 +58,18 @@ public:
     Chunk* getChunk(int32_t x, int32_t z);
     Chunk* getChunkByVoxel(int32_t x, int32_t y, int32_t z);
     voxel* get(int32_t x, int32_t y, int32_t z) const;
+    voxel& require(int32_t x, int32_t y, int32_t z) const;
 
-    inline voxel* get(glm::ivec3 pos) {
+    inline voxel* get(const glm::ivec3& pos) {
         return get(pos.x, pos.y, pos.z);
     }
 
-    light_t getLight(int32_t x, int32_t y, int32_t z);
-    ubyte getLight(int32_t x, int32_t y, int32_t z, int channel);
+    inline const voxel* get(const glm::ivec3& pos) const {
+        return get(pos.x, pos.y, pos.z);
+    }
+
+    light_t getLight(int32_t x, int32_t y, int32_t z) const;
+    ubyte getLight(int32_t x, int32_t y, int32_t z, int channel) const;
     void set(int32_t x, int32_t y, int32_t z, uint32_t id, blockstate state);
 
     /// @brief Seek for the extended block origin position
@@ -69,7 +77,9 @@ public:
     /// @param def segment block definition
     /// @param state segment block state
     /// @return origin block position or `pos` if block is not extended
-    glm::ivec3 seekOrigin(glm::ivec3 pos, const Block& def, blockstate state);
+    glm::ivec3 seekOrigin(
+        const glm::ivec3& pos, const Block& def, blockstate state
+    ) const;
 
     /// @brief Check if required zone is replaceable
     /// @param def definition of the block that requires a replaceable zone
@@ -79,15 +89,15 @@ public:
     bool checkReplaceability(
         const Block& def,
         blockstate state,
-        glm::ivec3 coord,
+        const glm::ivec3& coord,
         blockid_t ignore = 0
     );
 
     void setRotation(int32_t x, int32_t y, int32_t z, uint8_t rotation);
 
     voxel* rayCast(
-        glm::vec3 start,
-        glm::vec3 dir,
+        const glm::vec3& start,
+        const glm::vec3& dir,
         float maxLength,
         glm::vec3& end,
         glm::ivec3& norm,
@@ -95,9 +105,16 @@ public:
         std::set<blockid_t> filter = {}
     );
 
-    glm::vec3 rayCastToObstacle(glm::vec3 start, glm::vec3 dir, float maxDist);
+    glm::vec3 rayCastToObstacle(
+        const glm::vec3& start, const glm::vec3& dir, float maxDist
+    );
 
-    const AABB* isObstacleAt(float x, float y, float z);
+    const AABB* isObstacleAt(float x, float y, float z) const;
+
+    const AABB* isObstacleAt(const glm::vec3& pos) const {
+        return isObstacleAt(pos.x, pos.y, pos.z);
+    }
+    
     bool isSolidBlock(int32_t x, int32_t y, int32_t z);
     bool isReplaceableBlock(int32_t x, int32_t y, int32_t z);
     bool isObstacleBlock(int32_t x, int32_t y, int32_t z);

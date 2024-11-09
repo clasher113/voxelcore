@@ -222,15 +222,15 @@ void workshop::validateBlock(Assets* assets, Block& block) {
 			*it = TEXTURE_NOTFOUND;
 		}
 	};
-	checkTextures(std::begin(block.textureFaces), std::end(block.textureFaces));
-	checkTextures(block.modelTextures.data(), block.modelTextures.data() + block.modelTextures.size());
+	//checkTextures(std::begin(block.textureFaces), std::end(block.textureFaces));
+	//checkTextures(block.modelTextures.data(), block.modelTextures.data() + block.modelTextures.size());
 }
 
 void workshop::validateItem(Assets* assets, ItemDef& item) {
 	const Atlas* const atlas = getAtlas(assets, item.icon);
-	if (!atlas->has((item.iconType == item_icon_type::block ? item.icon : getTexName(item.icon)))) {
+	if (!atlas->has((item.iconType == ItemIconType::BLOCK ? item.icon : getTexName(item.icon)))) {
 		logger.info() << "invalid icon \"" << item.icon << "\" was reset in item \"" << item.name << "\"";
-		item.iconType = item_icon_type::sprite;
+		item.iconType = ItemIconType::SPRITE;
 		item.icon = "blocks:notfound";
 	}
 }

@@ -30,7 +30,7 @@
 #include "debug/Logger.hpp"
 #include "objects/EntityDef.hpp"
 #include "objects/rigging.hpp"
-#include "graphics/core/Model.hpp"
+#include "graphics/commons/Model.hpp"
 #include "assets/AssetsLoader.hpp"
 
 #define NOMINMAX
@@ -365,12 +365,12 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 	setSelectable<gui::IconButton>(panel);
 }
 
-void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, item_icon_type iconType) {
+void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, ItemIconType iconType) {
 	panel.setColor(glm::vec4(0.f));
-	if (iconType == item_icon_type::none) return;
+	if (iconType == ItemIconType::NONE) return;
 
 	auto texName = [this, iconType, &texture]() {
-		if (iconType == item_icon_type::sprite) return getTexName(texture);
+		if (iconType == ItemIconType::SPRITE) return getTexName(texture);
 		return texture;
 	};
 
@@ -383,7 +383,7 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 			button->setIcon(getAtlas(assets, texture), texName());
 			button->setText(texName());
 		};
-		if (iconType == item_icon_type::sprite) {
+		if (iconType == ItemIconType::SPRITE) {
 			createTextureList(35.f, 5, { ContentType::BLOCK, ContentType::ITEM }, PANEL_POSITION_AUTO, true, callback);
 		}
 		else {
@@ -483,7 +483,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 	createPanel([this]() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(300));
 
-		panel += new gui::Button(L"Fix aabb's", glm::vec4(10.f), [this](gui::GUI*) {
+		/*panel += new gui::Button(L"Fix aabb's", glm::vec4(10.f), [this](gui::GUI*) {
 			std::unordered_map<Block*, size_t> brokenAABBs;
 			for (size_t i = 0; i < indices->blocks.count(); i++) {
 				size_t aabbsNum = 0;
@@ -517,9 +517,9 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 
 				return std::ref(panel);
 			}, 2);
-		});
+		});*/
 
-		panel += new gui::Button(L"Find unused textures", glm::vec4(10.f), [this](gui::GUI*) {
+		/*panel += new gui::Button(L"Find unused textures", glm::vec4(10.f), [this](gui::GUI*) {
 			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
 			const fs::path itemsTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::ITEMS_FOLDER);
 
@@ -581,9 +581,9 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 
 				return std::ref(panel);
 			}, 2);
-		});
+		});*/
 
-		panel += new gui::Button(L"Find texture duplicates", glm::vec4(10.f), [this](gui::GUI*) {
+		/*panel += new gui::Button(L"Find texture duplicates", glm::vec4(10.f), [this](gui::GUI*) {
 			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
 			const Texture* const blocksTexture = blocksAtlas->getTexture();
 			ubyte* imageData = blocksAtlas->getImage()->getData();
@@ -664,7 +664,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 
 				return std::ref(panel);
 			}, 2);
-		});
+		});*/
 
 		return std::ref(panel);
 	}, 1);

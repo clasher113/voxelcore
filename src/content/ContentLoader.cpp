@@ -22,6 +22,7 @@
 #include "voxels/Block.hpp"
 #include "data/dv_util.hpp"
 #include "data/StructLayout.hpp"
+#include "presets/ParticlesPreset.hpp"
 
 namespace fs = std::filesystem;
 using namespace data;
@@ -218,19 +219,26 @@ void ContentLoader::loadBlock(
     }
 
     // block model
-    std::string modelName;
-    root.at("model").get(modelName);
-    if (auto model = BlockModel_from(modelName)) {
+    std::string modelTypeName;
+    root.at("model").get(modelTypeName);
+    root.at("model-name").get(def.modelName);
+    if (auto model = BlockModel_from(modelTypeName)) {
         if (*model == BlockModel::custom) {
             if (root.has("model-primitives")) {
-                loadCustomBlockModel(def, root["model-primitives"]);
-            } else {
-                logger.error() << name << ": no 'model-primitives' found";
+                def.customModelRaw = root["model-primitives"];
+            } else if (def.modelName.empty()) {
+                throw std::runtime_error(name + ": no 'model-primitives' or 'model-name' found");
+            }
+            for (uint i = 0; i < 6; i++) {
+                std::string& texture = def.textureFaces[i];
+                if (texture == TEXTURE_NOTFOUND) {
+                    texture = "";
+                }
             }
         }
         def.model = *model;
-    } else if (!modelName.empty()) {
-        logger.error() << "unknown model " << modelName;
+    } else if (!modelTypeName.empty()) {
+        logger.error() << "unknown model " << modelTypeName;
         def.model = BlockModel::none;
     }
 
@@ -276,8 +284,6 @@ void ContentLoader::loadBlock(
         );
         aabb.b += aabb.a;
         def.hitboxes = {aabb};
-    } else if (!def.modelBoxes.empty()) {
-        def.hitboxes = def.modelBoxes;
     } else {
         def.hitboxes = {AABB()};
     }
@@ -285,9 +291,9 @@ void ContentLoader::loadBlock(
     // block light emission [r, g, b] where r,g,b in range [0..15]
     if (auto found = root.at("emission")) {
         const auto& emissionarr = *found;
-        def.emission[0] = emissionarr[0].asInteger();
-        def.emission[1] = emissionarr[1].asInteger();
-        def.emission[2] = emissionarr[2].asInteger();
+        for (size_t i = 0; i < 3; i++) {
+            def.emission[i] = std::clamp(emissionarr[i].asInteger(), static_cast<integer_t>(0), static_cast<integer_t>(15));
+        }
     }
 
     // block size
@@ -326,6 +332,7 @@ void ContentLoader::loadBlock(
     root.at("ui-layout").get(def.uiLayout);
     root.at("inventory-size").get(def.inventorySize);
     root.at("tick-interval").get(def.tickInterval);
+    root.at("overlay-texture").get(def.overlayTexture);
 
     if (root.has("fields")) {
         def.dataStruct = std::make_unique<StructLayout>();
@@ -334,67 +341,17 @@ void ContentLoader::loadBlock(
         perform_user_block_fields(def.name, *def.dataStruct);
     }
 
+    if (root.has("particles")) {
+        def.particles = std::make_unique<ParticlesPreset>();
+        def.particles->deserialize(root["particles"]);
+    }
+
     if (def.tickInterval == 0) {
         def.tickInterval = 1;
     }
 
     if (def.hidden && def.pickingItem == def.name + BLOCK_ITEM_SUFFIX) {
         def.pickingItem = CORE_EMPTY;
-    }
-}
-
-void ContentLoader::loadCustomBlockModel(Block& def, const dv::value& primitives) {
-    if (primitives.has("aabbs")) {
-        const auto& modelboxes = primitives["aabbs"];
-        for (uint i = 0; i < modelboxes.size(); i++) {
-            // Parse aabb
-            const auto& boxarr = modelboxes[i];
-            AABB modelbox;
-            modelbox.a = glm::vec3(
-                boxarr[0].asNumber(), boxarr[1].asNumber(), boxarr[2].asNumber()
-            );
-            modelbox.b = glm::vec3(
-                boxarr[3].asNumber(), boxarr[4].asNumber(), boxarr[5].asNumber()
-            );
-            modelbox.b += modelbox.a;
-            def.modelBoxes.push_back(modelbox);
-
-            if (boxarr.size() == 7) {
-                for (uint j = 6; j < 12; j++) {
-                    def.modelTextures.emplace_back(boxarr[6].asString());
-                }
-            } else if (boxarr.size() == 12) {
-                for (uint j = 6; j < 12; j++) {
-                    def.modelTextures.emplace_back(boxarr[j].asString());
-                }
-            } else {
-                for (uint j = 6; j < 12; j++) {
-                    def.modelTextures.emplace_back("notfound");
-                }
-            }
-        }
-    }
-    if (primitives.has("tetragons")) {
-        const auto& modeltetragons = primitives["tetragons"];
-        for (uint i = 0; i < modeltetragons.size(); i++) {
-            // Parse tetragon to points
-            const auto& tgonobj = modeltetragons[i];
-            glm::vec3 p1(
-                tgonobj[0].asNumber(), tgonobj[1].asNumber(), tgonobj[2].asNumber()
-            );
-            glm::vec3 xw(
-                tgonobj[3].asNumber(), tgonobj[4].asNumber(), tgonobj[5].asNumber()
-            );
-            glm::vec3 yh(
-                tgonobj[6].asNumber(), tgonobj[7].asNumber(), tgonobj[8].asNumber()
-            );
-            def.modelExtraPoints.push_back(p1);
-            def.modelExtraPoints.push_back(p1 + xw);
-            def.modelExtraPoints.push_back(p1 + xw + yh);
-            def.modelExtraPoints.push_back(p1 + yh);
-
-            def.modelTextures.emplace_back(tgonobj[9].asString());
-        }
     }
 }
 
@@ -418,17 +375,18 @@ void ContentLoader::loadItem(
     std::string iconTypeStr = "";
     root.at("icon-type").get(iconTypeStr);
     if (iconTypeStr == "none") {
-        def.iconType = item_icon_type::none;
+        def.iconType = ItemIconType::NONE;
     } else if (iconTypeStr == "block") {
-        def.iconType = item_icon_type::block;
+        def.iconType = ItemIconType::BLOCK;
     } else if (iconTypeStr == "sprite") {
-        def.iconType = item_icon_type::sprite;
+        def.iconType = ItemIconType::SPRITE;
     } else if (iconTypeStr.length()) {
         logger.error() << name << ": unknown icon type" << iconTypeStr;
     }
     root.at("icon").get(def.icon);
     root.at("placing-block").get(def.placingBlock);
     root.at("script-name").get(def.scriptName);
+    root.at("model-name").get(def.modelName);
     root.at("stack-size").get(def.stackSize);
 
     // item light emission [r, g, b] where r,g,b in range [0..15]
@@ -532,7 +490,7 @@ void ContentLoader::loadBlock(
         auto& item = builder.items.create(full + BLOCK_ITEM_SUFFIX);
         item.generated = true;
         item.caption = def.caption;
-        item.iconType = item_icon_type::block;
+        item.iconType = ItemIconType::BLOCK;
         item.icon = full;
         item.placingBlock = full;
 

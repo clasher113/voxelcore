@@ -34,8 +34,7 @@ namespace xml {
 	class Document;
 }
 enum class BlockModel;
-enum class item_icon_type;
-
+enum class ItemIconType;
 
 namespace workshop {
 	class Preview;
@@ -64,7 +63,7 @@ namespace workshop {
 		void createPanel(const std::function<gui::Panel& ()>& lambda, unsigned int column, float posX = PANEL_POSITION_AUTO);
 
 		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model);
-		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, item_icon_type iconType);
+		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, ItemIconType iconType);
 
 		void createAddingUIElementPanel(float posX, const std::function<void(const std::string&)>& callback, unsigned int filter);
 

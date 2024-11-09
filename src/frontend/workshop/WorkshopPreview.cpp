@@ -23,7 +23,6 @@
 #include "maths/rays.hpp"
 #include "objects/EntityDef.hpp"
 #include "objects/rigging.hpp"
-#include "graphics/core/Model.hpp"
 
 #include <cstring>
 #include <glm/gtx/intersect.hpp>
@@ -242,31 +241,31 @@ bool Preview::rayCast(float cursorX, float cursorY, size_t& returnIndex) {
 
 		scalar_t distanceMin = std::numeric_limits<scalar_t>::max();
 		glm::ivec3 normal;
-		for (const auto& box : currentBlock->modelBoxes) {
-			scalar_t distance = 0.f;
-			if (ray.intersectAABB(glm::dvec3(0.0), box, 100.f, normal, distance) > RayRelation::None && distance < distanceMin) {
-				lookAtPrimitive = PrimitiveType::AABB;
-				lookAtAABB.a = box.a + (box.b - box.a) / 2.f - 0.5f;
-				lookAtAABB.b = box.b - box.a;
-				returnIndex = &box - &currentBlock->modelBoxes.front();
-				distanceMin = distance;
-			}
-		}
-		for (size_t i = 0; i < currentBlock->modelExtraPoints.size(); i += 4) {
-			const glm::vec3* const elem = &currentBlock->modelExtraPoints[i];
-			glm::vec2 distance(std::numeric_limits<float>::max());
-			glm::vec2 pos;
-			if ((glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[1], elem[2], pos, distance.x) ||
-				glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[2], elem[3], pos, distance.y)) &&
-				std::min(distance.x, distance.y) < distanceMin) {
-				lookAtPrimitive = PrimitiveType::TETRAGON;
-				for (size_t j = 0; j < 4; j++) {
-					lookAtTetragon[j] = elem[j] - 0.5f;
-				}
-				returnIndex = i / 4;
-				distanceMin = std::min(distance.x, distance.y);
-			}
-		}
+		//for (const auto& box : currentBlock->modelBoxes) {
+		//	scalar_t distance = 0.f;
+		//	if (ray.intersectAABB(glm::dvec3(0.0), box, 100.f, normal, distance) > RayRelation::None && distance < distanceMin) {
+		//		lookAtPrimitive = PrimitiveType::AABB;
+		//		lookAtAABB.a = box.a + (box.b - box.a) / 2.f - 0.5f;
+		//		lookAtAABB.b = box.b - box.a;
+		//		returnIndex = &box - &currentBlock->modelBoxes.front();
+		//		distanceMin = distance;
+		//	}
+		//}
+		//for (size_t i = 0; i < currentBlock->modelExtraPoints.size(); i += 4) {
+		//	const glm::vec3* const elem = &currentBlock->modelExtraPoints[i];
+		//	glm::vec2 distance(std::numeric_limits<float>::max());
+		//	glm::vec2 pos;
+		//	if ((glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[1], elem[2], pos, distance.x) ||
+		//		glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[2], elem[3], pos, distance.y)) &&
+		//		std::min(distance.x, distance.y) < distanceMin) {
+		//		lookAtPrimitive = PrimitiveType::TETRAGON;
+		//		for (size_t j = 0; j < 4; j++) {
+		//			lookAtTetragon[j] = elem[j] - 0.5f;
+		//		}
+		//		returnIndex = i / 4;
+		//		distanceMin = std::min(distance.x, distance.y);
+		//	}
+		//}
 	}
 	return lookAtPrimitive == PrimitiveType::AABB || lookAtPrimitive == PrimitiveType::TETRAGON;
 }

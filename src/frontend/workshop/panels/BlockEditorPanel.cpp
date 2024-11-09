@@ -63,12 +63,12 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		};
 		auto atlas = [this, item, &block](const std::string& pickingItem) {
 			const ItemDef* const i = item(pickingItem);
-			if (i->iconType == item_icon_type::block) return previewAtlas;
+			if (i->iconType == ItemIconType::BLOCK) return previewAtlas;
 			return getAtlas(assets, i->icon);
 		};
 		auto texName = [](const ItemDef* const item) {
-			if (item->iconType == item_icon_type::none) return std::string("transparent");
-			if (item->iconType == item_icon_type::block) return item->icon;
+			if (item->iconType == ItemIconType::NONE) return std::string("transparent");
+			if (item->iconType == ItemIconType::BLOCK) return item->icon;
 			return getTexName(item->icon);
 		};
 		gui::IconButton& pickingItem = *new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), block.pickingItem, atlas(block.pickingItem),
@@ -97,7 +97,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 			}
 			else {
 				createCustomModelEditor(block, 0, PrimitiveType::HITBOX);
-				createTexturesPanel(texturePanel, 35.f, block.textureFaces, block.model);
+				createTexturesPanel(texturePanel, 35.f, block.textureFaces.data(), block.model);
 			}
 			texturePanel.cropToContent();
 			panel.refresh();

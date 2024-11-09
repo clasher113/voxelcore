@@ -177,6 +177,11 @@ namespace lua {
         return 1;
     }
 
+    inline int pushlstring(lua::State* L, const void* chars, size_t size) {
+        lua_pushlstring(L, reinterpret_cast<const char*>(chars), size);
+        return 1;
+    }
+
     template <typename... Args>
     inline int pushfstring(lua_State* L, const char* fmt, Args... args) {
         lua_pushfstring(L, fmt, args...);
@@ -456,7 +461,16 @@ namespace lua {
         if (!isstring(L, idx)) {
             throw luaerror("string expected at " + std::to_string(idx));
         }
-        return tostring(L, idx);
+        return lua_tostring(L, idx);
+    }
+
+    inline std::string_view require_lstring(lua::State* L, int idx) {
+        if (!isstring(L, idx)) {
+            throw luaerror("string expected at " + std::to_string(idx));
+        }
+        size_t len;
+        const char* chars = lua_tolstring(L, idx, &len);
+        return std::string_view(chars, len);
     }
 
     std::wstring require_wstring(lua::State*, int idx);
@@ -583,6 +597,23 @@ namespace lua {
         createtable(L, 0, 0);
         luaL_setfuncs(L, libfuncs, 0);
         setglobal(L, name);
+    }
+
+    inline void openlib(
+        lua::State* L,
+        const std::string& package,
+        const std::string& name,
+        const luaL_Reg* libfuncs
+    ) {
+        if (!hasglobal(L, package)) {
+            createtable(L, 0, 1);
+            setglobal(L, package);
+        }
+        getglobal(L, package);
+        createtable(L, 0, 0);
+        luaL_setfuncs(L, libfuncs, 0);
+        setfield(L, name);
+        pop(L);
     }
 
     inline const char* require_string_field(

@@ -56,11 +56,14 @@
 
 using namespace gui;
 
+bool Hud::showGeneratorMinimap = false;
+
 // implemented in debug_panel.cpp
 extern std::shared_ptr<UINode> create_debug_panel(
-    Engine* engine, 
-    Level* level, 
-    Player* player
+    Engine* engine,
+    Level* level,
+    Player* player,
+    bool allowDebugCheats
 );
 
 HudElement::HudElement(
@@ -147,7 +150,8 @@ std::shared_ptr<InventoryView> Hud::createHotbar() {
 static constexpr uint WORLDGEN_IMG_SIZE = 128U;
 
 Hud::Hud(Engine* engine, LevelFrontend* frontend, Player* player)
-    : assets(engine->getAssets()),
+    : engine(engine),
+      assets(engine->getAssets()),
       gui(engine->getGUI()),
       frontend(frontend),
       player(player),
@@ -173,12 +177,14 @@ Hud::Hud(Engine* engine, LevelFrontend* frontend, Player* player)
     uicamera->perspective = false;
     uicamera->flipped = true;
 
-    debugPanel = create_debug_panel(engine, frontend->getLevel(), player);
+    debugPanel = create_debug_panel(
+        engine, frontend->getLevel(), player, allowDebugCheats
+    );
     debugPanel->setZIndex(2);
+    gui->add(debugPanel);
     
     gui->add(darkOverlay);
     gui->add(hotbarView);
-    gui->add(debugPanel);
     gui->add(contentAccessPanel);
 
     auto dplotter = std::make_shared<Plotter>(350, 250, 2000, 16);
@@ -188,11 +194,11 @@ Hud::Hud(Engine* engine, LevelFrontend* frontend, Player* player)
 
     assets->store(Texture::from(debugImgWorldGen.get()), DEBUG_WORLDGEN_IMAGE);
 
-    add(HudElement(hud_element_mode::permanent, nullptr, 
-        guiutil::create(
+    debugMinimap = guiutil::create(
             "<image src='"+DEBUG_WORLDGEN_IMAGE+
             "' pos='0' size='256' gravity='top-right' margin='0,20,0,0'/>"
-        ), true));
+        );
+    add(HudElement(hud_element_mode::permanent, nullptr, debugMinimap, true));
 }
 
 Hud::~Hud() {
@@ -224,7 +230,7 @@ void Hud::processInput(bool visible) {
             setPause(true);
         }
     }
-    if (!pause && Events::active(BIND_DEVTOOLS_CONSOLE)) {
+    if (!pause && Events::jactive(BIND_DEVTOOLS_CONSOLE)) {
         showOverlay(assets->get<UiDocument>("core:console"), false);
     }
     if (!Window::isFocused() && !pause && !isInventoryOpen()) {
@@ -346,7 +352,7 @@ void Hud::update(bool visible) {
     }
 
     glm::vec2 invSize = contentAccessPanel->getSize();
-    contentAccessPanel->setVisible(inventoryView != nullptr);
+    contentAccessPanel->setVisible(inventoryView != nullptr && showContentPanel);
     contentAccessPanel->setSize(glm::vec2(invSize.x, Window::height));
     contentAccess->setMinSize(glm::vec2(1, Window::height));
     hotbarView->setVisible(visible && !(secondUI && !inventoryView));
@@ -361,7 +367,8 @@ void Hud::update(bool visible) {
     }
     cleanup();
 
-    if (player->debug) {
+    debugMinimap->setVisible(player->debug && showGeneratorMinimap);
+    if (player->debug && showGeneratorMinimap) {
         updateWorldGenDebugVisualization();
     }
 }
@@ -551,7 +558,9 @@ void Hud::updateElementsPosition(const Viewport& viewport) {
     const uint height = viewport.getHeight();
     
     if (inventoryOpen) {
-        float caWidth = inventoryView ? contentAccess->getSize().x : 0.0f;
+        float caWidth = inventoryView && showContentPanel
+                            ? contentAccess->getSize().x
+                            : 0.0f;
         contentAccessPanel->setPos(glm::vec2(width-caWidth, 0));
 
         glm::vec2 invSize = inventoryView ? inventoryView->getSize() : glm::vec2();
@@ -625,4 +634,23 @@ std::shared_ptr<Inventory> Hud::getBlockInventory() {
         return nullptr;
     }
     return blockUI->getInventory();
+}
+
+bool Hud::isContentAccess() const {
+    return showContentPanel;
+}
+
+void Hud::setContentAccess(bool flag) {
+    showContentPanel = flag;
+}
+
+void Hud::setDebugCheats(bool flag) {
+    allowDebugCheats = flag;
+    
+    gui->remove(debugPanel);
+    debugPanel = create_debug_panel(
+        engine, frontend->getLevel(), player, allowDebugCheats
+    );
+    debugPanel->setZIndex(2);
+    gui->add(debugPanel);
 }

@@ -10,6 +10,8 @@
 #include "voxels/Block.hpp"
 #include "voxels/Chunk.hpp"
 #include "voxels/VoxelsVolume.hpp"
+#include "graphics/core/MeshData.hpp"
+#include "maths/util.hpp"
 
 class Content;
 class Mesh;
@@ -33,12 +35,15 @@ class BlocksRenderer {
     size_t capacity;
     int voxelBufferPadding = 2;
     bool overflow = false;
+    bool cancelled = false;
     const Chunk* chunk = nullptr;
     std::unique_ptr<VoxelsVolume> voxelsBuffer;
 
     const Block* const* blockDefsCache;
     const ContentGfxCache* const cache;
     const EngineSettings* settings;
+    
+    util::PseudoRandom randomizer;
 
     void vertex(const glm::vec3& coord, float u, float v, const glm::vec4& light);
     void index(int a, int b, int c, int d, int e, int f);
@@ -75,16 +80,6 @@ class BlocksRenderer {
         const glm::vec3& axisY,
         const glm::vec3& axisZ,
         const UVRegion& region,
-        bool lights
-    );
-    void tetragonicFace(
-        const glm::vec3& coord,
-        const glm::vec3& p1, const glm::vec3& p2,
-        const glm::vec3& p3, const glm::vec3& p4,
-        const glm::vec3& X,
-        const glm::vec3& Y,
-        const glm::vec3& Z,
-        const UVRegion& texreg,
         bool lights
     );
     void blockCube(
@@ -147,6 +142,10 @@ public:
 
     void build(const Chunk* chunk, const ChunksStorage* chunks);
     std::shared_ptr<Mesh> render(const Chunk* chunk, const ChunksStorage* chunks);
-    std::shared_ptr<Mesh> createMesh();
+    MeshData createMesh();
     VoxelsVolume* getVoxelsBuffer() const;
+
+    bool isCancelled() const {
+        return cancelled;
+    }
 };

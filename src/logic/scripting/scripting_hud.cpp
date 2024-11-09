@@ -4,6 +4,7 @@
 #include "engine.hpp"
 #include "files/files.hpp"
 #include "frontend/hud.hpp"
+#include "graphics/render/WorldRenderer.hpp"
 #include "objects/Player.hpp"
 #include "lua/libs/api_lua.hpp"
 #include "lua/lua_engine.hpp"
@@ -14,15 +15,25 @@ using namespace scripting;
 static debug::Logger logger("scripting-hud");
 
 Hud* scripting::hud = nullptr;
+WorldRenderer* scripting::renderer = nullptr;
 
-void scripting::on_frontend_init(Hud* hud) {
+void scripting::on_frontend_init(Hud* hud, WorldRenderer* renderer) {
     scripting::hud = hud;
-    lua::openlib(lua::get_main_state(), "hud", hudlib);
+    scripting::renderer = renderer;
+
+    auto L = lua::get_main_state();
+
+    lua::openlib(L, "hud", hudlib);
+    lua::openlib(L, "gfx", "particles", particleslib);
+
+    if (lua::getglobal(L, "__vc_create_hud_rules")) {
+        lua::call_nothrow(L, 0, 0);
+    }
 
     for (auto& pack : engine->getContentPacks()) {
         lua::emit_event(
             lua::get_main_state(),
-            pack.id + ".hudopen",
+            pack.id + ":.hudopen",
             [&](lua::State* L) {
                 return lua::pushinteger(L, hud->getPlayer()->getId());
             }
@@ -34,7 +45,7 @@ void scripting::on_frontend_render() {
     for (auto& pack : engine->getContentPacks()) {
         lua::emit_event(
             lua::get_main_state(),
-            pack.id + ".hudrender",
+            pack.id + ":.hudrender",
             [&](lua::State* L) { return 0; }
         );
     }
@@ -44,7 +55,7 @@ void scripting::on_frontend_close() {
     for (auto& pack : engine->getContentPacks()) {
         lua::emit_event(
             lua::get_main_state(),
-            pack.id + ".hudclose",
+            pack.id + ":.hudclose",
             [&](lua::State* L) {
                 return lua::pushinteger(L, hud->getPlayer()->getId());
             }
@@ -62,8 +73,8 @@ void scripting::load_hud_script(
 
     lua::execute(lua::get_main_state(), env, src, file.u8string());
 
-    register_event(env, "init", packid + ".init");
-    register_event(env, "on_hud_open", packid + ".hudopen");
-    register_event(env, "on_hud_render", packid + ".hudrender");
-    register_event(env, "on_hud_close", packid + ".hudclose");
+    register_event(env, "init", packid + ":.init");
+    register_event(env, "on_hud_open", packid + ":.hudopen");
+    register_event(env, "on_hud_render", packid + ":.hudrender");
+    register_event(env, "on_hud_close", packid + ":.hudclose");
 }

@@ -1,6 +1,10 @@
 # *world* library
 
 ```lua
+-- Checks if world is open
+world.is_open() -> bool
+
+-- Returns worlds information.
 world.get_list() -> tables array {
     -- world name
     name: str,
@@ -26,6 +30,9 @@ world.get_total_time() -> number
 
 -- Returns world seed.
 world.get_seed() -> int
+
+-- Returns generator name.
+world.get_generator() -> str
 
 -- Proves that this is the current time during the day 
 -- from 0.333(8 am) to 0.833(8 pm).

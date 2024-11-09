@@ -44,17 +44,17 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 	dv::value root = dv::object();
 
 	if (block.model != BlockModel::custom) {
-		if (!std::equal(block.textureFaces->begin(), block.textureFaces->end(), master.textureFaces->begin(), master.textureFaces->end())) {
-			if (std::all_of(std::cbegin(block.textureFaces), std::cend(block.textureFaces), [&r = block.textureFaces[0]](const std::string& value) {return value == r; })) {
-				root["texture"] = block.textureFaces[0];
-			}
-			else {
-				dv::value& texarr = root.list("texture-faces");
-				for (size_t i = 0; i < 6; i++) {
-					texarr.add(block.textureFaces[i]);
-				}
-			}
-		}
+		//if (!std::equal(block.textureFaces->begin(), block.textureFaces->end(), master.textureFaces->begin(), master.textureFaces->end())) {
+		//	if (std::all_of(std::cbegin(block.textureFaces), std::cend(block.textureFaces), [&r = block.textureFaces[0]](const std::string& value) {return value == r; })) {
+		//		root["texture"] = block.textureFaces[0];
+		//	}
+		//	else {
+		//		dv::value& texarr = root.list("texture-faces");
+		//		for (size_t i = 0; i < 6; i++) {
+		//			texarr.add(block.textureFaces[i]);
+		//		}
+		//	}
+		//}
 	}
 #define NOT_EQUAL(MEMBER) master.MEMBER != block.MEMBER
 	
@@ -106,16 +106,16 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 			}
 		}
 		else if (!block.hitboxes.empty()) {
-			if (!std::equal(block.hitboxes.begin(), block.hitboxes.end(), block.modelBoxes.begin(), block.modelBoxes.end(), [](const AABB& hitbox, const AABB& modelBox) {
-				return hitbox == modelBox;
-			})) {
-				dv::value& hitboxesArr = root.list("hitboxes");
-				for (const auto& hitbox : block.hitboxes) {
-					dv::value& hitboxArr = hitboxesArr.list();
-					hitboxArr.multiline = false;
-					putAABB(hitboxArr, hitbox);
-				}
-			}
+			//if (!std::equal(block.hitboxes.begin(), block.hitboxes.end(), block.modelBoxes.begin(), block.modelBoxes.end(), [](const AABB& hitbox, const AABB& modelBox) {
+			//	return hitbox == modelBox;
+			//})) {
+			//	dv::value& hitboxesArr = root.list("hitboxes");
+			//	for (const auto& hitbox : block.hitboxes) {
+			//		dv::value& hitboxArr = hitboxesArr.list();
+			//		hitboxArr.multiline = false;
+			//		putAABB(hitboxArr, hitbox);
+			//	}
+			//}
 		}
 	}
 
@@ -125,38 +125,38 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 	if (block.model == BlockModel::custom) {
 		dv::value& model = root.object("model-primitives");
 		size_t textureOffset = 0;
-		const size_t parentTexSize = parent ? parent->modelTextures.size() : 0;
-		if (!block.modelBoxes.empty()) {
-			const size_t parentPrimitiveSize = parent ? parent->modelBoxes.size() : 0;
-			if (parentPrimitiveSize != block.modelBoxes.size()) {
-				dv::value& aabbs = model.list("aabbs");
-				for (size_t i = parentPrimitiveSize; i < block.modelBoxes.size(); i++) {
-					dv::value& aabb = aabbs.list();
-					aabb.multiline = false;
-					putAABB(aabb, block.modelBoxes[i]);
-					const size_t textures = (isElementsEqual(block.modelTextures, textureOffset, 6) ? 1 : 6);
-					for (size_t j = 0; j < textures; j++) {
-						aabb.add(block.modelTextures[textureOffset + j - parentTexSize]);
-					}
-					textureOffset += 6;
-				}
-			}
-		}
-		if (!block.modelExtraPoints.empty()) {
-			const size_t parentPrimitiveSize = parent ? parent->modelBoxes.size() : 0;
-			if (parentPrimitiveSize != block.modelExtraPoints.size()) {
-				dv::value& tetragons = model.list("tetragons");
-				for (size_t i = parentPrimitiveSize; i < block.modelExtraPoints.size(); i += 4) {
-					dv::value& tetragon = tetragons.list();
-					tetragon.multiline = false;
-					putVec3(tetragon, block.modelExtraPoints[i]);
-					putVec3(tetragon, block.modelExtraPoints[i + 1] - block.modelExtraPoints[i]);
-					putVec3(tetragon, block.modelExtraPoints[i + 3] - block.modelExtraPoints[i]);
-					tetragon.add(block.modelTextures[textureOffset - parentTexSize]);
-					textureOffset++;
-				}
-			}
-		}
+		//const size_t parentTexSize = parent ? parent->modelTextures.size() : 0;
+		//if (!block.modelBoxes.empty()) {
+		//	const size_t parentPrimitiveSize = parent ? parent->modelBoxes.size() : 0;
+		//	if (parentPrimitiveSize != block.modelBoxes.size()) {
+		//		dv::value& aabbs = model.list("aabbs");
+		//		for (size_t i = parentPrimitiveSize; i < block.modelBoxes.size(); i++) {
+		//			dv::value& aabb = aabbs.list();
+		//			aabb.multiline = false;
+		//			putAABB(aabb, block.modelBoxes[i]);
+		//			const size_t textures = (isElementsEqual(block.modelTextures, textureOffset, 6) ? 1 : 6);
+		//			for (size_t j = 0; j < textures; j++) {
+		//				aabb.add(block.modelTextures[textureOffset + j - parentTexSize]);
+		//			}
+		//			textureOffset += 6;
+		//		}
+		//	}
+		//}
+		//if (!block.modelExtraPoints.empty()) {
+		//	const size_t parentPrimitiveSize = parent ? parent->modelBoxes.size() : 0;
+		//	if (parentPrimitiveSize != block.modelExtraPoints.size()) {
+		//		dv::value& tetragons = model.list("tetragons");
+		//		for (size_t i = parentPrimitiveSize; i < block.modelExtraPoints.size(); i += 4) {
+		//			dv::value& tetragon = tetragons.list();
+		//			tetragon.multiline = false;
+		//			putVec3(tetragon, block.modelExtraPoints[i]);
+		//			putVec3(tetragon, block.modelExtraPoints[i + 1] - block.modelExtraPoints[i]);
+		//			putVec3(tetragon, block.modelExtraPoints[i + 3] - block.modelExtraPoints[i]);
+		//			tetragon.add(block.modelTextures[textureOffset - parentTexSize]);
+		//			textureOffset++;
+		//		}
+		//	}
+		//}
 		if (model.size() == 0) root.erase("model-primitives");
 	}
 
@@ -177,11 +177,11 @@ dv::value workshop::toJson(const ItemDef& item, const std::string& actualName, c
 	if (NOT_EQUAL(iconType)) {
 		std::string iconStr("");
 		switch (item.iconType) {
-			case item_icon_type::none: iconStr = "none";
+			case ItemIconType::NONE: iconStr = "none";
 				break;
-			case item_icon_type::block: iconStr = "block";
+			case ItemIconType::BLOCK: iconStr = "block";
 				break;
-			case item_icon_type::sprite: iconStr = "sprite";
+			case ItemIconType::SPRITE: iconStr = "sprite";
 				break;
 		}
 		if (!iconStr.empty()) root["icon-type"] = iconStr;

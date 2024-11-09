@@ -8,7 +8,7 @@
 #include "../WorkshopPreview.hpp"
 #include "objects/EntityDef.hpp"
 #include "frontend/UiDocument.hpp"
-#include "graphics/core/Model.hpp"
+#include "graphics/commons/Model.hpp"
 #include "graphics/core/Texture.hpp"
 
 #include <algorithm>
@@ -114,7 +114,7 @@ void workshop::WorkShopScreen::createContentList(ContentType type, bool showAll,
 			if (type == ContentType::ITEM) {
 				ItemDef& item = *const_cast<ItemDef*>(content->items.find(fullName));
 				validateItem(assets, item);
-				if (item.iconType == item_icon_type::block)
+				if (item.iconType == ItemIconType::BLOCK)
 					textureName = item.icon;
 				else {
 					contentAtlas = getAtlas(assets, item.icon);

@@ -5,6 +5,7 @@
 
 #include "core_defs.hpp"
 #include "data/StructLayout.hpp"
+#include "presets/ParticlesPreset.hpp"
 #include "util/stringutil.hpp"
 
 std::string to_string(BlockModel model) {
@@ -113,16 +114,13 @@ Block::Block(std::string name, const std::string& texture)
 void Block::cloneTo(Block& dst) {
     dst.caption = caption;
     for (int i = 0; i < 6; i++) {
-            dst.textureFaces[i] = textureFaces[i];
+        dst.textureFaces[i] = textureFaces[i];
     }
-    dst.modelTextures = modelTextures;
-    dst.modelBoxes = modelBoxes;
-    dst.modelExtraPoints = modelExtraPoints;
-    dst.modelUVs = modelUVs;
     dst.material = material;
     std::copy(&emission[0], &emission[3], dst.emission);
     dst.size = size;
     dst.model = model;
+    dst.drawGroup = drawGroup;
     dst.lightPassing = lightPassing;
     dst.skyLightPassing = skyLightPassing;
     dst.shadeless = shadeless;
@@ -141,6 +139,11 @@ void Block::cloneTo(Block& dst) {
     dst.uiLayout = uiLayout;
     dst.inventorySize = inventorySize;
     dst.tickInterval = tickInterval;
+    dst.overlayTexture = overlayTexture;
+    if (particles) {
+        dst.particles = std::make_unique<ParticlesPreset>(*particles);
+    }
+    dst.customModelRaw = customModelRaw;
 }
 
 static std::set<std::string, std::less<>> RESERVED_BLOCK_FIELDS {

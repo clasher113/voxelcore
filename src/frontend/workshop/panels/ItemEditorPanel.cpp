@@ -37,10 +37,10 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 			return NOT_SET;
 		};
 		auto parentIcoTexName = [parentIcoName](const ItemDef* const parent) {
-			return parentIcoName(parent) == NOT_SET ? CORE_AIR : (parent->iconType == item_icon_type::block ? parent->icon : getTexName(parent->icon));
+			return parentIcoName(parent) == NOT_SET ? CORE_AIR : (parent->iconType == ItemIconType::BLOCK ? parent->icon : getTexName(parent->icon));
 		};
 		auto parentIcoAtlas = [this, parentIcoName](const ItemDef* const parent) {
-			return parentIcoName(parent) == NOT_SET ? previewAtlas : (parent->iconType == item_icon_type::block ? previewAtlas : getAtlas(assets, parent->icon));
+			return parentIcoName(parent) == NOT_SET ? previewAtlas : (parent->iconType == ItemIconType::BLOCK ? previewAtlas : getAtlas(assets, parent->icon));
 		};
 
 		BackupData& backupData = itemsList[actualName];
@@ -74,7 +74,7 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 		button->listenAction([this, button, iconTypes, &item, &textureIco, &panel](gui::GUI*) {
 			const char* const icons[] = { CORE_AIR.c_str(), "blocks:notfound", CORE_AIR.c_str() };
 			item.iconType = incrementEnumClass(item.iconType, 1);
-			if (item.iconType > item_icon_type::block) item.iconType = item_icon_type::none;
+			if (item.iconType > ItemIconType::BLOCK) item.iconType = ItemIconType::NONE;
 			item.icon = icons[static_cast<size_t>(item.iconType)];
 			removePanels(3);
 			button->setText(L"Icon type: " + std::wstring(iconTypes[static_cast<unsigned int>(item.iconType)]));
@@ -87,7 +87,7 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 
 		panel += new gui::Label(L"Placing block");
 		gui::Panel& placingBlockPanel = *new gui::Panel(glm::vec2(panel.getSize().x, 35.f));
-		createTexturesPanel(placingBlockPanel, 35.f, item.placingBlock, item_icon_type::block);
+		createTexturesPanel(placingBlockPanel, 35.f, item.placingBlock, ItemIconType::BLOCK);
 		panel += placingBlockPanel;
 
 		panel += new gui::Label("Script file");
