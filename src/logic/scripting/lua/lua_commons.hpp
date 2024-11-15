@@ -1,8 +1,7 @@
-#ifndef LOGIC_SCRIPTING_LUA_HPP_
-#define LOGIC_SCRIPTING_LUA_HPP_
+#pragma once
 
-#include "../../../delegates.hpp"
-#include "../scripting.hpp"
+#include "delegates.hpp"
+#include "logic/scripting/scripting.hpp"
 
 #ifdef __linux__
 #include <luajit-2.1/luaconf.h>
@@ -25,11 +24,29 @@ namespace lua {
         luaerror(const std::string& message);
     };
 
-    void log_error(const std::string& text);
-
     using State = lua_State;
     using Number = lua_Number;
     using Integer = lua_Integer;
-}
 
-#endif  // LOGIC_SCRIPTING_LUA_HPP_
+    /// @brief Automatically resets stack top element index to the initial state
+    /// (when stackguard was created). Prevents Lua stack leak on exception
+    /// occurred out of Lua execution time, when engine controls scripting.
+    ///
+    ///
+    /// stackguard allows to not place lua::pop(...) into 'catch' blocks.
+    class stackguard {
+        int top;
+        State* state;
+    public:
+        stackguard(State* state) : state(state) {
+            top = lua_gettop(state);
+        }
+
+        ~stackguard() {
+            lua_settop(state, top);
+        }
+    };
+
+    void log_error(const std::string& text);
+
+}

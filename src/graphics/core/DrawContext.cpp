@@ -3,16 +3,16 @@
 #include <utility>
 
 #ifdef USE_DIRECTX
-#include "../../directx/window/DXDevice.hpp"
-#include "../../directx/graphics/DXFramebuffer.hpp"
-#include "../../directx/graphics/DXLine.hpp"
+#include "directx/window/DXDevice.hpp"
+#include "directx/graphics/DXFramebuffer.hpp"
+#include "directx/graphics/DXLine.hpp"
 #elif USE_OPENGL
 #include <GL/glew.h>
 #include "Framebuffer.hpp"
 #endif // USE_DIRECTX
 
 #include "Batch2D.hpp"
-#include "../../window/Window.hpp"
+#include "window/Window.hpp"
 
 static void set_blend_mode(BlendMode mode) {
     switch (mode) {

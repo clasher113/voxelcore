@@ -1,9 +1,8 @@
-#ifndef VOXELS_CHUNKSCONTROLLER_HPP_
-#define VOXELS_CHUNKSCONTROLLER_HPP_
+#pragma once
 
 #include <memory>
 
-#include "../typedefs.hpp"
+#include "typedefs.hpp"
 
 class Level;
 class Chunk;
@@ -29,7 +28,13 @@ public:
     ~ChunksController();
 
     /// @param maxDuration milliseconds reserved for chunks loading
-    void update(int64_t maxDuration);
-};
+    void update(
+        int64_t maxDuration,
+        int loadDistance,
+        int centerX,
+        int centerY);
 
-#endif  // VOXELS_CHUNKSCONTROLLER_HPP_
+    const WorldGenerator* getGenerator() const {
+        return generator.get();
+    }
+};

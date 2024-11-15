@@ -6,16 +6,15 @@
 #include <iomanip>
 #include <sstream>
 
-#include "../data/dynamic.hpp"
-#include "../data/setting.hpp"
-#include "../files/settings_io.hpp"
-#include "../util/stringutil.hpp"
+#include "data/setting.hpp"
+#include "files/settings_io.hpp"
+#include "util/stringutil.hpp"
 #include "commons.hpp"
 
 using namespace toml;
 
 class TomlReader : BasicParser {
-    dynamic::Map_sptr root;
+    dv::value root;
 
     void skipWhitespace() override {
         BasicParser::skipWhitespace();
@@ -27,33 +26,151 @@ class TomlReader : BasicParser {
         }
     }
 
-    dynamic::Map& getSection(const std::string& section) {
-        if (section.empty()) {
-            return *root;
-        }
-        size_t offset = 0;
-        auto& rootMap = *root;
-        do {
-            size_t index = section.find('.', offset);
-            if (index == std::string::npos) {
-                auto map = rootMap.map(section);
-                if (map == nullptr) {
-                    return rootMap.putMap(section);
+    // modified version of BaseParser.parseString
+    // todo: extract common part
+    std::string parseMultilineString() {
+        pos += 2;
+        char next = peek();
+
+        std::stringstream ss;
+        while (hasNext()) {
+            char c = source[pos];
+            if (c == '"' && remain() >= 2 && 
+                source[pos+1] == '"' && 
+                source[pos+2] == '"') {
+                pos += 3;
+                return ss.str();
+            }
+            if (c == '\\') {
+                pos++;
+                c = nextChar();
+                if (c >= '0' && c <= '7') {
+                    pos--;
+                    ss << (char)parseSimpleInt(8);
+                    continue;
                 }
-                return *map;
+                switch (c) {
+                    case 'n': ss << '\n'; break;
+                    case 'r': ss << '\r'; break;
+                    case 'b': ss << '\b'; break;
+                    case 't': ss << '\t'; break;
+                    case 'f': ss << '\f'; break;
+                    case '\'': ss << '\\'; break;
+                    case '"': ss << '"'; break;
+                    case '\\': ss << '\\'; break;
+                    case '/': ss << '/'; break;
+                    case '\n': continue;
+                    default:
+                        throw error(
+                            "'\\" + std::string({c}) + "' is an illegal escape"
+                        );
+                }
+                continue;
             }
-            auto subsection = section.substr(offset, index);
-            auto map = rootMap.map(subsection);
-            if (map == nullptr) {
-                rootMap = rootMap.putMap(subsection);
-            } else {
-                rootMap = *map;
-            }
-            offset = index + 1;
-        } while (true);
+            ss << c;
+            pos++;
+        }
+        throw error("unexpected end");
     }
 
-    void readSection(const std::string& section, dynamic::Map& map) {
+    dv::value parseValue() {
+        char c = peek();
+        if (is_digit(c)) {
+            int start = pos;
+            // parse numeric literal
+            auto value = parseNumber(1);
+            if (hasNext() && peekNoJump() == '-') {
+                while (hasNext()) {
+                    c = source[pos];
+                    if (!is_digit(c) && c != ':' && c != '.' && c != '-' &&
+                        c != 'T' && c != 'Z') {
+                        break;
+                    }
+                    pos++;
+                }
+                return std::string(source.substr(start, pos - start));
+            }
+            return value;
+        } else if (c == '-' || c == '+') {
+            int sign = c == '-' ? -1 : 1;
+            pos++;
+            // parse numeric literal
+            return parseNumber(sign);
+        } else if (is_identifier_start(c)) {
+            // parse keywords
+            std::string keyword = parseName();
+            if (keyword == "true" || keyword == "false") {
+                return keyword == "true";
+            } else if (keyword == "inf") {
+                return INFINITY;
+            } else if (keyword == "nan") {
+                return NAN;
+            }
+            throw error("unknown keyword " + util::quote(keyword));
+        } else if (c == '"' || c == '\'') {
+            pos++;
+            if (remain() >= 2 && 
+                c  == '"' && 
+                source[pos] == '"' && 
+                source[pos+1] == '"') {
+                return parseMultilineString();
+            }
+            return parseString(c);
+        } else if (c == '[') {
+            // parse array
+            pos++;
+            dv::list_t values;
+            while (peek() != ']') {
+                values.push_back(parseValue());
+                if (peek() != ']') {
+                    expect(',');
+                }
+            }
+            pos++;
+            return dv::value(std::move(values));
+        } else if (c == '{') {
+            // parse inline table
+            pos++;
+            auto table = dv::object();
+            while (peek() != '}') {
+                auto key = parseName();
+                expect('=');
+                table[key] = parseValue();
+                if (peek() != '}') {
+                    expect(',');
+                }
+            }
+            pos++;
+            return table;
+        } else {
+            throw error("feature is not supported");
+        }
+    }
+
+    dv::value& parseLValue(dv::value& root) {
+        dv::value* lvalue = &root;
+        while (hasNext()) {
+            char c = peek();
+            std::string name;
+            if (c == '\'' || c == '"') {
+                pos++;
+                name = parseString(c);
+            } else {
+                name = parseName();
+            }
+            if (lvalue->getType() == dv::value_type::none) {
+                *lvalue = dv::object();
+            }
+            lvalue = &(*lvalue)[name];
+            if (peek() != '.') {
+                break;
+            }
+            pos++;
+        }
+        return *lvalue;
+    }
+
+    void readSection(dv::value& map, dv::value& root) {
         while (hasNext()) {
             skipWhitespace();
             if (!hasNext()) {
@@ -61,72 +178,65 @@ class TomlReader : BasicParser {
             }
             char c = nextChar();
             if (c == '[') {
-                std::string name = parseName();
-                pos++;
-                readSection(name, getSection(name));
+                if (hasNext() && peek() == '[') {
+                    pos++;
+                    // parse list of tables
+                    dv::value& list = parseLValue(root);
+                    if (list == nullptr) {
+                        list = dv::list();
+                    } else if (!list.isList()) {
+                        throw error("target is not an array");
+                    }
+                    expect(']');
+                    expect(']');
+                    dv::value section = dv::object();
+                    readSection(section, root);
+                    list.add(std::move(section));
+                    return;
+                }
+                // parse table
+                dv::value& section = parseLValue(root);
+                if (section == nullptr) {
+                    section = dv::object();
+                } else if (!section.isObject()) {
+                    throw error("target is not a table");
+                }
+                expect(']');
+                readSection(section, root);
                 return;
             }
             pos--;
-            std::string name = parseName();
+            dv::value& lvalue = parseLValue(map);
             expect('=');
-            c = peek();
-            if (is_digit(c)) {
-                map.put(name, parseNumber(1));
-            } else if (c == '-' || c == '+') {
-                int sign = c == '-' ? -1 : 1;
-                pos++;
-                map.put(name, parseNumber(sign));
-            } else if (is_identifier_start(c)) {
-                std::string identifier = parseName();
-                if (identifier == "true" || identifier == "false") {
-                    map.put(name, identifier == "true");
-                } else if (identifier == "inf") {
-                    map.put(name, INFINITY);
-                } else if (identifier == "nan") {
-                    map.put(name, NAN);
-                }
-            } else if (c == '"' || c == '\'') {
-                pos++;
-                map.put(name, parseString(c));
-            } else {
-                throw error("feature is not supported");
-            }
+            lvalue = parseValue();
             expectNewLine();
         }
     }
 public:
     TomlReader(std::string_view file, std::string_view source)
-        : BasicParser(file, source) {
-        root = dynamic::create_map();
+        : BasicParser(file, source), root(dv::object()) {
     }
 
-    dynamic::Map_sptr read() {
+    dv::value read() {
         skipWhitespace();
         if (!hasNext()) {
-            return root;
+            return std::move(root);
         }
-        readSection("", *root);
-        return root;
+        readSection(root, root);
+        return std::move(root);
     }
 };
-
-dynamic::Map_sptr toml::parse(std::string_view file, std::string_view source) {
-    return TomlReader(file, source).read();
-}
 
 void toml::parse(
     SettingsHandler& handler, std::string_view file, std::string_view source
 ) {
     auto map = parse(file, source);
-    for (auto& entry : map->values) {
-        const auto& sectionName = entry.first;
-        auto sectionMap = std::get_if<dynamic::Map_sptr>(&entry.second);
-        if (sectionMap == nullptr) {
+    
+    for (const auto& [sectionName, sectionMap] : map.asObject()) {
+        if (!sectionMap.isObject()) {
             continue;
         }
-        for (auto& sectionEntry : (*sectionMap)->values) {
-            const auto& name = sectionEntry.first;
-            auto& value = sectionEntry.second;
+        for (const auto& [name, value] : sectionMap.asObject()) {
             auto fullname = sectionName + "." + name;
             if (handler.has(fullname)) {
                 handler.setValue(fullname, value);
@@ -135,24 +245,24 @@ void toml::parse(
     }
 }
 
-std::string toml::stringify(dynamic::Map& root, const std::string& name) {
+dv::value toml::parse(std::string_view file, std::string_view source) {
+    return TomlReader(file, source).read();
+}
+
+std::string toml::stringify(const dv::value& root, const std::string& name) {
     std::stringstream ss;
     if (!name.empty()) {
         ss << "[" << name << "]\n";
     }
-    for (auto& entry : root.values) {
-        if (!std::holds_alternative<dynamic::Map_sptr>(entry.second)) {
-            ss << entry.first << " = ";
-            ss << entry.second << "\n";
+    for (const auto& [key, value] : root.asObject()) {
+        if (!value.isObject()) {
+            ss << key << " = " << value << "\n";
         }
     }
-    for (auto& entry : root.values) {
-        if (auto submap = std::get_if<dynamic::Map_sptr>(&entry.second)) {
-            ss << "\n"
-               << toml::stringify(
-                      **submap,
-                      name.empty() ? entry.first : name + "." + entry.first
-                  );
+    for (const auto& [key, value] : root.asObject()) {
+        if (value.isObject()) {
+            ss << "\n" << toml::stringify(value,
+                      name.empty() ? key : name + "." + key);
         }
     }
     return ss.str();

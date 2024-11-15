@@ -1,11 +1,11 @@
-#ifndef CONTENT_CONTENT_LOADER_HPP_
-#define CONTENT_CONTENT_LOADER_HPP_
+#pragma once
 
 #include <filesystem>
 #include <memory>
 #include <string>
 
 #include "content_fwd.hpp"
+#include "data/dv.hpp"
 
 namespace fs = std::filesystem;
 
@@ -14,15 +14,12 @@ struct BlockMaterial;
 struct ItemDef;
 struct EntityDef;
 struct ContentPack;
+struct GeneratorDef;
 
+class ResPaths;
 class ContentBuilder;
 class ContentPackRuntime;
 struct ContentPackStats;
-
-namespace dynamic {
-    class Map;
-    class List;
-}
 
 class ContentLoader {
     const ContentPack* pack;
@@ -30,6 +27,7 @@ class ContentLoader {
     scriptenv env;
     ContentBuilder& builder;
     ContentPackStats* stats;
+    const ResPaths& paths;
 
     void loadBlock(
         Block& def, const std::string& full, const std::string& name
@@ -40,29 +38,43 @@ class ContentLoader {
     void loadEntity(
         EntityDef& def, const std::string& full, const std::string& name
     );
+    void loadGenerator(
+        GeneratorDef& def, const std::string& full, const std::string& name
+    );
 
-    static void loadCustomBlockModel(Block& def, dynamic::Map* primitives);
+    static void loadCustomBlockModel(Block& def, const dv::value& primitives);
     static void loadBlockMaterial(BlockMaterial& def, const fs::path& file);
-    static void loadBlock(
+    void loadBlock(
         Block& def, const std::string& name, const fs::path& file
     );
-    static void loadItem(
+    void loadItem(
         ItemDef& def, const std::string& name, const fs::path& file
     );
-    static void loadEntity(
+    void loadEntity(
         EntityDef& def, const std::string& name, const fs::path& file
     );
-    void loadResources(ResourceType type, dynamic::List* list);
-public:
-    ContentLoader(ContentPack* pack, ContentBuilder& builder);
+    void loadResources(ResourceType type, const dv::value& list);
+    void loadResourceAliases(ResourceType type, const dv::value& aliases);
 
-    bool fixPackIndices(
+    void loadContent(const dv::value& map);
+public:
+    ContentLoader(
+        ContentPack* pack,
+        ContentBuilder& builder,
+        const ResPaths& paths
+    );
+
+    // Refresh pack content.json
+    static bool fixPackIndices(
         const fs::path& folder,
-        dynamic::Map* indicesRoot,
+        dv::value& indicesRoot,
         const std::string& contentSection
     );
+
+    static std::vector<std::tuple<std::string, std::string>> scanContent(
+        const ContentPack& pack, ContentType type
+    );
+
     void fixPackIndices();
     void load();
 };
-
-#endif  // CONTENT_CONTENT_LOADER_HPP_

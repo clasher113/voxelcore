@@ -1,11 +1,18 @@
 #include "png.hpp"
 
-#include "../graphics/core/ImageData.hpp"
-#include "../files/files.hpp"
-#include "../debug/Logger.hpp"
-#include "../debug/Logger.hpp"
-#include "../files/files.hpp"
-#include "../graphics/core/ImageData.hpp"
+#include <GL/glew.h>
+
+#include <iostream>
+
+#include "debug/Logger.hpp"
+#include "files/files.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "files/files.hpp"
+#include "debug/Logger.hpp"
+#include "debug/Logger.hpp"
+#include "files/files.hpp"
+#include "graphics/core/ImageData.hpp"
 
 #ifdef USE_DIRECTX
 #include "../directx/graphics/DXTexture.hpp"
@@ -34,7 +41,6 @@ int _png_write(
     FILE* fp = fopen(filename, "wb");
     if (fp == nullptr) {
         logger.error() << "could not open file " << filename << " for writing";
-        fclose(fp);
         return 1;
     }
 

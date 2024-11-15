@@ -7,12 +7,11 @@
 #include <memory>
 #include <stdexcept>
 
-#include "../coders/commons.hpp"
-#include "../coders/gzip.hpp"
-#include "../coders/json.hpp"
-#include "../coders/toml.hpp"
-#include "../data/dynamic.hpp"
-#include "../util/stringutil.hpp"
+#include "coders/commons.hpp"
+#include "coders/gzip.hpp"
+#include "coders/json.hpp"
+#include "coders/toml.hpp"
+#include "util/stringutil.hpp"
 
 namespace fs = std::filesystem;
 
@@ -66,6 +65,12 @@ bool files::read(const fs::path& filename, char* data, size_t size) {
     return true;
 }
 
+util::Buffer<ubyte> files::read_bytes_buffer(const fs::path& path) {
+    size_t size;
+    auto bytes = files::read_bytes(path, size);
+    return util::Buffer<ubyte>(std::move(bytes), size);
+}
+
 std::unique_ptr<ubyte[]> files::read_bytes(
     const fs::path& filename, size_t& length
 ) {
@@ -116,30 +121,30 @@ bool files::write_string(const fs::path& filename, const std::string content) {
 }
 
 bool files::write_json(
-    const fs::path& filename, const dynamic::Map* obj, bool nice
+    const fs::path& filename, const dv::value& obj, bool nice
 ) {
     return files::write_string(filename, json::stringify(obj, nice, "  "));
 }
 
 bool files::write_binary_json(
-    const fs::path& filename, const dynamic::Map* obj, bool compression
+    const fs::path& filename, const dv::value& obj, bool compression
 ) {
     auto bytes = json::to_binary(obj, compression);
     return files::write_bytes(filename, bytes.data(), bytes.size());
 }
 
-std::shared_ptr<dynamic::Map> files::read_json(const fs::path& filename) {
+dv::value files::read_json(const fs::path& filename) {
     std::string text = files::read_string(filename);
     return json::parse(filename.string(), text);
 }
 
-std::shared_ptr<dynamic::Map> files::read_binary_json(const fs::path& file) {
+dv::value files::read_binary_json(const fs::path& file) {
     size_t size;
-    std::unique_ptr<ubyte[]> bytes(files::read_bytes(file, size));
+    auto bytes = files::read_bytes(file, size);
     return json::from_binary(bytes.get(), size);
 }
 
-std::shared_ptr<dynamic::Map> files::read_toml(const fs::path& file) {
+dv::value files::read_toml(const fs::path& file) {
     return toml::parse(file.u8string(), files::read_string(file));
 }
 
@@ -159,4 +164,37 @@ std::vector<std::string> files::read_list(const fs::path& filename) {
         lines.push_back(line);
     }
     return lines;
+}
+
+#include <map>
+
+#include "coders/json.hpp"
+#include "coders/toml.hpp"
+
+using DecodeFunc = dv::value(*)(std::string_view, std::string_view);
+
+static std::map<fs::path, DecodeFunc> data_decoders {
+    {fs::u8path(".json"), json::parse},
+    {fs::u8path(".toml"), toml::parse},
+};
+
+bool files::is_data_file(const fs::path& file) {
+    return is_data_interchange_format(file.extension());
+}
+
+bool files::is_data_interchange_format(const fs::path& ext) {
+    return data_decoders.find(ext) != data_decoders.end();
+}
+
+dv::value files::read_object(const fs::path& file) {
+    const auto& found = data_decoders.find(file.extension());
+    if (found == data_decoders.end()) {
+        throw std::runtime_error("unknown file format");
+    }
+    auto text = read_string(file);
+    try {
+        return found->second(file.u8string(), text);
+    } catch (const parsing_error& err) {
+        throw std::runtime_error(err.errorLog());
+    }
 }

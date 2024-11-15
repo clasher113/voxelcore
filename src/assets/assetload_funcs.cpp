@@ -4,38 +4,36 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "../audio/audio.hpp"
-#include "../coders/GLSLExtension.hpp"
-#include "../coders/commons.hpp"
-#include "../coders/imageio.hpp"
-#include "../coders/json.hpp"
-#include "../coders/obj.hpp"
-#include "../constants.hpp"
-#include "../data/dynamic.hpp"
-#include "../files/engine_paths.hpp"
-#include "../files/files.hpp"
-#include "../frontend/UiDocument.hpp"
-#include "../graphics/core/Atlas.hpp"
-#include "../graphics/core/Font.hpp"
-#include "../graphics/core/ImageData.hpp"
-#include "../graphics/core/Model.hpp"
-#include "../graphics/core/TextureAnimation.hpp"
-#include "../objects/rigging.hpp"
+#include "audio/audio.hpp"
+#include "coders/GLSLExtension.hpp"
+#include "coders/commons.hpp"
+#include "coders/imageio.hpp"
+#include "coders/json.hpp"
+#include "coders/obj.hpp"
+#include "constants.hpp"
+#include "debug/Logger.hpp"
+#include "files/engine_paths.hpp"
+#include "files/files.hpp"
+#include "frontend/UiDocument.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/Font.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "graphics/core/Model.hpp"
+#include "graphics/core/TextureAnimation.hpp"
+#include "objects/rigging.hpp"
 #include "Assets.hpp"
 #include "AssetsLoader.hpp"
 
 #ifdef USE_DIRECTX
-#include "../directx/graphics/DXShader.hpp"
-#include "../directx/graphics/DXTexture.hpp"
-#include "../directx/ShaderInclude.hpp"
+#include "directx/graphics/DXShader.hpp"
+#include "directx/graphics/DXTexture.hpp"
+#include "directx/ShaderInclude.hpp"
 #elif USE_OPENGL
-#include "../graphics/core/Shader.hpp"
-#include "../graphics/core/Texture.hpp"
+#include "graphics/core/Shader.hpp"
+#include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
 
-#include <iostream>
-#include <stdexcept>
-#include <filesystem>
+static debug::Logger logger("assetload-funcs");
 
 namespace fs = std::filesystem;
 
@@ -243,17 +241,17 @@ static void read_anim_file(
     std::vector<std::pair<std::string, int>>& frameList
 ) {
     auto root = files::read_json(animFile);
-    auto frameArr = root->list("frames");
     float frameDuration = DEFAULT_FRAME_DURATION;
     std::string frameName;
 
-    if (frameArr) {
-        for (size_t i = 0; i < frameArr->size(); i++) {
-            auto currentFrame = frameArr->list(i);
+    if (auto found = root.at("frames")) {
+        auto& frameArr = *found;
+        for (size_t i = 0; i < frameArr.size(); i++) {
+            const auto& currentFrame = frameArr[i];
 
-            frameName = currentFrame->str(0);
-            if (currentFrame->size() > 1) {
-                frameDuration = currentFrame->integer(1);
+            frameName = currentFrame[0].asString();
+            if (currentFrame.size() > 1) {
+                frameDuration = currentFrame[1].asNumber();
             }
             frameList.emplace_back(frameName, frameDuration);
         }
@@ -289,7 +287,7 @@ static TextureAnimation create_animation(
 
     for (const auto& elem : frameList) {
         if (!srcAtlas->has(elem.first)) {
-            std::cerr << "Unknown frame name: " << elem.first << std::endl;
+            logger.error() << "unknown frame name: " << elem.first;
             continue;
         }
         region = srcAtlas->get(elem.first);

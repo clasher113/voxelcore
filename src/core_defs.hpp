@@ -1,10 +1,11 @@
-#ifndef CORE_DEFS_HPP_
-#define CORE_DEFS_HPP_
+#pragma once
 
 #include <string>
 
 inline const std::string CORE_EMPTY = "core:empty";
 inline const std::string CORE_AIR = "core:air";
+inline const std::string CORE_OBSTACLE = "core:obstacle";
+inline const std::string CORE_STRUCT_AIR = "core:struct_air";
 
 inline const std::string TEXTURE_NOTFOUND = "notfound";
 
@@ -34,5 +35,3 @@ class ContentBuilder;
 namespace corecontent {
     void setup(EnginePaths* paths, ContentBuilder* builder);
 }
-
-#endif // CORE_DEFS_HPP_

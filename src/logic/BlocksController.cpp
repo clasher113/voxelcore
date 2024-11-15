@@ -1,18 +1,18 @@
 #include "BlocksController.hpp"
 
-#include "../content/Content.hpp"
-#include "../items/Inventories.hpp"
-#include "../items/Inventory.hpp"
-#include "../lighting/Lighting.hpp"
-#include "../maths/fastmaths.hpp"
-#include "../util/timeutil.hpp"
-#include "../voxels/Block.hpp"
-#include "../voxels/Chunk.hpp"
-#include "../voxels/Chunks.hpp"
-#include "../voxels/voxel.hpp"
-#include "../world/Level.hpp"
-#include "../world/World.hpp"
+#include "content/Content.hpp"
+#include "items/Inventories.hpp"
+#include "items/Inventory.hpp"
+#include "lighting/Lighting.hpp"
+#include "maths/fastmaths.hpp"
 #include "scripting/scripting.hpp"
+#include "util/timeutil.hpp"
+#include "voxels/Block.hpp"
+#include "voxels/Chunk.hpp"
+#include "voxels/Chunks.hpp"
+#include "voxels/voxel.hpp"
+#include "world/Level.hpp"
+#include "world/World.hpp"
 
 BlocksController::BlocksController(Level* level, uint padding)
     : level(level),
@@ -33,6 +33,29 @@ void BlocksController::updateSides(int x, int y, int z) {
     updateBlock(x, y, z + 1);
 }
 
+void BlocksController::updateSides(int x, int y, int z, int w, int h, int d) {
+    voxel* vox = chunks->get(x, y, z);
+    const auto& def = level->content->getIndices()->blocks.require(vox->id);
+    const auto& rot = def.rotations.variants[vox->state.rotation];
+    const auto& xaxis = rot.axisX;
+    const auto& yaxis = rot.axisY;
+    const auto& zaxis = rot.axisZ;
+    for (int ly = -1; ly <= h; ly++) {
+        for (int lz = -1; lz <= d; lz++) {
+            for (int lx = -1; lx <= w; lx++) {
+                if (lx >= 0 && lx < w && ly >= 0 && ly < h && lz >= 0 && lz < d) {
+                    continue;
+                }
+                updateBlock(
+                    x + lx * xaxis.x + ly * yaxis.x + lz * zaxis.x,
+                    y + lx * xaxis.y + ly * yaxis.y + lz * zaxis.y,
+                    z + lx * xaxis.z + ly * yaxis.z + lz * zaxis.z
+                );
+            }
+        }
+    }
+}
+
 void BlocksController::breakBlock(
     Player* player, const Block& def, int x, int y, int z
 ) {
@@ -42,7 +65,11 @@ void BlocksController::breakBlock(
     chunks->set(x, y, z, 0, {});
     lighting->onBlockSet(x, y, z, 0);
     scripting::on_block_broken(player, def, x, y, z);
-    updateSides(x, y, z);
+    if (def.rt.extended) {
+        updateSides(x, y, z , def.size.x, def.size.y, def.size.z);
+    } else {
+        updateSides(x, y, z);
+    }
 }
 
 void BlocksController::placeBlock(
@@ -53,10 +80,12 @@ void BlocksController::placeBlock(
     );
     chunks->set(x, y, z, def.rt.id, state);
     lighting->onBlockSet(x, y, z, def.rt.id);
-    if (def.rt.funcsset.onplaced) {
-        scripting::on_block_placed(player, def, x, y, z);
+    scripting::on_block_placed(player, def, x, y, z);
+    if (def.rt.extended) {
+        updateSides(x, y, z , def.size.x, def.size.y, def.size.z);
+    } else {
+        updateSides(x, y, z);
     }
-    updateSides(x, y, z);
 }
 
 void BlocksController::updateBlock(int x, int y, int z) {
@@ -111,7 +140,7 @@ void BlocksController::randomTick(
             int bx = random.rand() % CHUNK_W;
             int by = random.rand() % segheight + s * segheight;
             int bz = random.rand() % CHUNK_D;
-            const voxel& vox = chunk.voxels[(by * CHUNK_D + bz) * CHUNK_W + bx];
+            const voxel& vox = chunk.voxels[vox_index(bx, by, bz)];
             auto& block = indices->blocks.require(vox.id);
             if (block.rt.funcsset.randupdate) {
                 scripting::random_update_block(
@@ -124,17 +153,17 @@ void BlocksController::randomTick(
 
 void BlocksController::randomTick(int tickid, int parts) {
     auto indices = level->content->getIndices();
-    const int w = chunks->w;
-    const int d = chunks->d;
+    int width = chunks->getWidth();
+    int height = chunks->getHeight();
     int segments = 4;
 
-    for (uint z = padding; z < d - padding; z++) {
-        for (uint x = padding; x < w - padding; x++) {
-            int index = z * w + x;
+    for (uint z = padding; z < height - padding; z++) {
+        for (uint x = padding; x < width - padding; x++) {
+            int index = z * width + x;
             if ((index + tickid) % parts != 0) {
                 continue;
             }
-            auto& chunk = chunks->chunks[index];
+            auto& chunk = chunks->getChunks()[index];
             if (chunk == nullptr || !chunk->flags.lighted) {
                 continue;
             }
@@ -153,7 +182,8 @@ int64_t BlocksController::createBlockInventory(int x, int y, int z) {
     auto inv = chunk->getBlockInventory(lx, y, lz);
     if (inv == nullptr) {
         auto indices = level->content->getIndices();
-        auto& def = indices->blocks.require(chunk->voxels[vox_index(lx, y, lz)].id);
+        auto& def =
+            indices->blocks.require(chunk->voxels[vox_index(lx, y, lz)].id);
         int invsize = def.inventorySize;
         if (invsize == 0) {
             return 0;

@@ -1,27 +1,24 @@
-#ifndef VOXELS_CHUNK_HPP_
-#define VOXELS_CHUNK_HPP_
+#pragma once
 
 #include <stdlib.h>
 
 #include <memory>
 #include <unordered_map>
 
-#include "../constants.hpp"
-#include "../lighting/Lightmap.hpp"
+#include "constants.hpp"
+#include "lighting/Lightmap.hpp"
+#include "util/SmallHeap.hpp"
 #include "voxel.hpp"
 
 inline constexpr int CHUNK_DATA_LEN = CHUNK_VOL * 4;
 
-class Lightmap;
-class ContentLUT;
+class ContentReport;
 class Inventory;
 
-namespace dynamic {
-    class Map;
-}
-
-using chunk_inventories_map =
+using ChunkInventoriesMap =
     std::unordered_map<uint, std::shared_ptr<Inventory>>;
+
+using BlocksMetadata = util::SmallHeap<uint16_t, uint8_t>;
 
 class Chunk {
 public:
@@ -37,10 +34,13 @@ public:
         bool unsaved : 1;
         bool loadedLights : 1;
         bool entities : 1;
+        bool blocksData : 1;
     } flags {};
 
     /// @brief Block inventories map where key is index of block in voxels array
-    chunk_inventories_map inventories;
+    ChunkInventoriesMap inventories;
+    /// @brief Blocks metadata heap
+    BlocksMetadata blocksMetadata;
 
     Chunk(int x, int z);
 
@@ -57,7 +57,7 @@ public:
         std::shared_ptr<Inventory> inventory, uint x, uint y, uint z
     );
     void removeBlockInventory(uint x, uint y, uint z);
-    void setBlockInventories(chunk_inventories_map map);
+    void setBlockInventories(ChunkInventoriesMap map);
 
     /// @return inventory bound to the given block or nullptr
     std::shared_ptr<Inventory> getBlockInventory(uint x, uint y, uint z) const;
@@ -67,12 +67,12 @@ public:
         flags.unsaved = true;
     }
 
+    /// @brief Encode chunk to bytes array of size CHUNK_DATA_LEN
+    /// @see /doc/specs/region_voxels_chunk_spec.md
     std::unique_ptr<ubyte[]> encode() const;
 
     /// @return true if all is fine
     bool decode(const ubyte* data);
 
-    static void convert(ubyte* data, const ContentLUT* lut);
+    static void convert(ubyte* data, const ContentReport* report);
 };
-
-#endif /* VOXELS_CHUNK_HPP_ */

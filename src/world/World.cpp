@@ -4,18 +4,19 @@
 #include <memory>
 #include <utility>
 
-#include "../content/Content.hpp"
-#include "../content/ContentLUT.hpp"
-#include "../debug/Logger.hpp"
-#include "../files/WorldFiles.hpp"
-#include "../items/Inventories.hpp"
-#include "../objects/Entities.hpp"
-#include "../objects/Player.hpp"
-#include "../settings.hpp"
-#include "../voxels/Chunk.hpp"
-#include "../voxels/Chunks.hpp"
-#include "../voxels/ChunksStorage.hpp"
-#include "../world/WorldGenerators.hpp"
+#include "content/Content.hpp"
+#include "content/ContentReport.hpp"
+#include "debug/Logger.hpp"
+#include "files/WorldFiles.hpp"
+#include "items/Inventories.hpp"
+#include "objects/Entities.hpp"
+#include "objects/Player.hpp"
+#include "settings.hpp"
+#include "voxels/Chunk.hpp"
+#include "voxels/Chunks.hpp"
+#include "voxels/ChunksStorage.hpp"
+#include "world/generator/WorldGenerator.hpp"
+#include "world/generator/GeneratorDef.hpp"
 #include "Level.hpp"
 
 static debug::Logger logger("world");
@@ -26,62 +27,56 @@ world_load_error::world_load_error(const std::string& message)
 }
 
 World::World(
-    std::string name,
-    std::string generator,
-    const fs::path& directory,
-    uint64_t seed,
-    EngineSettings& settings,
+    WorldInfo info,
+    const std::shared_ptr<WorldFiles>& worldFiles,
     const Content* content,
     const std::vector<ContentPack>& packs
-)
-    : name(std::move(name)),
-      generator(std::move(generator)),
-      seed(seed),
-      content(content),
-      packs(packs),
-      wfile(std::make_unique<WorldFiles>(directory, settings.debug)) {
-}
+) : info(std::move(info)),
+    content(content),
+    packs(packs),
+    wfile(std::move(worldFiles)) {}
 
 World::~World() {
 }
 
 void World::updateTimers(float delta) {
-    daytime += delta * daytimeSpeed * DAYIME_SPECIFIC_SPEED;
-    daytime = fmod(daytime, 1.0f);
-    totalTime += delta;
+    info.daytime += delta * info.daytimeSpeed * DAYIME_SPECIFIC_SPEED;
+    info.daytime = std::fmod(info.daytime, 1.0f);
+    info.totalTime += delta;
 }
 
 void World::writeResources(const Content* content) {
-    auto root = dynamic::Map();
+    auto root = dv::object();
     for (size_t typeIndex = 0; typeIndex < RESOURCE_TYPES_COUNT; typeIndex++) {
         auto typeName = to_string(static_cast<ResourceType>(typeIndex));
-        auto& list = root.putList(typeName);
+        auto& list = root.list(typeName);
         auto& indices = content->resourceIndices[typeIndex];
         for (size_t i = 0; i < indices.size(); i++) {
-            auto& map = list.putMap();
-            map.put("name", indices.getName(i));
-            if (auto data = indices.getSavedData(i)) {
-                map.put("saved", data);
+            auto& map = list.object();
+            map["name"] = indices.getName(i);
+            auto data = indices.getSavedData(i);
+            if (data != nullptr) {
+                map["saved"] = data;
             }
         }
     }
-    files::write_json(wfile->getResourcesFile(), &root);
+    files::write_json(wfile->getResourcesFile(), root);
 }
 
 void World::write(Level* level) {
     const Content* content = level->content;
     level->chunks->saveAll();
-    nextEntityId = level->entities->peekNextID();
+    info.nextEntityId = level->entities->peekNextID();
     wfile->write(this, content);
 
-    auto playerFile = dynamic::Map();
-    auto& players = playerFile.putList("players");
+    auto playerFile = dv::object();
+    auto& players = playerFile.list("players");
     for (const auto& object : level->objects) {
         if (auto player = std::dynamic_pointer_cast<Player>(object)) {
-            players.put(player->serialize());
+            players.add(player->serialize());
         }
     }
-    files::write_json(wfile->getPlayerFile(), &playerFile);
+    files::write_json(wfile->getPlayerFile(), playerFile);
 
     writeResources(content);
 }
@@ -95,32 +90,39 @@ std::unique_ptr<Level> World::create(
     const Content* content,
     const std::vector<ContentPack>& packs
 ) {
+    WorldInfo info {};
+    info.name = name;
+    info.generator = generator;
+    info.seed = seed;
     auto world = std::make_unique<World>(
-        name, generator, directory, seed, settings, content, packs
+        info,
+        std::make_unique<WorldFiles>(directory, settings.debug),
+        content,
+        packs
     );
     return std::make_unique<Level>(std::move(world), content, settings);
 }
 
 std::unique_ptr<Level> World::load(
-    const fs::path& directory,
+    const std::shared_ptr<WorldFiles>& worldFilesPtr,
     EngineSettings& settings,
     const Content* content,
     const std::vector<ContentPack>& packs
 ) {
+    auto worldFiles = worldFilesPtr.get();
+    auto info = worldFiles->readWorldInfo();
+    if (!info.has_value()) {
+        throw world_load_error("could not to find world.json");
+    }
+    logger.info() << "world version: " << info->major << "." << info->minor;
+
     auto world = std::make_unique<World>(
-        ".",
-        WorldGenerators::getDefaultGeneratorID(),
-        directory,
-        0,
-        settings,
+        info.value(),
+        std::move(worldFilesPtr),
         content,
         packs
     );
     auto& wfile = world->wfile;
-
-    if (!wfile->readWorldInfo(world.get())) {
-        throw world_load_error("could not to find world.json");
-    }
     wfile->readResourcesData(content);
 
     auto level = std::make_unique<Level>(std::move(world), content, settings);
@@ -129,11 +131,11 @@ std::unique_ptr<Level> World::load(
         if (!fs::is_regular_file(file)) {
             logger.warning() << "player.json does not exists";
         } else {
-            auto playerFile = files::read_json(file);
-            if (playerFile->has("players")) {
+            auto playerRoot = files::read_json(file);
+            if (playerRoot.has("players")) {
                 level->objects.clear();
-                auto players = playerFile->list("players");
-                for (size_t i = 0; i < players->size(); i++) {
+                const auto& players = playerRoot["players"];
+                for (auto& playerMap : players) {
                     auto player = level->spawnObject<Player>(
                         level.get(),
                         glm::vec3(0, DEF_PLAYER_Y, 0),
@@ -141,12 +143,12 @@ std::unique_ptr<Level> World::load(
                         level->inventories->create(DEF_PLAYER_INVENTORY_SIZE),
                         0
                     );
-                    player->deserialize(players->map(i).get());
+                    player->deserialize(playerMap);
                     level->inventories->store(player->getInventory());
                 }
             } else {
                 auto player = level->getObject<Player>(0);
-                player->deserialize(playerFile.get());
+                player->deserialize(playerRoot);
                 level->inventories->store(player->getInventory());
             }
         }
@@ -154,22 +156,22 @@ std::unique_ptr<Level> World::load(
     return level;
 }
 
-std::shared_ptr<ContentLUT> World::checkIndices(
-    const fs::path& directory, const Content* content
+std::shared_ptr<ContentReport> World::checkIndices(
+    const std::shared_ptr<WorldFiles>& worldFiles, const Content* content
 ) {
-    fs::path indicesFile = directory / fs::path("indices.json");
+    fs::path indicesFile = worldFiles->getIndicesFile();
     if (fs::is_regular_file(indicesFile)) {
-        return ContentLUT::create(indicesFile, content);
+        return ContentReport::create(worldFiles, indicesFile, content);
     }
     return nullptr;
 }
 
 void World::setName(const std::string& name) {
-    this->name = name;
+    this->info.name = name;
 }
 
 void World::setGenerator(const std::string& generator) {
-    this->generator = generator;
+    this->info.generator = generator;
 }
 
 bool World::hasPack(const std::string& id) const {
@@ -180,71 +182,68 @@ bool World::hasPack(const std::string& id) const {
 }
 
 void World::setSeed(uint64_t seed) {
-    this->seed = seed;
+    this->info.seed = seed;
 }
 
 std::string World::getName() const {
-    return name;
+    return info.name;
 }
 
 uint64_t World::getSeed() const {
-    return seed;
+    return info.seed;
 }
 
 std::string World::getGenerator() const {
-    return generator;
+    return info.generator;
 }
 
 const std::vector<ContentPack>& World::getPacks() const {
     return packs;
 }
 
-void World::deserialize(dynamic::Map* root) {
-    name = root->get("name", name);
-    generator = root->get("generator", generator);
-    seed = root->get("seed", seed);
+void WorldInfo::deserialize(const dv::value& root) {
+    name = root["name"].asString();
+    generator = root["generator"].asString(generator);
+    seed = root["seed"].asInteger(seed);
 
-    if (generator.empty()) {
-        generator = WorldGenerators::getDefaultGeneratorID();
+    if (root.has("version")) {
+        auto& verobj = root["version"];
+        major = verobj["major"].asInteger();
+        minor = verobj["minor"].asInteger();
     }
-    if (auto verobj = root->map("version")) {
-        int major = 0, minor = -1;
-        verobj->num("major", major);
-        verobj->num("minor", minor);
-        logger.info() << "world version: " << major << "." << minor;
+    if (root.has("time")) {
+        auto& timeobj = root["time"];
+        daytime = timeobj["day-time"].asNumber();
+        daytimeSpeed = timeobj["day-time-speed"].asNumber();
+        totalTime = timeobj["total-time"].asNumber();
     }
-    if (auto timeobj = root->map("time")) {
-        timeobj->num("day-time", daytime);
-        timeobj->num("day-time-speed", daytimeSpeed);
-        timeobj->num("total-time", totalTime);
+    if (root.has("weather")) {
+        fog = root["weather"]["fog"].asNumber();
     }
-    if (auto weatherobj = root->map("weather")) {
-        weatherobj->num("fog", fog);
-    }
-    nextInventoryId = root->get("next-inventory-id", 2);
-    nextEntityId = root->get("next-entity-id", 1);
+    nextInventoryId = root["next-inventory-id"].asInteger(2);
+    nextEntityId = root["next-entity-id"].asInteger(1);
 }
 
-std::unique_ptr<dynamic::Map> World::serialize() const {
-    auto root = std::make_unique<dynamic::Map>();
+dv::value WorldInfo::serialize() const {
+    auto root = dv::object();
 
-    auto& versionobj = root->putMap("version");
-    versionobj.put("major", ENGINE_VERSION_MAJOR);
-    versionobj.put("minor", ENGINE_VERSION_MINOR);
+    auto& versionobj = root.object("version");
+    versionobj["major"] = ENGINE_VERSION_MAJOR;
+    versionobj["minor"] = ENGINE_VERSION_MINOR;
 
-    root->put("name", name);
-    root->put("generator", generator);
-    root->put("seed", static_cast<integer_t>(seed));
+    root["name"] = name;
+    root["generator"] = generator;
+    root["seed"] = seed;
 
-    auto& timeobj = root->putMap("time");
-    timeobj.put("day-time", daytime);
-    timeobj.put("day-time-speed", daytimeSpeed);
-    timeobj.put("total-time", totalTime);
+    auto& timeobj = root.object("time");
+    timeobj["day-time"] = daytime;
+    timeobj["day-time-speed"] = daytimeSpeed;
+    timeobj["total-time"] = totalTime;
 
-    auto& weatherobj = root->putMap("weather");
-    weatherobj.put("fog", fog);
+    auto& weatherobj = root.object("weather");
+    weatherobj["fog"] = fog;
 
-    root->put("next-inventory-id", nextInventoryId);
-    root->put("next-entity-id", nextEntityId);
+    root["next-inventory-id"] = nextInventoryId;
+    root["next-entity-id"] = nextEntityId;
     return root;
 }

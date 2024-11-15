@@ -1,14 +1,14 @@
-#ifndef FILES_ENGINE_PATHS_HPP_
-#define FILES_ENGINE_PATHS_HPP_
+#pragma once
 
 #include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <tuple>
 
-#include "../content/ContentPack.hpp"
+#include "data/dv.hpp"
+#include "content/ContentPack.hpp"
 
-namespace fs = std::filesystem;
 
 class files_access_error : public std::runtime_error {
 public:
@@ -17,51 +17,67 @@ public:
 };
 
 class EnginePaths {
-    fs::path userfiles {"."};
-    fs::path resources {"res"};
-    fs::path worldFolder;
-    std::vector<ContentPack>* contentPacks = nullptr;
 public:
     void prepare();
 
-    fs::path getUserfiles() const;
-    fs::path getResources() const;
+    void setUserFilesFolder(std::filesystem::path folder);
+    std::filesystem::path getUserFilesFolder() const;
 
-    fs::path getScreenshotFile(const std::string& ext);
-    fs::path getWorldsFolder();
-    fs::path getWorldFolder();
-    fs::path getWorldFolder(const std::string& name);
-    fs::path getControlsFile();
-    fs::path getSettingsFile();
-    bool isWorldNameUsed(const std::string& name);
+    void setResourcesFolder(std::filesystem::path folder);
+    std::filesystem::path getResourcesFolder() const;
 
-    void setUserfiles(fs::path folder);
-    void setResources(fs::path folder);
+    std::filesystem::path getWorldFolderByName(const std::string& name);
+    std::filesystem::path getWorldsFolder() const;
+    std::filesystem::path getConfigFolder() const;
+
+    void setCurrentWorldFolder(std::filesystem::path folder);
+    std::filesystem::path getCurrentWorldFolder();
+    
+    std::filesystem::path getNewScreenshotFile(const std::string& ext);
+    std::filesystem::path getControlsFile() const;
+    std::filesystem::path getSettingsFile() const;
+
     void setContentPacks(std::vector<ContentPack>* contentPacks);
-    void setWorldFolder(fs::path folder);
 
-    std::vector<fs::path> scanForWorlds();
+    std::vector<std::filesystem::path> scanForWorlds();
 
-    fs::path resolve(const std::string& path, bool throwErr = true);
+    std::filesystem::path resolve(const std::string& path, bool throwErr = true);
+
+    static std::tuple<std::string, std::string> parsePath(std::string_view view);
+
+    static inline auto CONFIG_DEFAULTS =
+        std::filesystem::u8path("config/defaults.toml");
+private:
+    std::filesystem::path userFilesFolder {"."};
+    std::filesystem::path resourcesFolder {"res"};
+    std::filesystem::path currentWorldFolder;
+    std::vector<ContentPack>* contentPacks = nullptr;
 };
 
 struct PathsRoot {
     std::string name;
-    fs::path path;
+    std::filesystem::path path;
 };
 
 class ResPaths {
-    fs::path mainRoot;
-    std::vector<PathsRoot> roots;
 public:
-    ResPaths(fs::path mainRoot, std::vector<PathsRoot> roots);
+    ResPaths(std::filesystem::path mainRoot, std::vector<PathsRoot> roots);
 
-    fs::path find(const std::string& filename) const;
+    std::filesystem::path find(const std::string& filename) const;
     std::string findRaw(const std::string& filename) const;
-    std::vector<fs::path> listdir(const std::string& folder) const;
+    std::vector<std::filesystem::path> listdir(const std::string& folder) const;
     std::vector<std::string> listdirRaw(const std::string& folder) const;
 
-    const fs::path& getMainRoot() const;
-};
+    /// @brief Read all found list versions from all packs and combine into a
+    /// single list. Invalid versions will be skipped with logging a warning
+    /// @param file *.json file path relative to entry point 
+    dv::value readCombinedList(const std::string& file) const;
 
-#endif  // FILES_ENGINE_PATHS_HPP_
+    dv::value readCombinedObject(const std::string& file) const;
+
+    const std::filesystem::path& getMainRoot() const;
+
+private:
+    std::filesystem::path mainRoot;
+    std::vector<PathsRoot> roots;
+};

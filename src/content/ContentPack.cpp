@@ -4,12 +4,20 @@
 #include <iostream>
 #include <utility>
 
-#include "../coders/json.hpp"
-#include "../data/dynamic.hpp"
-#include "../files/engine_paths.hpp"
-#include "../files/files.hpp"
+#include "coders/json.hpp"
+#include "constants.hpp"
+#include "data/dv.hpp"
+#include "files/engine_paths.hpp"
+#include "files/files.hpp"
+
 
 namespace fs = std::filesystem;
+
+ContentPack ContentPack::createCore(const EnginePaths* paths) {
+    return ContentPack {
+        "core", "Core", ENGINE_VERSION_STRING, "", "", paths->getResourcesFolder(), {}
+    };
+}
 
 const std::vector<std::string> ContentPack::RESERVED_NAMES = {
     "res", "abs", "local", "core", "user", "world", "none", "null"};
@@ -65,19 +73,32 @@ static void checkContentPackId(const std::string& id, const fs::path& folder) {
 ContentPack ContentPack::read(const fs::path& folder) {
     auto root = files::read_json(folder / fs::path(PACKAGE_FILENAME));
     ContentPack pack;
-    root->str("id", pack.id);
-    root->str("title", pack.title);
-    root->str("version", pack.version);
-    root->str("creator", pack.creator);
-    root->str("description", pack.description);
+    root.at("id").get(pack.id);
+    root.at("title").get(pack.title);
+    root.at("version").get(pack.version);
+    root.at("creator").get(pack.creator);
+    root.at("description").get(pack.description);
     pack.folder = folder;
 
-    auto dependencies = root->list("dependencies");
-    if (dependencies) {
-        for (size_t i = 0; i < dependencies->size(); i++) {
-            pack.dependencies.push_back(
-                {DependencyLevel::required, dependencies->str(i)}
-            );
+    if (auto found = root.at("dependencies")) {
+        const auto& dependencies = *found;
+        for (const auto& elem : dependencies) {
+            std::string depName = elem.asString();
+            auto level = DependencyLevel::required;
+            switch (depName.at(0)) {
+                case '!':
+                    depName = depName.substr(1);
+                    break;
+                case '?':
+                    depName = depName.substr(1);
+                    level = DependencyLevel::optional;
+                    break;
+                case '~':
+                    depName = depName.substr(1);
+                    level = DependencyLevel::weak;
+                    break;
+            }
+            pack.dependencies.push_back({level, depName});
         }
     }
 
@@ -128,11 +149,11 @@ fs::path ContentPack::findPack(
     if (fs::is_directory(folder)) {
         return folder;
     }
-    folder = paths->getUserfiles() / fs::path("content") / fs::path(name);
+    folder = paths->getUserFilesFolder() / fs::path("content") / fs::path(name);
     if (fs::is_directory(folder)) {
         return folder;
     }
-    return paths->getResources() / fs::path("content") / fs::path(name);
+    return paths->getResourcesFolder() / fs::path("content") / fs::path(name);
 }
 
 ContentPackRuntime::ContentPackRuntime(ContentPack info, scriptenv env)

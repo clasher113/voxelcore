@@ -1,5 +1,4 @@
-#ifndef GRAPHICS_RENDER_WORLD_RENDERER_HPP_
-#define GRAPHICS_RENDER_WORLD_RENDERER_HPP_
+#pragma once
 
 #include <vector>
 #include <memory>
@@ -96,7 +95,6 @@ public:
         float delta,
         bool pause
     );
+
+    void clear();
 };
-
-
-#endif // GRAPHICS_RENDER_WORLD_RENDERER_HPP_

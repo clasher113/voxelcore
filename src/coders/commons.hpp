@@ -1,11 +1,10 @@
-#ifndef CODERS_COMMONS_HPP_
-#define CODERS_COMMONS_HPP_
+#pragma once
 
 #include <stdexcept>
 #include <string>
 
-#include "../data/dynamic.hpp"
-#include "../typedefs.hpp"
+#include "data/dv.hpp"
+#include "typedefs.hpp"
 
 inline int is_box(int c) {
     switch (c) {
@@ -31,12 +30,20 @@ inline bool is_whitespace(int c) {
 }
 
 inline bool is_identifier_start(int c) {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' ||
-           c == '.';
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_';
 }
 
 inline bool is_identifier_part(int c) {
     return is_identifier_start(c) || is_digit(c) || c == '-';
+}
+
+inline bool is_json_identifier_start(int c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' ||
+           c == '.';
+}
+
+inline bool is_json_identifier_part(int c) {
+    return is_json_identifier_start(c) || is_digit(c) || c == '-';
 }
 
 inline int hexchar2int(int c) {
@@ -91,8 +98,8 @@ protected:
     void reset();
 
     int64_t parseSimpleInt(int base);
-    dynamic::Value parseNumber(int sign);
-    dynamic::Value parseNumber();
+    dv::value parseNumber(int sign);
+    dv::value parseNumber();
     std::string parseString(char chr, bool closeRequired = true);
 
     parsing_error error(const std::string& message);
@@ -100,7 +107,9 @@ public:
     std::string_view readUntil(char c);
     std::string_view readUntilEOL();
     std::string parseName();
+    std::string parseXmlName();
     bool hasNext();
+    size_t remain() const;
     char peek();
     char peekInLine();
     char peekNoJump();
@@ -108,5 +117,3 @@ public:
 
     BasicParser(std::string_view file, std::string_view source);
 };
-
-#endif  // CODERS_COMMONS_HPP_

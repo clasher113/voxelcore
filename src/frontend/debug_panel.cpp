@@ -1,25 +1,25 @@
-#include "../audio/audio.hpp"
-#include "../delegates.hpp"
-#include "../engine.hpp"
-#include "../settings.hpp"
-#include "../content/Content.hpp"
-#include "../graphics/core/Mesh.hpp"
-#include "../graphics/ui/elements/CheckBox.hpp"
-#include "../graphics/ui/elements/TextBox.hpp"
-#include "../graphics/ui/elements/TrackBar.hpp"
-#include "../graphics/ui/elements/InputBindBox.hpp"
-#include "../graphics/render/WorldRenderer.hpp"
-#include "../logic/scripting/scripting.hpp"
-#include "../objects/Player.hpp"
-#include "../objects/Entities.hpp"
-#include "../objects/EntityDef.hpp"
-#include "../physics/Hitbox.hpp"
-#include "../util/stringutil.hpp"
-#include "../voxels/Block.hpp"
-#include "../voxels/Chunk.hpp"
-#include "../voxels/Chunks.hpp"
-#include "../world/Level.hpp"
-#include "../world/World.hpp"
+#include "audio/audio.hpp"
+#include "delegates.hpp"
+#include "engine.hpp"
+#include "settings.hpp"
+#include "content/Content.hpp"
+#include "graphics/core/Mesh.hpp"
+#include "graphics/ui/elements/CheckBox.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
+#include "graphics/ui/elements/TrackBar.hpp"
+#include "graphics/ui/elements/InputBindBox.hpp"
+#include "graphics/render/WorldRenderer.hpp"
+#include "logic/scripting/scripting.hpp"
+#include "objects/Player.hpp"
+#include "objects/Entities.hpp"
+#include "objects/EntityDef.hpp"
+#include "physics/Hitbox.hpp"
+#include "util/stringutil.hpp"
+#include "voxels/Block.hpp"
+#include "voxels/Chunk.hpp"
+#include "voxels/Chunks.hpp"
+#include "world/Level.hpp"
+#include "world/World.hpp"
 
 #include <string>
 #include <memory>
@@ -84,7 +84,7 @@ std::shared_ptr<UINode> create_debug_panel(
         return L"frustum-culling: "+std::wstring(culling ? L"on" : L"off");
     }));
     panel->add(create_label([=]() {
-        return L"chunks: "+std::to_wstring(level->chunks->chunksCount)+
+        return L"chunks: "+std::to_wstring(level->chunks->getChunksCount())+
                L" visible: "+std::to_wstring(level->chunks->visible);
     }));
     panel->add(create_label([=]() {
@@ -160,9 +160,10 @@ std::shared_ptr<UINode> create_debug_panel(
         sub->add(box, glm::vec2(20, 0));
         panel->add(sub);
     }
-    panel->add(create_label([=](){
+    auto& worldInfo = level->getWorld()->getInfo();
+    panel->add(create_label([&](){
         int hour, minute, second;
-        timeutil::from_value(level->getWorld()->daytime, hour, minute, second);
+        timeutil::from_value(worldInfo.daytime, hour, minute, second);
 
         std::wstring timeString = 
                 util::lfill(std::to_wstring(hour), 2, L'0') + L":" +
@@ -171,14 +172,14 @@ std::shared_ptr<UINode> create_debug_panel(
     }));
     {
         auto bar = std::make_shared<TrackBar>(0.0f, 1.0f, 1.0f, 0.005f, 8);
-        bar->setSupplier([=]() {return level->getWorld()->daytime;});
-        bar->setConsumer([=](double val) {level->getWorld()->daytime = val;});
+        bar->setSupplier([&]() {return worldInfo.daytime;});
+        bar->setConsumer([&](double val) {worldInfo.daytime = val;});
         panel->add(bar);
     }
     {
         auto bar = std::make_shared<TrackBar>(0.0f, 1.0f, 0.0f, 0.005f, 8);
-        bar->setSupplier([=]() {return level->getWorld()->fog;});
-        bar->setConsumer([=](double val) {level->getWorld()->fog = val;});
+        bar->setSupplier([&]() {return worldInfo.fog;});
+        bar->setConsumer([&](double val) {worldInfo.fog = val;});
         panel->add(bar);
     }
     {

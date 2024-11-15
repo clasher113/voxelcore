@@ -7,11 +7,11 @@
 #include <iostream>
 #include <thread>
 
-#include "../debug/Logger.hpp"
-#include "../graphics/core/ImageData.hpp"
-#include "../graphics/core/Texture.hpp"
-#include "../settings.hpp"
-#include "../util/ObjectsKeeper.hpp"
+#include "debug/Logger.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "graphics/core/Texture.hpp"
+#include "settings.hpp"
+#include "util/ObjectsKeeper.hpp"
 #include "Events.hpp"
 
 #ifdef USE_DIRECTX
@@ -149,15 +149,17 @@ int Window::initialize(DisplaySettings* settings) {
     Window::width = settings->width.get();
     Window::height = settings->height.get();
 
-    std::string title = "VoxelEngine-Cpp v" +
-        std::to_string(ENGINE_VERSION_MAJOR) + "." +
-        std::to_string(ENGINE_VERSION_MINOR) +
+    std::string title = "VoxelCore v" +
+                        std::to_string(ENGINE_VERSION_MAJOR) + "." +
+                        std::to_string(ENGINE_VERSION_MINOR) +
 #ifdef USE_DIRECTX
         " DirectX";
 #elif USE_OPENGL
         " OpenGL";
 #endif // USE_DIRECTX
- 
+    if (ENGINE_DEBUG_BUILD) {
+        title += " [debug]";
+}
     glfwSetErrorCallback(error_callback);
     if (glfwInit() == GLFW_FALSE) {
         logger.error() << "failed to initialize GLFW";
@@ -436,7 +438,6 @@ void Window::toggleFullscreen() {
             settings->height.get(),
             GLFW_DONT_CARE
         );
-        glfwSetWindowAttrib(window, GLFW_MAXIMIZED, GLFW_FALSE);
     }
 
     double xPos, yPos;

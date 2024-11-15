@@ -1,25 +1,25 @@
 #include "BlocksPreview.hpp"
 
-#include "../../assets/Assets.hpp"
-#include "../../constants.hpp"
-#include "../../content/Content.hpp"
-#include "../../frontend/ContentGfxCache.hpp"
-#include "../../voxels/Block.hpp"
-#include "../../window/Camera.hpp"
-#include "../../window/Window.hpp"
-#include "../core/Atlas.hpp"
-#include "../core/Batch3D.hpp"
-#include "../core/DrawContext.hpp"
-#include "../core/Viewport.hpp"
+#include "assets/Assets.hpp"
+#include "constants.hpp"
+#include "content/Content.hpp"
+#include "frontend/ContentGfxCache.hpp"
+#include "voxels/Block.hpp"
+#include "window/Camera.hpp"
+#include "window/Window.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/Batch3D.hpp"
+#include "graphics/core/DrawContext.hpp"
+#include "graphics/core/Viewport.hpp"
 
 #ifdef USE_DIRECTX
-#include "../../directx/graphics/DXShader.hpp"
-#include "../../directx/graphics/DXTexture.hpp"
-#include "../../directx/graphics/DXFramebuffer.hpp"
+#include "directx/graphics/DXShader.hpp"
+#include "directx/graphics/DXTexture.hpp"
+#include "directx/graphics/DXFramebuffer.hpp"
 #elif USE_OPENGL
-#include "../core/Framebuffer.hpp"
-#include "../core/Shader.hpp"
-#include "../core/Texture.hpp"
+#include "graphics/core/Framebuffer.hpp"
+#include "graphics/core/Shader.hpp"
+#include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
 
 #include <glm/ext.hpp>
@@ -107,17 +107,18 @@ std::unique_ptr<ImageData> BlocksPreview::draw(
                 for (size_t i = 0; i < def.modelExtraPoints.size() / 4; i++) {
                     const UVRegion& reg = def.modelUVs[def.modelBoxes.size() * 6 + i];
                     
-                    batch->point((points[i * 4 + 0] - poff) * pmul, glm::vec2(reg.u1, reg.v1), glm::vec4(1.0));
-                    batch->point((points[i * 4 + 1] - poff) * pmul, glm::vec2(reg.u2, reg.v1), glm::vec4(1.0));
-                    batch->point((points[i * 4 + 2] - poff) * pmul, glm::vec2(reg.u2, reg.v2), glm::vec4(1.0));
-                    batch->point((points[i * 4 + 0] - poff) * pmul, glm::vec2(reg.u1, reg.v1), glm::vec4(1.0));
-                    batch->point((points[i * 4 + 2] - poff) * pmul, glm::vec2(reg.u2, reg.v2), glm::vec4(1.0));
-                    batch->point((points[i * 4 + 3] - poff) * pmul, glm::vec2(reg.u1, reg.v2), glm::vec4(1.0));
+                    batch->vertex((points[i * 4 + 0] - poff) * pmul, glm::vec2(reg.u1, reg.v1), glm::vec4(1.0));
+                    batch->vertex((points[i * 4 + 1] - poff) * pmul, glm::vec2(reg.u2, reg.v1), glm::vec4(1.0));
+                    batch->vertex((points[i * 4 + 2] - poff) * pmul, glm::vec2(reg.u2, reg.v2), glm::vec4(1.0));
+                    batch->vertex((points[i * 4 + 0] - poff) * pmul, glm::vec2(reg.u1, reg.v1), glm::vec4(1.0));
+                    batch->vertex((points[i * 4 + 2] - poff) * pmul, glm::vec2(reg.u2, reg.v2), glm::vec4(1.0));
+                    batch->vertex((points[i * 4 + 3] - poff) * pmul, glm::vec2(reg.u1, reg.v2), glm::vec4(1.0));
                 }
                 batch->flush();
             }
             break;
         case BlockModel::xsprite: {
+            shader->uniformMatrix("u_apply", glm::translate(glm::mat4(1.0f), offset));
             glm::vec3 right = glm::normalize(glm::vec3(1.f, 0.f, -1.f));
             batch->sprite(
                 right*float(size)*0.43f+glm::vec3(0, size*0.4f, 0), 

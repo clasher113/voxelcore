@@ -3,7 +3,7 @@
 #include <utility>
 
 #include "Container.hpp"
-#include "../../core/Batch2D.hpp"
+#include "graphics/core/Batch2D.hpp"
 
 using gui::UINode;
 using gui::Align;
@@ -152,7 +152,7 @@ float UINode::getTooltipDelay() const {
 
 glm::vec2 UINode::calcPos() const {
     if (parent) {
-        return pos + parent->calcPos() + parent->contentOffset();
+        return pos + parent->calcPos() + parent->getContentOffset();
     }
     return pos;
 }

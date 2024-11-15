@@ -1,10 +1,10 @@
 #include "ChunksRenderer.hpp"
 #include "BlocksRenderer.hpp"
-#include "../../debug/Logger.hpp"
-#include "../../graphics/core/Mesh.hpp"
-#include "../../voxels/Chunk.hpp"
-#include "../../world/Level.hpp"
-#include "../../settings.hpp"
+#include "debug/Logger.hpp"
+#include "graphics/core/Mesh.hpp"
+#include "voxels/Chunk.hpp"
+#include "world/Level.hpp"
+#include "settings.hpp"
 
 #include <iostream>
 #include <glm/glm.hpp>
@@ -12,18 +12,17 @@
 
 static debug::Logger logger("chunks-render");
 
-const uint RENDERER_CAPACITY = 9 * 6 * 6 * 3000;
-
 class RendererWorker : public util::Worker<Chunk, RendererResult> {
     Level* level;
     BlocksRenderer renderer;
 public:
     RendererWorker(
         Level* level, 
-        const ContentGfxCache* cache, 
+        const ContentGfxCache* cache,
         const EngineSettings* settings
     ) : level(level), 
-        renderer(RENDERER_CAPACITY, level->content, cache, settings)
+        renderer(settings->graphics.chunkMaxVertices.get(),
+                 level->content, cache, settings)
     {}
 
     RendererResult operator()(const std::shared_ptr<Chunk>& chunk) override {
@@ -41,14 +40,17 @@ ChunksRenderer::ChunksRenderer(
         "chunks-render-pool",
         [=](){return std::make_shared<RendererWorker>(level, cache, settings);}, 
         [=](RendererResult& mesh){
-            meshes[mesh.key] = mesh.renderer->createMesh();
+            if (!mesh.renderer->isCancelled()) {
+                meshes[mesh.key] = mesh.renderer->createMesh();
+            }
             inwork.erase(mesh.key);
-        })
+        }, settings->graphics.chunkMaxRenderers.get())
 {
     threadPool.setStandaloneResults(false);
     threadPool.setStopOnFail(false);
     renderer = std::make_unique<BlocksRenderer>(
-        RENDERER_CAPACITY, level->content, cache, settings
+        settings->graphics.chunkMaxVertices.get(), 
+        level->content, cache, settings
     );
     logger.info() << "created " << threadPool.getWorkersCount() << " workers";
 }
@@ -77,6 +79,12 @@ void ChunksRenderer::unload(const Chunk* chunk) {
     if (found != meshes.end()) {
         meshes.erase(found);
     }
+}
+
+void ChunksRenderer::clear() {
+    meshes.clear();
+    inwork.clear();
+    threadPool.clearQueue();
 }
 
 std::shared_ptr<Mesh> ChunksRenderer::getOrRender(const std::shared_ptr<Chunk>& chunk, bool important) {

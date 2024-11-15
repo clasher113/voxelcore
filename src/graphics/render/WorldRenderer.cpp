@@ -45,6 +45,39 @@
 #include "../core/Mesh.hpp"
 #include "../core/Texture.hpp"
 #include "../core/Shader.hpp"
+#include "assets/Assets.hpp"
+#include "content/Content.hpp"
+#include "engine.hpp"
+#include "frontend/LevelFrontend.hpp"
+#include "items/Inventory.hpp"
+#include "items/ItemDef.hpp"
+#include "items/ItemStack.hpp"
+#include "logic/PlayerController.hpp"
+#include "logic/scripting/scripting_hud.hpp"
+#include "maths/FrustumCulling.hpp"
+#include "maths/voxmaths.hpp"
+#include "objects/Entities.hpp"
+#include "objects/Player.hpp"
+#include "settings.hpp"
+#include "voxels/Block.hpp"
+#include "voxels/Chunk.hpp"
+#include "voxels/Chunks.hpp"
+#include "window/Camera.hpp"
+#include "window/Window.hpp"
+#include "world/Level.hpp"
+#include "world/LevelEvents.hpp"
+#include "world/World.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/Batch3D.hpp"
+#include "graphics/core/DrawContext.hpp"
+#include "graphics/core/LineBatch.hpp"
+#include "graphics/core/Mesh.hpp"
+#include "graphics/core/Model.hpp"
+#include "graphics/core/PostProcessing.hpp"
+#include "graphics/core/Shader.hpp"
+#include "graphics/core/Texture.hpp"
+#include "ChunksRenderer.hpp"
+#include "ModelBatch.hpp"
 #include "Skybox.hpp"
 #include <GL/glew.h>
 #endif // USE_DIRECTX
@@ -69,7 +102,8 @@ WorldRenderer::WorldRenderer(
       frustumCulling(std::make_unique<Frustum>()),
       lineBatch(std::make_unique<LineBatch>()),
       modelBatch(std::make_unique<ModelBatch>(
-          20'000, engine->getAssets(), level->chunks.get()
+          20'000, engine->getAssets(), level->chunks.get(), 
+          &engine->getSettings()
       )) {
     renderer = std::make_unique<ChunksRenderer>(
         level, frontend->getContentGfxCache(), &engine->getSettings()
@@ -93,7 +127,7 @@ WorldRenderer::~WorldRenderer() = default;
 bool WorldRenderer::drawChunk(
     size_t index, Camera* camera, Shader* shader, bool culling
 ) {
-    auto chunk = level->chunks->chunks[index];
+    auto chunk = level->chunks->getChunks()[index];
     if (!chunk->flags.lighted) {
         return false;
     }
@@ -132,22 +166,23 @@ bool WorldRenderer::drawChunk(
 void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
     auto assets = engine->getAssets();
     auto atlas = assets->get<Atlas>("blocks");
-    
+
     atlas->getTexture()->bind();
     renderer->update();
 
     // [warning] this whole method is not thread-safe for chunks
 
     std::vector<size_t> indices;
-    for (size_t i = 0; i < chunks->volume; i++) {
-        if (chunks->chunks[i] == nullptr) continue;
+    for (size_t i = 0; i < chunks->getVolume(); i++) {
+        if (chunks->getChunks()[i] == nullptr) continue;
         indices.emplace_back(i);
     }
-    float px = camera->position.x / (float)CHUNK_W - 0.5f;
-    float pz = camera->position.z / (float)CHUNK_D - 0.5f;
+    float px = camera->position.x / static_cast<float>(CHUNK_W) - 0.5f;
+    float pz = camera->position.z / static_cast<float>(CHUNK_D) - 0.5f;
     std::sort(indices.begin(), indices.end(), [chunks, px, pz](auto i, auto j) {
-        const auto a = chunks->chunks[i].get();
-        const auto b = chunks->chunks[j].get();
+        const auto& chunksBuffer = chunks->getChunks();
+        const auto a = chunksBuffer[i].get();
+        const auto b = chunksBuffer[j].get();
         auto adx = (a->x - px);
         auto adz = (a->z - pz);
         auto bdx = (b->x - px);
@@ -178,7 +213,7 @@ void WorldRenderer::setupWorldShader(
     shader->uniform1f("u_gamma", settings.graphics.gamma.get());
     shader->uniform1f("u_fogFactor", fogFactor);
     shader->uniform1f("u_fogCurve", settings.graphics.fogCurve.get());
-    shader->uniform1f("u_dayTime", level->getWorld()->daytime);
+    shader->uniform1f("u_dayTime", level->getWorld()->getInfo().daytime);
     shader->uniform3f("u_cameraPos", camera->position);
 #ifdef USE_OPENGL
     shader->uniform1i("u_cubemap", 1);
@@ -367,8 +402,10 @@ void WorldRenderer::draw(
     const Viewport& vp = pctx.getViewport();
     camera->aspect = vp.getWidth() / static_cast<float>(vp.getHeight());
 
-    const EngineSettings& settings = engine->getSettings();
-    skybox->refresh(pctx, world->daytime, 1.0f + world->fog * 2.0f, 4);
+    const auto& settings = engine->getSettings();
+    const auto& worldInfo = world->getInfo();
+
+    skybox->refresh(pctx, worldInfo.daytime, 1.0f + worldInfo.fog * 2.0f, 4);
 
     auto assets = engine->getAssets();
     auto linesShader = assets->get<Shader>("lines");
@@ -381,7 +418,7 @@ void WorldRenderer::draw(
         Window::clearDepth();
 
         // Drawing background sky plane
-        skybox->draw(pctx, camera, assets, world->daytime, world->fog);
+        skybox->draw(pctx, camera, assets, worldInfo.daytime, worldInfo.fog);
 
         // Actually world render with depth buffer on
         {
@@ -404,7 +441,7 @@ void WorldRenderer::draw(
     auto screenShader = assets->get<Shader>("screen");
     screenShader->use();
     screenShader->uniform1f("u_timer", timer);
-    screenShader->uniform1f("u_dayTime", level->getWorld()->daytime);
+    screenShader->uniform1f("u_dayTime", worldInfo.daytime);
     postProcessing->render(pctx, screenShader);
 }
 
@@ -434,4 +471,8 @@ void WorldRenderer::drawBorders(
         lineBatch->line(ex, i, sz, sx, i, sz, 0, 0.8f, 0, 1);
     }
     lineBatch->flush();
+}
+
+void WorldRenderer::clear() {
+    renderer->clear();
 }

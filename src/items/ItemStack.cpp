@@ -1,6 +1,6 @@
 #include "ItemStack.hpp"
 
-#include "../content/Content.hpp"
+#include "content/Content.hpp"
 #include "ItemDef.hpp"
 
 ItemStack::ItemStack() : item(ITEM_EMPTY), count(0) {
@@ -15,6 +15,9 @@ void ItemStack::set(const ItemStack& item) {
     this->count = item.count;
     if (count == 0) {
         this->item = 0;
+    }
+    if (this->item == 0) {
+        count = 0;
     }
 }
 

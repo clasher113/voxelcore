@@ -1,5 +1,4 @@
-#ifndef ASSETS_ASSETS_LOADER_HPP_
-#define ASSETS_ASSETS_LOADER_HPP_
+#pragma once
 
 #include <filesystem>
 #include <functional>
@@ -9,15 +8,11 @@
 #include <string>
 #include <utility>
 
-#include "../delegates.hpp"
-#include "../interfaces/Task.hpp"
-#include "../typedefs.hpp"
+#include "delegates.hpp"
+#include "interfaces/Task.hpp"
+#include "typedefs.hpp"
 #include "Assets.hpp"
-
-namespace dynamic {
-    class Map;
-    class List;
-}
+#include "data/dv.hpp"
 
 class ResPaths;
 class AssetsLoader;
@@ -62,9 +57,9 @@ class AssetsLoader {
     void tryAddSound(const std::string& name);
 
     void processPreload(
-        AssetType tag, const std::string& name, dynamic::Map* map
+        AssetType tag, const std::string& name, const dv::value& map
     );
-    void processPreloadList(AssetType tag, dynamic::List* list);
+    void processPreloadList(AssetType tag, const dv::value& list);
     void processPreloadConfig(const std::filesystem::path& file);
     void processPreloadConfigs(const Content* content);
 public:
@@ -104,5 +99,3 @@ public:
         const std::vector<std::filesystem::path>& alternatives
     );
 };
-
-#endif  // ASSETS_ASSETS_LOADER_HPP_

@@ -5,7 +5,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "../util/stringutil.hpp"
+#include "util/stringutil.hpp"
 
 inline double power(double base, int64_t power) {
     double result = 1.0;
@@ -106,6 +106,10 @@ bool BasicParser::skipTo(const std::string& substring) {
 
 bool BasicParser::hasNext() {
     return pos < source.length();
+}
+
+size_t BasicParser::remain() const {
+    return source.length() - pos;
 }
 
 bool BasicParser::isNext(const std::string& substring) {
@@ -221,14 +225,22 @@ std::string_view BasicParser::readUntilEOL() {
 std::string BasicParser::parseName() {
     char c = peek();
     if (!is_identifier_start(c)) {
-        if (c == '"') {
-            pos++;
-            return parseString(c);
-        }
         throw error("identifier expected");
     }
     int start = pos;
     while (hasNext() && is_identifier_part(source[pos])) {
+        pos++;
+    }
+    return std::string(source.substr(start, pos - start));
+}
+
+std::string BasicParser::parseXmlName() {
+    char c = peek();
+    if (!is_json_identifier_start(c)) {
+        throw error("identifier expected");
+    }
+    int start = pos;
+    while (hasNext() && is_json_identifier_part(source[pos])) {
         pos++;
     }
     return std::string(source.substr(start, pos - start));
@@ -258,7 +270,7 @@ int64_t BasicParser::parseSimpleInt(int base) {
     return value;
 }
 
-dynamic::Value BasicParser::parseNumber() {
+dv::value BasicParser::parseNumber() {
     switch (peek()) {
         case '-':
             skip(1);
@@ -271,7 +283,7 @@ dynamic::Value BasicParser::parseNumber() {
     }
 }
 
-dynamic::Value BasicParser::parseNumber(int sign) {
+dv::value BasicParser::parseNumber(int sign) {
     char c = peek();
     int base = 10;
     if (c == '0' && pos + 1 < source.length() &&
@@ -349,36 +361,16 @@ std::string BasicParser::parseString(char quote, bool closeRequired) {
                 continue;
             }
             switch (c) {
-                case 'n':
-                    ss << '\n';
-                    break;
-                case 'r':
-                    ss << '\r';
-                    break;
-                case 'b':
-                    ss << '\b';
-                    break;
-                case 't':
-                    ss << '\t';
-                    break;
-                case 'f':
-                    ss << '\f';
-                    break;
-                case '\'':
-                    ss << '\\';
-                    break;
-                case '"':
-                    ss << '"';
-                    break;
-                case '\\':
-                    ss << '\\';
-                    break;
-                case '/':
-                    ss << '/';
-                    break;
-                case '\n':
-                    pos++;
-                    continue;
+                case 'n': ss << '\n'; break;
+                case 'r': ss << '\r'; break;
+                case 'b': ss << '\b'; break;
+                case 't': ss << '\t'; break;
+                case 'f': ss << '\f'; break;
+                case '\'': ss << '\\'; break;
+                case '"': ss << '"'; break;
+                case '\\': ss << '\\'; break;
+                case '/': ss << '/'; break;
+                case '\n': continue;
                 default:
                     throw error(
                         "'\\" + std::string({c}) + "' is an illegal escape"

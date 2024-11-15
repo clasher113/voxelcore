@@ -1,5 +1,4 @@
-#ifndef GRAPHICS_UI_ELEMENTS_CONTAINER_HPP_
-#define GRAPHICS_UI_ELEMENTS_CONTAINER_HPP_
+#pragma once
 
 #include "UINode.hpp"
 #include "commons.hpp"
@@ -31,12 +30,10 @@ namespace gui {
         virtual void scrolled(int value) override;
         virtual void setScrollable(bool flag);
         void listenInterval(float interval, ontimeout callback, int repeat=-1);
-        virtual glm::vec2 contentOffset() override {return glm::vec2(0.0f, scroll);};
+        virtual glm::vec2 getContentOffset() override {return glm::vec2(0.0f, scroll);};
         virtual void setSize(glm::vec2 size) override;
         virtual void refresh() override;
 
         const std::vector<std::shared_ptr<UINode>>& getNodes() const;
     };
 }
-
-#endif // GRAPHICS_UI_ELEMENTS_CONTAINER_HPP_

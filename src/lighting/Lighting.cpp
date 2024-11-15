@@ -1,13 +1,13 @@
 #include "Lighting.hpp"
 #include "LightSolver.hpp"
 #include "Lightmap.hpp"
-#include "../content/Content.hpp"
-#include "../voxels/Chunks.hpp"
-#include "../voxels/Chunk.hpp"
-#include "../voxels/voxel.hpp"
-#include "../voxels/Block.hpp"
-#include "../constants.hpp"
-#include "../util/timeutil.hpp"
+#include "content/Content.hpp"
+#include "voxels/Chunks.hpp"
+#include "voxels/Chunk.hpp"
+#include "voxels/voxel.hpp"
+#include "voxels/Block.hpp"
+#include "constants.hpp"
+#include "util/timeutil.hpp"
 
 #include <memory>
 
@@ -23,8 +23,9 @@ Lighting::Lighting(const Content* content, Chunks* chunks)
 Lighting::~Lighting() = default;
 
 void Lighting::clear(){
-    for (size_t index = 0; index < chunks->volume; index++){
-        auto chunk = chunks->chunks[index];
+    const auto& chunks = this->chunks->getChunks();
+    for (size_t index = 0; index < chunks.size(); index++){
+        auto chunk = chunks[index];
         if (chunk == nullptr)
             continue;
         Lightmap& lightmap = chunk->lightmap;

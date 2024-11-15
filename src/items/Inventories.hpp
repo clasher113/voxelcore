@@ -1,11 +1,10 @@
-#ifndef ITEMS_INVENTORIES_HPP_
-#define ITEMS_INVENTORIES_HPP_
+#pragma once
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 
-#include "../maths/util.hpp"
+#include "maths/util.hpp"
 #include "Inventory.hpp"
 
 class Level;
@@ -16,7 +15,7 @@ using inventories_map = std::unordered_map<int64_t, std::shared_ptr<Inventory>>;
 class Inventories {
     Level& level;
     inventories_map map;
-    PseudoRandom random;
+    util::PseudoRandom random;
 public:
     Inventories(Level& level);
     ~Inventories();
@@ -41,4 +40,3 @@ public:
     const inventories_map& getMap() const;
 };
 
-#endif  // ITEMS_INVENTORIES_HPP_

@@ -1,9 +1,8 @@
-#ifndef FRONTEND_GUI_GUI_UTIL_HPP_
-#define FRONTEND_GUI_GUI_UTIL_HPP_
+#pragma once
 
 #include "GUI.hpp"
-#include "../../typedefs.hpp"
-#include "../../delegates.hpp"
+#include "typedefs.hpp"
+#include "delegates.hpp"
 
 #include <memory>
 #include <string>
@@ -25,6 +24,12 @@ namespace guiutil {
         const runnable& on_confirm=nullptr,
         std::wstring yestext=L"", 
         std::wstring notext=L"");
-}
 
-#endif // FRONTEND_GUI_GUI_UTIL_HPP_
+    void confirmWithMemo(
+        gui::GUI* gui, 
+        const std::wstring& text, 
+        const std::wstring& memo,
+        const runnable& on_confirm=nullptr,
+        std::wstring yestext=L"", 
+        std::wstring notext=L"");
+}

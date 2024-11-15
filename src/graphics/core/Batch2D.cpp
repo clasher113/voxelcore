@@ -1,11 +1,11 @@
 #include "Batch2D.hpp"
 #include "gl_util.hpp"
-#include "../../maths/UVRegion.hpp"
+#include "maths/UVRegion.hpp"
 
 #ifdef USE_DIRECTX
-#include "../../directx/graphics/DXMesh.hpp"
-#include "../../directx/graphics/DXTexture.hpp"
-#include "../../directx/graphics/DXLine.hpp"
+#include "directx/graphics/DXMesh.hpp"
+#include "directx/graphics/DXTexture.hpp"
+#include "directx/graphics/DXLine.hpp"
 #elif USE_OPENGL
 #include "Mesh.hpp"
 #include "Texture.hpp"

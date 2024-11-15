@@ -1,12 +1,12 @@
-#ifndef CONTENT_CONTENT_PACK_HPP_
-#define CONTENT_CONTENT_PACK_HPP_
+#pragma once
 
 #include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-#include "../typedefs.hpp"
+#include "typedefs.hpp"
+#include "content_fwd.hpp"
 
 class EnginePaths;
 
@@ -52,6 +52,7 @@ struct ContentPack {
     static inline const fs::path BLOCKS_FOLDER = "blocks";
     static inline const fs::path ITEMS_FOLDER = "items";
     static inline const fs::path ENTITIES_FOLDER = "entities";
+    static inline const fs::path GENERATORS_FOLDER = "generators";
     static const std::vector<std::string> RESERVED_NAMES;
 
     static bool is_pack(const fs::path& folder);
@@ -68,6 +69,18 @@ struct ContentPack {
         const fs::path& worldDir,
         const std::string& name
     );
+
+    static ContentPack createCore(const EnginePaths*);
+
+    static inline fs::path getFolderFor(ContentType type) {
+        switch (type) {
+            case ContentType::BLOCK: return ContentPack::BLOCKS_FOLDER;
+            case ContentType::ITEM: return ContentPack::ITEMS_FOLDER;
+            case ContentType::ENTITY: return ContentPack::ENTITIES_FOLDER;
+            case ContentType::GENERATOR: return ContentPack::GENERATORS_FOLDER;
+            case ContentType::NONE: return fs::u8path("");
+        }
+    }
 };
 
 struct ContentPackStats {
@@ -115,5 +128,3 @@ public:
         return env;
     }
 };
-
-#endif  // CONTENT_CONTENT_PACK_HPP_

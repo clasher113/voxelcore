@@ -4,51 +4,55 @@
 #include "LevelFrontend.hpp"
 #include "UiDocument.hpp"
 
-#include "../assets/Assets.hpp"
-#include "../content/Content.hpp"
-#include "../core_defs.hpp"
-#include "../delegates.hpp"
-#include "../engine.hpp"
-#include "../graphics/core/Atlas.hpp"
-#include "../graphics/core/Batch2D.hpp"
-#include "../graphics/core/Batch3D.hpp"
-#include "../graphics/core/DrawContext.hpp"
-#include "../graphics/core/Font.hpp"
-#include "../graphics/render/WorldRenderer.hpp"
-#include "../graphics/ui/elements/InventoryView.hpp"
-#include "../graphics/ui/elements/Menu.hpp"
-#include "../graphics/ui/elements/Panel.hpp"
-#include "../graphics/ui/elements/Plotter.hpp"
-#include "../graphics/ui/elements/UINode.hpp"
-#include "../graphics/ui/gui_util.hpp"
-#include "../graphics/ui/GUI.hpp"
-#include "../items/Inventories.hpp"
-#include "../items/Inventory.hpp"
-#include "../items/ItemDef.hpp"
-#include "../logic/scripting/scripting.hpp"
-#include "../maths/voxmaths.hpp"
-#include "../objects/Player.hpp"
-#include "../physics/Hitbox.hpp"
-#include "../typedefs.hpp"
-#include "../util/stringutil.hpp"
-#include "../voxels/Block.hpp"
-#include "../voxels/Chunk.hpp"
-#include "../voxels/Chunks.hpp"
-#include "../window/Camera.hpp"
-#include "../window/Events.hpp"
-#include "../window/input.hpp"
-#include "../window/Window.hpp"
-#include "../world/Level.hpp"
-#include "../world/World.hpp"
+#include "assets/Assets.hpp"
+#include "content/Content.hpp"
+#include "core_defs.hpp"
+#include "delegates.hpp"
+#include "engine.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/Batch2D.hpp"
+#include "graphics/core/Batch3D.hpp"
+#include "graphics/core/DrawContext.hpp"
+#include "graphics/core/Font.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "graphics/render/WorldRenderer.hpp"
+#include "graphics/ui/elements/InventoryView.hpp"
+#include "graphics/ui/elements/Menu.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Plotter.hpp"
+#include "graphics/ui/elements/UINode.hpp"
+#include "graphics/ui/gui_util.hpp"
+#include "graphics/ui/GUI.hpp"
+#include "items/Inventories.hpp"
+#include "items/Inventory.hpp"
+#include "items/ItemDef.hpp"
+#include "logic/scripting/scripting.hpp"
+#include "logic/LevelController.hpp"
+#include "world/generator/WorldGenerator.hpp"
+#include "maths/voxmaths.hpp"
+#include "objects/Player.hpp"
+#include "physics/Hitbox.hpp"
+#include "typedefs.hpp"
+#include "util/stringutil.hpp"
+#include "voxels/Block.hpp"
+#include "voxels/Chunk.hpp"
+#include "voxels/Chunks.hpp"
+#include "voxels/ChunksStorage.hpp"
+#include "window/Camera.hpp"
+#include "window/Events.hpp"
+#include "window/input.hpp"
+#include "window/Window.hpp"
+#include "world/Level.hpp"
+#include "world/World.hpp"
 
 #ifdef USE_DIRECTX
-#include "../directx/graphics/DXMesh.hpp"
-#include "../directx/graphics/DXShader.hpp"
-#include "../directx/graphics/DXTexture.hpp"
+#include "directx/graphics/DXMesh.hpp"
+#include "directx/graphics/DXShader.hpp"
+#include "directx/graphics/DXTexture.hpp"
 #elif USE_OPENGL
-#include "../graphics/core/Mesh.hpp"
-#include "../graphics/core/Shader.hpp"
-#include "../graphics/core/Texture.hpp"
+#include "graphics/core/Mesh.hpp"
+#include "graphics/core/Shader.hpp"
+#include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
 
 #include <assert.h>
@@ -147,12 +151,16 @@ std::shared_ptr<InventoryView> Hud::createHotbar() {
     return view;
 }
 
-Hud::Hud(Engine* engine, LevelFrontend* frontend, Player* player) 
-  : assets(engine->getAssets()), 
-    gui(engine->getGUI()),
-    frontend(frontend),
-    player(player)
-{
+static constexpr uint WORLDGEN_IMG_SIZE = 128U;
+
+Hud::Hud(Engine* engine, LevelFrontend* frontend, Player* player)
+    : assets(engine->getAssets()),
+      gui(engine->getGUI()),
+      frontend(frontend),
+      player(player),
+      debugImgWorldGen(std::make_unique<ImageData>(
+          ImageFormat::rgba8888, WORLDGEN_IMG_SIZE, WORLDGEN_IMG_SIZE
+      )) {
     contentAccess = createContentAccess();
     contentAccess->setId("hud.content-access");
     contentAccessPanel = std::make_shared<Panel>(
@@ -184,6 +192,14 @@ Hud::Hud(Engine* engine, LevelFrontend* frontend, Player* player)
     dplotter->setGravity(Gravity::bottom_right);
     dplotter->setInteractive(false);
     add(HudElement(hud_element_mode::permanent, nullptr, dplotter, true));
+
+    assets->store(Texture::from(debugImgWorldGen.get()), DEBUG_WORLDGEN_IMAGE);
+
+    add(HudElement(hud_element_mode::permanent, nullptr, 
+        guiutil::create(
+            "<image src='"+DEBUG_WORLDGEN_IMAGE+
+            "' pos='0' size='256' gravity='top-right' margin='0,20,0,0'/>"
+        ), true));
 }
 
 Hud::~Hud() {
@@ -257,6 +273,54 @@ void Hud::updateHotbarControl() {
     }
 }
 
+void Hud::updateWorldGenDebugVisualization() {
+    auto level = frontend->getLevel();
+    auto generator =
+        frontend->getController()->getChunksController()->getGenerator();
+    auto debugInfo = generator->createDebugInfo();
+    
+    int width = debugImgWorldGen->getWidth();
+    int height = debugImgWorldGen->getHeight();
+    ubyte* data = debugImgWorldGen->getData();
+
+    int ox = debugInfo.areaOffsetX;
+    int oz = debugInfo.areaOffsetY;
+
+    int areaWidth = debugInfo.areaWidth;
+    int areaHeight = debugInfo.areaHeight;
+
+    for (int z = 0; z < height; z++) {
+        for (int x = 0; x < width; x++) {
+            int cx = x + ox;
+            int cz = z + oz;
+            int flippedZ = height - z - 1;
+
+            int ax = x - (width - areaWidth) / 2;
+            int az = z - (height - areaHeight) / 2;
+
+            data[(flippedZ * width + x) * 4 + 1] = 
+                level->chunks->getChunk(ax + ox, az + oz) ? 255 : 0;
+            data[(flippedZ * width + x) * 4 + 0] = 
+                level->chunksStorage->get(ax + ox, az + oz) ? 255 : 0;
+
+            if (ax < 0 || az < 0 || 
+                ax >= areaWidth || az >= areaHeight) {
+                data[(flippedZ * width + x) * 4 + 2] = 0;
+                data[(flippedZ * width + x) * 4 + 3] = 0;
+                data[(flippedZ * width + x) * 4 + 3] = 100;
+                continue;
+            }
+            auto value = debugInfo.areaLevels[az * areaWidth + ax] * 25;
+
+            // Chunk is already generated
+            data[(flippedZ * width + x) * 4 + 2] = value;
+            data[(flippedZ * width + x) * 4 + 3] = 150;
+        }
+    }
+    auto texture = assets->get<Texture>(DEBUG_WORLDGEN_IMAGE);
+    texture->reload(*debugImgWorldGen);
+}
+
 void Hud::update(bool visible) {
     auto level = frontend->getLevel();
     auto menu = gui->getMenu();
@@ -303,6 +367,10 @@ void Hud::update(bool visible) {
         }
     }
     cleanup();
+
+    if (player->debug) {
+        updateWorldGenDebugVisualization();
+    }
 }
 
 /// @brief Show inventory on the screen and turn on inventory mode blocking movement
@@ -410,14 +478,12 @@ void Hud::closeInventory() {
 }
 
 void Hud::add(const HudElement& element) {
-    using namespace dynamic;
-
     gui->add(element.getNode());
     auto document = element.getDocument();
     if (document) {
         auto invview = std::dynamic_pointer_cast<InventoryView>(element.getNode());
         auto inventory = invview ? invview->getInventory() : nullptr;
-        std::vector<Value> args;
+        std::vector<dv::value> args;
         args.emplace_back(inventory ? inventory.get()->getId() : 0);
         for (int i = 0; i < 3; i++) {
             args.emplace_back(static_cast<integer_t>(blockPos[i]));

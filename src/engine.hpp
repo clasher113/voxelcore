@@ -1,5 +1,4 @@
-#ifndef ENGINE_HPP_
-#define ENGINE_HPP_
+#pragma once
 
 #include "delegates.hpp"
 #include "typedefs.hpp"
@@ -131,6 +130,8 @@ public:
     /// @brief Get selected content packs
     std::vector<ContentPack>& getContentPacks();
 
+    std::vector<ContentPack> getAllContentPacks();
+
     std::vector<std::string>& getBasePacks();
 
     /// @brief Get current screen
@@ -148,5 +149,3 @@ public:
 
     SettingsHandler& getSettingsHandler();
 };
-
-#endif // ENGINE_HPP_

@@ -4,25 +4,25 @@
 #include <algorithm>
 #include <cmath>
 
-#include "../content/Content.hpp"
-#include "../core_defs.hpp"
-#include "../items/Inventory.hpp"
-#include "../items/ItemDef.hpp"
-#include "../items/ItemStack.hpp"
-#include "../lighting/Lighting.hpp"
-#include "../objects/Entities.hpp"
-#include "../objects/Player.hpp"
-#include "../physics/Hitbox.hpp"
-#include "../physics/PhysicsSolver.hpp"
-#include "../settings.hpp"
-#include "../voxels/Block.hpp"
-#include "../voxels/Chunks.hpp"
-#include "../voxels/voxel.hpp"
-#include "../window/Camera.hpp"
-#include "../window/Events.hpp"
-#include "../window/Window.hpp"
-#include "../window/input.hpp"
-#include "../world/Level.hpp"
+#include "content/Content.hpp"
+#include "core_defs.hpp"
+#include "items/Inventory.hpp"
+#include "items/ItemDef.hpp"
+#include "items/ItemStack.hpp"
+#include "lighting/Lighting.hpp"
+#include "objects/Entities.hpp"
+#include "objects/Player.hpp"
+#include "physics/Hitbox.hpp"
+#include "physics/PhysicsSolver.hpp"
+#include "settings.hpp"
+#include "voxels/Block.hpp"
+#include "voxels/Chunks.hpp"
+#include "voxels/voxel.hpp"
+#include "window/Camera.hpp"
+#include "window/Events.hpp"
+#include "window/Window.hpp"
+#include "window/input.hpp"
+#include "world/Level.hpp"
 #include "BlocksController.hpp"
 #include "scripting/scripting.hpp"
 
@@ -423,7 +423,7 @@ void PlayerController::processRightClick(const Block& def, const Block& target) 
 
     if (!input.shift && target.rt.funcsset.oninteract) {
         if (scripting::on_block_interact(
-                player.get(), target, selection.position
+                player.get(), target, selection.actualPosition
             )) {
             return;
         }

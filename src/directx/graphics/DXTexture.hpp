@@ -27,6 +27,7 @@ public:
 
 	void bind(unsigned int shaderType = ShaderType::PIXEL, UINT startSlot = 0u) const;
 	void reload(ubyte* data);
+	void reload(const ImageData& image);
 
 	virtual std::unique_ptr<ImageData> readData();
 	virtual ID3D11Texture2D* getId() const;

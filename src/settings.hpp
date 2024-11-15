@@ -1,5 +1,4 @@
-#ifndef SETTINGS_HPP_
-#define SETTINGS_HPP_
+#pragma once
 
 #include <string>
 #include <unordered_map>
@@ -57,7 +56,7 @@ struct CameraSettings {
 struct GraphicsSettings {
     /// @brief Fog opacity is calculated as `pow(depth*k, fogCurve)` where k depends on chunksLoadDistance.
     /// 1.0 is linear, 2.0 is quadratic
-    NumberSetting fogCurve {1.6f, 1.0f, 6.0f};
+    NumberSetting fogCurve {1.0f, 1.0f, 6.0f};
     /// @brief Lighting gamma
     NumberSetting gamma {1.0f, 0.4f, 1.0f};
     /// @brief Enable blocks backlight to prevent complete darkness
@@ -65,6 +64,8 @@ struct GraphicsSettings {
     /// @brief Enable chunks frustum culling
     FlagSetting frustumCulling {true};
     IntegerSetting skyboxResolution {64 + 32, 64, 128};
+    IntegerSetting chunkMaxVertices {200'000, 0, 4'000'000};
+    IntegerSetting chunkMaxRenderers {6, -4, 32};
 };
 
 struct DebugSettings {
@@ -87,5 +88,3 @@ struct EngineSettings {
     DebugSettings debug;
     UiSettings ui;
 };
-
-#endif // SETTINGS_HPP_

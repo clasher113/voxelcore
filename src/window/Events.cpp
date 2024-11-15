@@ -3,8 +3,8 @@
 #include <GLFW/glfw3.h>
 #include <string.h>
 
-#include "../debug/Logger.hpp"
-#include "../util/stringutil.hpp"
+#include "debug/Logger.hpp"
+#include "util/stringutil.hpp"
 #include "Window.hpp"
 
 static debug::Logger logger("events");
@@ -164,12 +164,11 @@ void Events::setPosition(float xpos, float ypos) {
     Events::cursor.y = ypos;
 }
 
-#include "../coders/json.hpp"
-#include "../coders/toml.hpp"
-#include "../data/dynamic.hpp"
+#include "coders/json.hpp"
+#include "coders/toml.hpp"
 
 std::string Events::writeBindings() {
-    dynamic::Map obj;
+    auto obj = dv::object();
     for (auto& entry : Events::bindings) {
         const auto& binding = entry.second;
         std::string value;
@@ -187,7 +186,7 @@ std::string Events::writeBindings() {
             default:
                 throw std::runtime_error("unsupported control type");
         }
-        obj.put(entry.first, value);
+        obj[entry.first] = std::move(value);
     }
     return toml::stringify(obj);
 }
@@ -196,9 +195,10 @@ void Events::loadBindings(
     const std::string& filename, const std::string& source
 ) {
     auto map = toml::parse(filename, source);
-    for (auto& entry : map->values) {
-        if (auto value = std::get_if<std::string>(&entry.second)) {
-            auto [prefix, codename] = util::split_at(*value, ':');
+    for (auto& [sectionName, section] : map.asObject()) {
+        for (auto& [name, value] : section.asObject()) {
+            auto key = sectionName + "." + name;
+            auto [prefix, codename] = util::split_at(value.asString(), ':');
             inputtype type;
             int code;
             if (prefix == "key") {
@@ -210,12 +210,10 @@ void Events::loadBindings(
             } else {
                 logger.error()
                     << "unknown input type: " << prefix << " (binding "
-                    << util::quote(entry.first) << ")";
+                    << util::quote(key) << ")";
                 continue;
             }
-            Events::bind(entry.first, type, code);
-        } else {
-            logger.error() << "invalid binding entry: " << entry.first;
+            Events::bind(key, type, code);
         }
     }
 }

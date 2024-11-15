@@ -4,22 +4,22 @@
 #include <filesystem>
 #include <memory>
 
-#include "../coders/commons.hpp"
-#include "../content/ContentLUT.hpp"
-#include "../debug/Logger.hpp"
-#include "../engine.hpp"
-#include "../files/WorldConverter.hpp"
-#include "../files/WorldFiles.hpp"
-#include "../frontend/locale.hpp"
-#include "../frontend/menu.hpp"
-#include "../frontend/screens/LevelScreen.hpp"
-#include "../frontend/screens/MenuScreen.hpp"
-#include "../graphics/ui/elements/Menu.hpp"
-#include "../graphics/ui/gui_util.hpp"
-#include "../interfaces/Task.hpp"
-#include "../util/stringutil.hpp"
-#include "../world/Level.hpp"
-#include "../world/World.hpp"
+#include "engine.hpp"
+#include "coders/commons.hpp"
+#include "debug/Logger.hpp"
+#include "content/ContentReport.hpp"
+#include "files/WorldConverter.hpp"
+#include "files/WorldFiles.hpp"
+#include "frontend/locale.hpp"
+#include "frontend/menu.hpp"
+#include "frontend/screens/LevelScreen.hpp"
+#include "frontend/screens/MenuScreen.hpp"
+#include "graphics/ui/elements/Menu.hpp"
+#include "graphics/ui/gui_util.hpp"
+#include "interfaces/Task.hpp"
+#include "util/stringutil.hpp"
+#include "world/Level.hpp"
+#include "world/World.hpp"
 #include "LevelController.hpp"
 
 namespace fs = std::filesystem;
@@ -30,7 +30,7 @@ EngineController::EngineController(Engine* engine) : engine(engine) {
 }
 
 void EngineController::deleteWorld(const std::string& name) {
-    fs::path folder = engine->getPaths()->getWorldFolder(name);
+    fs::path folder = engine->getPaths()->getWorldFolderByName(name);
     guiutil::confirm(
         engine->getGUI(),
         langs::get(L"delete-confirm", L"world") + L" (" +
@@ -44,21 +44,30 @@ void EngineController::deleteWorld(const std::string& name) {
 
 std::shared_ptr<Task> create_converter(
     Engine* engine,
-    const fs::path& folder,
+    const std::shared_ptr<WorldFiles>& worldFiles,
     const Content* content,
-    const std::shared_ptr<ContentLUT>& lut,
+    const std::shared_ptr<ContentReport>& report,
     const runnable& postRunnable
 ) {
+    ConvertMode mode;
+    if (report->isUpgradeRequired()) {
+        mode = ConvertMode::UPGRADE;
+    } else if (report->hasContentReorder()) {
+        mode = ConvertMode::REINDEX;
+    } else {
+        mode = ConvertMode::BLOCK_FIELDS;
+    }
     return WorldConverter::startTask(
-        folder,
+        worldFiles,
         content,
-        lut,
+        report,
         [=]() {
             auto menu = engine->getGUI()->getMenu();
             menu->reset();
             menu->setPage("main", false);
             engine->getGUI()->postRunnable([=]() { postRunnable(); });
         },
+        mode,
         true
     );
 }
@@ -66,38 +75,61 @@ std::shared_ptr<Task> create_converter(
 void show_convert_request(
     Engine* engine,
     const Content* content,
-    const std::shared_ptr<ContentLUT>& lut,
-    const fs::path& folder,
+    const std::shared_ptr<ContentReport>& report,
+    const std::shared_ptr<WorldFiles>& worldFiles,
     const runnable& postRunnable
 ) {
-    guiutil::confirm(
-        engine->getGUI(),
-        langs::get(L"world.convert-request"),
-        [=]() {
+    auto on_confirm = [=]() {
             auto converter =
-                create_converter(engine, folder, content, lut, postRunnable);
+                create_converter(engine, worldFiles, content, report, postRunnable);
             menus::show_process_panel(
                 engine, converter, L"Converting world..."
             );
-        },
+        };
+
+    std::wstring message = L"world.convert-block-layouts";
+    if (report->hasContentReorder()) {
+        message = L"world.convert-request";
+    }
+    if (report->isUpgradeRequired()) {
+        message = L"world.upgrade-request";
+    } else if (report->hasDataLoss()) {
+        message = L"world.convert-with-loss";
+        std::wstring text;
+        for (const auto& line : report->getDataLoss()) {
+            text += util::str2wstr_utf8(line) + L"\n";
+        }
+        guiutil::confirmWithMemo(
+            engine->getGUI(),
+            langs::get(message),
+            text,
+            on_confirm,
+            L"",
+            langs::get(L"Cancel")
+        );
+        return;
+    }
+    guiutil::confirm(
+        engine->getGUI(),
+        langs::get(message),
+        on_confirm,
         L"",
         langs::get(L"Cancel")
     );
 }
 
 static void show_content_missing(
-    Engine* engine, const std::shared_ptr<ContentLUT>& lut
+    Engine* engine, const std::shared_ptr<ContentReport>& report
 ) {
-    using namespace dynamic;
-    auto root = create_map();
-    auto& contentEntries = root->putList("content");
-    for (auto& entry : lut->getMissingContent()) {
-        std::string contentName = contenttype_name(entry.type);
-        auto& contentEntry = contentEntries.putMap();
-        contentEntry.put("type", contentName);
-        contentEntry.put("name", entry.name);
+    auto root = dv::object();
+    auto& contentEntries = root.list("content");
+    for (auto& entry : report->getMissingContent()) {
+        std::string contentName = ContentType_name(entry.type);
+        auto& contentEntry = contentEntries.object();
+        contentEntry["type"] = contentName;
+        contentEntry["name"] = entry.name;
     }
-    menus::show(engine, "reports/missing_content", {root});
+    menus::show(engine, "reports/missing_content", {std::move(root)});
 }
 
 static bool loadWorldContent(Engine* engine, const fs::path& folder) {
@@ -106,13 +138,13 @@ static bool loadWorldContent(Engine* engine, const fs::path& folder) {
     });
 }
 
-static void loadWorld(Engine* engine, const fs::path& folder) {
+static void loadWorld(Engine* engine, const std::shared_ptr<WorldFiles>& worldFiles) {
     try {
         auto content = engine->getContent();
         auto& packs = engine->getContentPacks();
         auto& settings = engine->getSettings();
 
-        auto level = World::load(folder, settings, content, packs);
+        auto level = World::load(worldFiles, settings, content, packs);
         engine->setScreen(
             std::make_shared<LevelScreen>(engine, std::move(level))
         );
@@ -133,34 +165,34 @@ void EngineController::openWorld(const std::string& name, bool confirmConvert) {
     }
 
     auto* content = engine->getContent();
-
-    std::shared_ptr<ContentLUT> lut(World::checkIndices(folder, content));
-    if (lut) {
-        if (lut->hasMissingContent()) {
+    auto worldFiles = std::make_shared<WorldFiles>(
+        folder, engine->getSettings().debug);
+    if (auto report = World::checkIndices(worldFiles, content)) {
+        if (report->hasMissingContent()) {
             engine->setScreen(std::make_shared<MenuScreen>(engine));
-            show_content_missing(engine, lut);
+            show_content_missing(engine, report);
         } else {
             if (confirmConvert) {
                 menus::show_process_panel(
                     engine,
                     create_converter(
                         engine,
-                        folder,
+                        worldFiles,
                         content,
-                        lut,
+                        report,
                         [=]() { openWorld(name, false); }
                     ),
                     L"Converting world..."
                 );
             } else {
-                show_convert_request(engine, content, lut, folder, [=]() {
+                show_convert_request(engine, content, report, std::move(worldFiles), [=]() {
                     openWorld(name, false);
                 });
             }
         }
-    } else {
-        loadWorld(engine, folder);
+        return;
     }
+    loadWorld(engine, std::move(worldFiles));
 }
 
 inline uint64_t str2seed(const std::string& seedstr) {
@@ -189,7 +221,7 @@ void EngineController::createWorld(
 
     if (!menus::call(engine, [this, paths, folder]() {
             engine->loadContent();
-            paths->setWorldFolder(folder);
+            paths->setCurrentWorldFolder(folder);
         })) {
         return;
     }

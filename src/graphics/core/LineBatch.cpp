@@ -1,8 +1,8 @@
 #include "LineBatch.hpp"
 
 #ifdef USE_DIRECTX
-#include "../../directx/graphics/DXLine.hpp"
-#include "../../directx/graphics/DXMesh.hpp"
+#include "directx/graphics/DXLine.hpp"
+#include "directx/graphics/DXMesh.hpp"
 #elif USE_OPENGL
 #include "Mesh.hpp"
 #include <GL/glew.h>

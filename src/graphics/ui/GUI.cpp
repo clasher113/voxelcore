@@ -6,20 +6,20 @@
 #include "elements/Label.hpp"
 #include "elements/Menu.hpp"
 
-#include "../../assets/Assets.hpp"
-#include "../../frontend/UiDocument.hpp"
-#include "../../frontend/locale.hpp"
-#include "../../graphics/core/Batch2D.hpp"
-#include "../../graphics/core/DrawContext.hpp"
-#include "../../window/Events.hpp"
-#include "../../window/Window.hpp"
-#include "../../window/input.hpp"
-#include "../../window/Camera.hpp"
+#include "assets/Assets.hpp"
+#include "frontend/UiDocument.hpp"
+#include "frontend/locale.hpp"
+#include "graphics/core/Batch2D.hpp"
+#include "graphics/core/DrawContext.hpp"
+#include "window/Events.hpp"
+#include "window/Window.hpp"
+#include "window/input.hpp"
+#include "window/Camera.hpp"
 
 #ifdef USE_DIRECTX
-#include "../../directx/graphics/DXShader.hpp"
+#include "directx/graphics/DXShader.hpp"
 #elif USE_OPENGL
-#include "../../graphics/core/Shader.hpp"
+#include "graphics/core/Shader.hpp"
 #endif // USE_DIRECTX
 
 #include <iostream>

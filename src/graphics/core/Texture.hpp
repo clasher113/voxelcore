@@ -1,8 +1,7 @@
-#ifndef GRAPHICS_CORE_TEXTURE_HPP_
-#define GRAPHICS_CORE_TEXTURE_HPP_
+#pragma once
 
-#include "../../typedefs.hpp"
-#include "../../maths/UVRegion.hpp"
+#include "typedefs.hpp"
+#include "maths/UVRegion.hpp"
 #include "ImageData.hpp"
 
 #include <memory>
@@ -21,6 +20,8 @@ public:
     virtual void bind() = 0;
     virtual void unbind() = 0;
 
+    virtual void reload(const ImageData& image) = 0;
+
     virtual std::unique_ptr<ImageData> readData() = 0;
 
     virtual uint getWidth() const {
@@ -35,5 +36,3 @@ public:
 
     static std::unique_ptr<Texture> from(const ImageData* image);
 };
-
-#endif // GRAPHICS_CORE_TEXTURE_HPP_

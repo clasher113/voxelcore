@@ -10,7 +10,7 @@ block.index(name: str) -> int
 -- Returns the id of the block material.
 block.material(blockid: int) -> str
 
--- Returns the block name displayed in the UI.
+-- Returns the block display name.
 block.caption(blockid: int) -> str
 
 -- Returns integer ID by block position
@@ -115,17 +115,46 @@ Set specified bits.
 ## Raycast
 
 ```lua
-block.raycast(start: vec3, dir: vec3, max_distance: number, [optional] dest: table) -> {
+block.raycast(start: vec3, dir: vec3, max_distance: number, [optional] dest: table, [optional] filter: table) -> {
     block: int, -- block id
     endpoint: vec3, -- point of the ray hit point
     iendpoint: vec3, -- position of the block hit by the ray
     length: number, -- ray length
-    normal: vec3 -- normal vector of the surface hit by the ray
+    normal: vec3, -- normal vector of the surface hit by the ray
 } or nil
 ```
 
 Casts a ray from the start point in the direction of *dir*. Max_distance specifies the maximum ray length.
 
+Argument `filter` can be used to tell ray what blocks can be skipped(passed through) during ray-casting.
+To use filter `dest` argument must be filled with some value(can be nil), it's done for backwards compatability 
+
 The function returns a table with the results or nil if the ray does not hit any block.
 
 The result will use the destination table instead of creating a new one if the optional argument specified.
+
+## Data fields
+
+```lua
+-- writes a value to the specified block field
+-- * throws an exception if the types are incompatible
+-- * throws an exception when array is out of bounds
+-- * does nothing if the block does not have the field
+block.set_field(
+    x: int, y: int, z: int,
+    name: str,
+    value: bool|int|number|string,
+    [optional] index: int = 0
+)
+
+-- returns the value written to the block field
+-- * returns nil if:
+--     1. the field does not exist
+--     2. no writes were made to any block field
+-- * throws an exception when array is out of bounds
+block.get_field(
+    x: int, y: int, z: int,
+    name: str,
+    [optional] index: int = 0
+) -> the stored value or nil
+```

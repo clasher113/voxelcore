@@ -1,5 +1,4 @@
-#ifndef GRAPHICS_CORE_GLTEXTURE_HPP_
-#define GRAPHICS_CORE_GLTEXTURE_HPP_
+#pragma once
 
 #include "Texture.hpp"
 
@@ -17,6 +16,8 @@ public:
 
     void setNearestFilter();
 
+    virtual void reload(const ImageData& image) override;
+
     virtual std::unique_ptr<ImageData> readData() override;
     virtual uint getId() const override;
 
@@ -26,5 +27,3 @@ public:
 
     static std::unique_ptr<GLTexture> from(const ImageData* image);
 };
-
-#endif // GRAPHICS_CORE_GLTEXTURE_HPP_

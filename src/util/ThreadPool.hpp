@@ -1,5 +1,4 @@
-#ifndef UTIL_THREAD_POOL_HPP_
-#define UTIL_THREAD_POOL_HPP_
+#pragma once
 
 #include <atomic>
 #include <chrono>
@@ -10,9 +9,9 @@
 #include <thread>
 #include <utility>
 
-#include "../debug/Logger.hpp"
-#include "../delegates.hpp"
-#include "../interfaces/Task.hpp"
+#include "debug/Logger.hpp"
+#include "delegates.hpp"
+#include "interfaces/Task.hpp"
 
 namespace util {
 
@@ -104,14 +103,40 @@ namespace util {
             }
         }
     public:
+        static constexpr int UNLIMITED = 0;
+        static constexpr int HALF = -2;
+        static constexpr int QUARTER = -4;
+
+        /// @brief Main thread pool constructor
+        /// @param name thread pool name (used in logger)
+        /// @param workersSupplier workers factory function
+        /// @param resultConsumer workers results consumer function
+        /// @param maxWorkers max number of workers. Special values: 0 is 
+        /// unlimited, -2 is half of auto count, -4 is quarter.
         ThreadPool(
             std::string name,
             supplier<std::shared_ptr<Worker<T, R>>> workersSupplier,
-            consumer<R&> resultConsumer
+            consumer<R&> resultConsumer,
+            int maxWorkers=UNLIMITED
         )
             : logger(std::move(name)), resultConsumer(resultConsumer) {
-            const uint num_threads = std::thread::hardware_concurrency();
-            for (uint i = 0; i < num_threads; i++) {
+            uint numThreads = std::thread::hardware_concurrency();
+            switch (maxWorkers) {
+                case UNLIMITED:
+                    break;
+                case HALF:
+                    numThreads = std::max(1U, numThreads);
+                    break;
+                case QUARTER:
+                    numThreads = std::max(1U, numThreads / 4);
+                    break;
+                default:
+                    numThreads = std::max(
+                        1U, std::min(numThreads, static_cast<uint>(maxWorkers))
+                    );
+                    break;
+            }
+            for (uint i = 0; i < numThreads; i++) {
                 threads.emplace_back(
                     &ThreadPool<T, R>::threadLoop, this, i, workersSupplier()
                 );
@@ -212,6 +237,11 @@ namespace util {
             jobsMutexCondition.notify_one();
         }
 
+        void clearQueue() {
+            std::lock_guard<std::mutex> lock(jobsMutex);
+            jobs = {};
+        }
+
         /// @brief If false: worker will be blocked until it's result performed
         void setStandaloneResults(bool flag) {
             standaloneResults = flag;
@@ -255,5 +285,3 @@ namespace util {
     };
 
 }  // namespace util
-
-#endif  // UTIL_THREAD_POOL_HPP_

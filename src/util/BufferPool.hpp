@@ -1,12 +1,11 @@
-#ifndef UTIL_BUFFER_POOL_HPP_
-#define UTIL_BUFFER_POOL_HPP_
+#pragma once
 
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <vector>
 
-#include "../typedefs.hpp"
+#include "typedefs.hpp"
 
 namespace util {
     /// @brief Thread-safe pool of same-sized buffers
@@ -36,7 +35,9 @@ namespace util {
                 freeBuffers.push(ptr);
             });
         }
+
+        size_t getBufferSize() const {
+            return bufferSize;
+        }
     };
 }
-
-#endif  // UTIL_BUFFER_POOL_HPP_

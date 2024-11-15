@@ -79,9 +79,9 @@ void TextureAnimator::update(float delta) {
 #elif USE_OPENGL
             glBlitFramebuffer(
                 frame.srcPos.x, srcPosY,
-                frame.srcPos.x + frame.size.x,	
+                frame.srcPos.x + frame.size.x,    
                 srcPosY + frame.size.y,
-                frame.dstPos.x, frame.dstPos.y,	
+                frame.dstPos.x, frame.dstPos.y,    
                 frame.dstPos.x + frame.size.x,
                 frame.dstPos.y + frame.size.y,
                 GL_COLOR_BUFFER_BIT, GL_NEAREST

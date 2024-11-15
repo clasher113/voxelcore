@@ -1,10 +1,9 @@
-#ifndef CONTENT_ITEMS_ITEM_DEF_HPP_
-#define CONTENT_ITEMS_ITEM_DEF_HPP_
+#pragma once
 
 #include <glm/glm.hpp>
 #include <string>
 
-#include "../typedefs.hpp"
+#include "typedefs.hpp"
 
 struct item_funcs_set {
     bool init : 1;
@@ -45,6 +44,5 @@ struct ItemDef {
 
     ItemDef(const std::string& name);
     ItemDef(const ItemDef&) = delete;
+    void cloneTo(ItemDef& dst);
 };
-
-#endif  // CONTENT_ITEMS_ITEM_DEF_HPP_

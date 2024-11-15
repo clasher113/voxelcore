@@ -1,5 +1,4 @@
-#ifndef GRAPHICS_RENDER_CHUNKSRENDERER_HPP_
-#define GRAPHICS_RENDER_CHUNKSRENDERER_HPP_
+#pragma once
 
 #include <queue>
 #include <memory>
@@ -7,9 +6,9 @@
 #include <unordered_map>
 #include <glm/glm.hpp>
 
-#include "../../voxels/Block.hpp"
-#include "../../voxels/ChunksStorage.hpp"
-#include "../../util/ThreadPool.hpp"
+#include "voxels/Block.hpp"
+#include "voxels/ChunksStorage.hpp"
+#include "util/ThreadPool.hpp"
 
 class Mesh;
 class Chunk;
@@ -40,11 +39,10 @@ public:
 
     std::shared_ptr<Mesh> render(const std::shared_ptr<Chunk>& chunk, bool important);
     void unload(const Chunk* chunk);
+    void clear();
 
     std::shared_ptr<Mesh> getOrRender(const std::shared_ptr<Chunk>& chunk, bool important);
     std::shared_ptr<Mesh> get(Chunk* chunk);
 
     void update();
 };
-
-#endif // GRAPHICS_RENDER_CHUNKSRENDERER_HPP_

@@ -1,31 +1,31 @@
 #include "LevelScreen.hpp"
 
-#include "../../core_defs.hpp"
-#include "../hud.hpp"
-#include "../LevelFrontend.hpp"
-#include "../../audio/audio.hpp"
-#include "../../coders/imageio.hpp"
-#include "../../debug/Logger.hpp"
-#include "../../engine.hpp"
-#include "../../files/files.hpp"
-#include "../../content/Content.hpp"
-#include "../../graphics/core/DrawContext.hpp"
-#include "../../graphics/core/ImageData.hpp"
-#include "../../graphics/core/PostProcessing.hpp"
-#include "../../graphics/core/Viewport.hpp"
-#include "../../graphics/render/WorldRenderer.hpp"
-#include "../../graphics/ui/elements/Menu.hpp"
-#include "../../graphics/ui/GUI.hpp"
-#include "../../logic/LevelController.hpp"
-#include "../../logic/scripting/scripting_hud.hpp"
-#include "../../util/stringutil.hpp"
-#include "../../physics/Hitbox.hpp"
-#include "../../voxels/Chunks.hpp"
-#include "../../window/Camera.hpp"
-#include "../../window/Events.hpp"
-#include "../../window/Window.hpp"
-#include "../../world/Level.hpp"
-#include "../../world/World.hpp"
+#include "core_defs.hpp"
+#include "frontend/hud.hpp"
+#include "frontend/LevelFrontend.hpp"
+#include "audio/audio.hpp"
+#include "coders/imageio.hpp"
+#include "debug/Logger.hpp"
+#include "engine.hpp"
+#include "files/files.hpp"
+#include "content/Content.hpp"
+#include "graphics/core/DrawContext.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "graphics/core/PostProcessing.hpp"
+#include "graphics/core/Viewport.hpp"
+#include "graphics/render/WorldRenderer.hpp"
+#include "graphics/ui/elements/Menu.hpp"
+#include "graphics/ui/GUI.hpp"
+#include "logic/LevelController.hpp"
+#include "logic/scripting/scripting_hud.hpp"
+#include "util/stringutil.hpp"
+#include "physics/Hitbox.hpp"
+#include "voxels/Chunks.hpp"
+#include "window/Camera.hpp"
+#include "window/Events.hpp"
+#include "window/Window.hpp"
+#include "world/Level.hpp"
+#include "world/World.hpp"
 
 static debug::Logger logger("level-screen");
 
@@ -45,12 +45,14 @@ LevelScreen::LevelScreen(Engine* engine, std::unique_ptr<Level> level)
     
     keepAlive(settings.graphics.backlight.observe([=](bool) {
         controller->getLevel()->chunks->saveAndClear();
+        worldRenderer->clear();
     }));
     keepAlive(settings.camera.fov.observe([=](double value) {
         controller->getPlayer()->camera->setFov(glm::radians(value));
     }));
     keepAlive(Events::getBinding(BIND_CHUNKS_RELOAD).onactived.add([=](){
         controller->getLevel()->chunks->saveAndClear();
+        worldRenderer->clear();
     }));
 
     animator = std::make_unique<TextureAnimator>();
@@ -79,7 +81,7 @@ LevelScreen::~LevelScreen() {
     saveWorldPreview();
     scripting::on_frontend_close();
     controller->onWorldQuit();
-    engine->getPaths()->setWorldFolder(fs::path());
+    engine->getPaths()->setCurrentWorldFolder(fs::path());
 }
 
 void LevelScreen::saveWorldPreview() {

@@ -1,13 +1,12 @@
-#ifndef LOGIC_BLOCKS_CONTROLLER_HPP_
-#define LOGIC_BLOCKS_CONTROLLER_HPP_
+#pragma once
 
 #include <functional>
 #include <glm/glm.hpp>
 
-#include "../maths/fastmaths.hpp"
-#include "../typedefs.hpp"
-#include "../util/Clock.hpp"
-#include "../voxels/voxel.hpp"
+#include "maths/fastmaths.hpp"
+#include "typedefs.hpp"
+#include "util/Clock.hpp"
+#include "voxels/voxel.hpp"
 
 class Player;
 class Block;
@@ -32,12 +31,13 @@ class BlocksController {
     util::Clock blocksTickClock;
     util::Clock worldTickClock;
     uint padding;
-    FastRandom random;
+    FastRandom random {};
     std::vector<on_block_interaction> blockInteractionCallbacks;
 public:
     BlocksController(Level* level, uint padding);
 
     void updateSides(int x, int y, int z);
+    void updateSides(int x, int y, int z, int w, int h, int d);
     void updateBlock(int x, int y, int z);
 
     void breakBlock(Player* player, const Block& def, int x, int y, int z);
@@ -62,5 +62,3 @@ public:
     /// @brief Add block interaction callback
     void listenBlockInteraction(const on_block_interaction& callback);
 };
-
-#endif  // LOGIC_BLOCKS_CONTROLLER_HPP_

@@ -1,24 +1,21 @@
-#ifndef ITEMS_INVENTORY_HPP_
-#define ITEMS_INVENTORY_HPP_
+#pragma once
 
 #include <memory>
 #include <vector>
 
-#include "../interfaces/Serializable.hpp"
-#include "../typedefs.hpp"
+#include "interfaces/Serializable.hpp"
+#include "typedefs.hpp"
 #include "ItemStack.hpp"
 
-namespace dynamic {
-    class Map;
-}
-
-class ContentLUT;
+class ContentReport;
 class ContentIndices;
 
 class Inventory : public Serializable {
     int64_t id;
     std::vector<ItemStack> slots;
 public:
+    Inventory() = default;
+
     Inventory(int64_t id, size_t size);
 
     Inventory(const Inventory& orig);
@@ -38,12 +35,12 @@ public:
         size_t end = -1
     );
 
-    /* deserializing inventory */
-    void deserialize(dynamic::Map* src) override;
-    /* serializing inventory */
-    std::unique_ptr<dynamic::Map> serialize() const override;
+    void deserialize(const dv::value& src) override;
 
-    static void convert(dynamic::Map* data, const ContentLUT* lut);
+    dv::value serialize() const override;
+
+    void convert(const ContentReport* report);
+    static void convert(dv::value& data, const ContentReport* report);
 
     inline void setId(int64_t id) {
         this->id = id;
@@ -59,5 +56,3 @@ public:
 
     static const size_t npos;
 };
-
-#endif  // ITEMS_INVENTORY_HPP_

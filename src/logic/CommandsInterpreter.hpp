@@ -1,15 +1,14 @@
-#ifndef LOGIC_COMMANDS_INTERPRETER_HPP_
-#define LOGIC_COMMANDS_INTERPRETER_HPP_
+#pragma once
 
 #include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "../data/dynamic.hpp"
+#include "data/dv.hpp"
 
 namespace cmd {
-    enum class ArgType { number, integer, enumvalue, selector, string };
+    enum class ArgType { number, integer, enumvalue, selector, boolean, string };
 
     inline std::string argtype_name(ArgType type) {
         switch (type) {
@@ -21,6 +20,8 @@ namespace cmd {
                 return "enumeration";
             case ArgType::selector:
                 return "selector";
+            case ArgType::boolean:
+                return "boolean";
             case ArgType::string:
                 return "string";
             default:
@@ -32,8 +33,8 @@ namespace cmd {
         std::string name;
         ArgType type;
         bool optional;
-        dynamic::Value def;
-        dynamic::Value origin;
+        dv::value def;
+        dv::value origin;
         std::string enumname;
     };
 
@@ -42,12 +43,12 @@ namespace cmd {
 
     struct Prompt {
         Command* command;
-        dynamic::List_sptr args;   // positional arguments list
-        dynamic::Map_sptr kwargs;  // keyword arguments table
+        dv::value args;   // positional arguments list
+        dv::value kwargs;  // keyword arguments table
     };
 
-    using executor_func = std::function<dynamic::Value(
-        CommandsInterpreter*, dynamic::List_sptr args, dynamic::Map_sptr kwargs
+    using executor_func = std::function<dv::value(
+        CommandsInterpreter*, const dv::value& args, const dv::value& kwargs
     )>;
 
     class Command {
@@ -86,7 +87,7 @@ namespace cmd {
             return &found->second;
         }
 
-        dynamic::Value execute(
+        dv::value execute(
             CommandsInterpreter* interpreter, const Prompt& prompt
         ) {
             return executor(interpreter, prompt.args, prompt.kwargs);
@@ -128,7 +129,7 @@ namespace cmd {
 
     class CommandsInterpreter {
         std::unique_ptr<CommandsRepository> repository;
-        std::unordered_map<std::string, dynamic::Value> variables;
+        std::unordered_map<std::string, dv::value> variables;
     public:
         CommandsInterpreter()
             : repository(std::make_unique<CommandsRepository>()) {
@@ -142,15 +143,15 @@ namespace cmd {
 
         Prompt parse(std::string_view text);
 
-        dynamic::Value execute(std::string_view input) {
+        dv::value execute(std::string_view input) {
             return execute(parse(input));
         }
 
-        dynamic::Value execute(const Prompt& prompt) {
+        dv::value execute(const Prompt& prompt) {
             return prompt.command->execute(this, prompt);
         }
 
-        dynamic::Value& operator[](const std::string& name) {
+        dv::value& operator[](const std::string& name) {
             return variables[name];
         }
 
@@ -159,5 +160,3 @@ namespace cmd {
         }
     };
 }
-
-#endif  // LOGIC_COMMANDS_INTERPRETER_HPP_
