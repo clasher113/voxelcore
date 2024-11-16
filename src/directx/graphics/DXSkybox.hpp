@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include <glm/glm.hpp>
 
 class Mesh;
 class Assets;
@@ -31,8 +32,8 @@ public:
 
 	void draw(
 		const DrawContext& pctx,
-		Camera* camera,
-		Assets* assets,
+		const Camera& camera,
+		const Assets& assets,
 		float daytime,
 		float fog
 	);
@@ -44,9 +45,17 @@ public:
 	bool isReady() const {
 		return ready;
 	}
+	const glm::vec3 getLightDir() const {
+		return lightDir;
+	}
 private:
 	bool ready = false;
 	uint m_size;
+	int frameid = 0;
+	float prevMie = -1.0f;
+	float prevT = -1.0f;
+
+	glm::vec3 lightDir;
 
 	Shader* m_p_shader;
 	Mesh* m_p_mesh;
@@ -61,7 +70,8 @@ private:
 	std::vector<skysprite> sprites;
 
 	void drawStars(float angle, float opacity);
-	void drawBackground(Camera* camera, Assets* assets, int width, int height);
+	void drawBackground(const Camera& camera, const Assets& assets, int width, int height);
+	void refreshFace(uint face);
 };
 
 #endif // !DX_SKYBOX_HPP

@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <glm/glm.hpp>
 #include "typedefs.hpp"
 #include "maths/fastmaths.hpp"
 
@@ -11,6 +12,8 @@ class Shader;
 class Assets;
 class Camera;
 class Batch3D;
+class Shader;
+class Cubemap;
 class Framebuffer;
 class DrawContext;
 
@@ -27,21 +30,29 @@ class Skybox {
     Shader* shader;
     bool ready = false;
     FastRandom random;
+    glm::vec3 lightDir;
 
     std::unique_ptr<Mesh> mesh;
     std::unique_ptr<Batch3D> batch3d;
     std::vector<skysprite> sprites;
+    int frameid = 0;
+
+    float prevMie = -1.0f;
+    float prevT = -1.0f;
 
     void drawStars(float angle, float opacity);
-    void drawBackground(Camera* camera, Assets* assets, int width, int height);
+    void drawBackground(
+        const Camera& camera, const Assets& assets, int width, int height
+    );
+    void refreshFace(uint face, Cubemap* cubemap);
 public:
     Skybox(uint size, Shader* shader);
     ~Skybox();
 
     void draw(
         const DrawContext& pctx, 
-        Camera* camera, 
-        Assets* assets, 
+        const Camera& camera, 
+        const Assets& assets, 
         float daytime,
         float fog
     );
@@ -51,5 +62,9 @@ public:
     void unbind() const;
     bool isReady() const {
         return ready;
+    }
+
+    const glm::vec3 getLightDir() const {
+        return lightDir;
     }
 };

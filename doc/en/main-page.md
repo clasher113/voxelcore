@@ -1,6 +1,6 @@
 # Documentation
 
-Documentation for the engine of version 0.23.x.
+Documentation for the engine of version 0.24.
 
 ## Sections
 
@@ -17,3 +17,4 @@ Documentation for the engine of version 0.23.x.
 - [Scripting](scripting.md)
 - [World generator engine](world-generator.md)
 - [XML UI building](xml-ui-layouts.md)
+- [Particles](particles.md)

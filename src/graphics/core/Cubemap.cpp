@@ -31,11 +31,11 @@ Cubemap::Cubemap(uint width, uint height, ImageFormat imageFormat)
     }
 }
 
-void Cubemap::bind(){
+void Cubemap::bind() const {
     glBindTexture(GL_TEXTURE_CUBE_MAP, id);
 }
 
-void Cubemap::unbind() {
+void Cubemap::unbind() const {
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 

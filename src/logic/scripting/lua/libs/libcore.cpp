@@ -154,6 +154,8 @@ static int l_get_setting_info(lua::State* L) {
         lua::setfield(L, "min");
         lua::pushnumber(L, number->getMax());
         lua::setfield(L, "max");
+        lua::pushnumber(L, number->getDefault());
+        lua::setfield(L, "def");
         return 1;
     }
     if (auto integer = dynamic_cast<IntegerSetting*>(setting)) {
@@ -161,10 +163,73 @@ static int l_get_setting_info(lua::State* L) {
         lua::setfield(L, "min");
         lua::pushinteger(L, integer->getMax());
         lua::setfield(L, "max");
+        lua::pushinteger(L, integer->getDefault());
+        lua::setfield(L, "def");
+        return 1;
+    }
+    if (auto boolean = dynamic_cast<FlagSetting*>(setting)) {
+        lua::pushboolean(L, boolean->getDefault());
+        lua::setfield(L, "def");
+        return 1;
+    }
+    if (auto string = dynamic_cast<StringSetting*>(setting)) {
+        lua::pushstring(L, string->getDefault());
+        lua::setfield(L, "def");
         return 1;
     }
     lua::pop(L);
     throw std::runtime_error("unsupported setting type");
+}
+
+#include "coders/png.hpp"
+#include "debug/Logger.hpp"
+#include "files/files.hpp"
+#include "graphics/core/Texture.hpp"
+
+/// FIXME: replace with in-memory implementation
+
+static void load_texture(
+    const ubyte* bytes, size_t size, const std::string& destname
+) {
+    auto path = engine->getPaths()->resolve("export:.__vc_imagedata");
+    try {
+        files::write_bytes(path, bytes, size);
+        engine->getAssets()->store(png::load_texture(path.u8string()), destname);
+        std::filesystem::remove(path);
+    } catch (const std::runtime_error& err) {
+        debug::Logger logger("lua.corelib");
+        logger.error() << "could not to decode image: " << err.what();
+    }
+}
+
+static int l_load_texture(lua::State* L) {
+    if (lua::istable(L, 1)) {
+        lua::pushvalue(L, 1);
+        size_t size = lua::objlen(L, 1);
+        util::Buffer<ubyte> buffer(size);
+        for (size_t i = 0; i < size; i++) {
+            lua::rawgeti(L, i + 1);
+            buffer[i] = lua::tointeger(L, -1);
+            lua::pop(L);
+        }
+        lua::pop(L);
+        load_texture(buffer.data(), buffer.size(), lua::require_string(L, 2));
+    } else if (auto bytes = lua::touserdata<lua::LuaBytearray>(L, 1)) {
+        load_texture(
+            bytes->data().data(),
+            bytes->data().size(),
+            lua::require_string(L, 2)
+        );
+    }
+    return 0;
+}
+
+#include "util/platform.hpp"
+
+static int l_open_folder(lua::State* L) {
+    auto path = engine->getPaths()->resolve(lua::require_string(L, 1));
+    platform::open_folder(path);
+    return 0;
 }
 
 /// @brief Quit the game
@@ -184,5 +249,8 @@ const luaL_Reg corelib[] = {
     {"set_setting", lua::wrap<l_set_setting>},
     {"str_setting", lua::wrap<l_str_setting>},
     {"get_setting_info", lua::wrap<l_get_setting_info>},
+    {"open_folder", lua::wrap<l_open_folder>},
     {"quit", lua::wrap<l_quit>},
-    {NULL, NULL}};
+    {"__load_texture", lua::wrap<l_load_texture>},
+    {NULL, NULL}
+};

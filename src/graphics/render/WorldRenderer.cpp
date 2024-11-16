@@ -1,51 +1,7 @@
 #include "WorldRenderer.hpp"
 
-#include "ChunksRenderer.hpp"
-
-#include <algorithm>
-#include <glm/ext.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <memory>
-
-#include "../../assets/Assets.hpp"
-#include "../../content/Content.hpp"
-#include "../../engine.hpp"
-#include "../../frontend/LevelFrontend.hpp"
-#include "../../items/Inventory.hpp"
-#include "../../items/ItemDef.hpp"
-#include "../../items/ItemStack.hpp"
-#include "../../logic/PlayerController.hpp"
-#include "../../logic/scripting/scripting_hud.hpp"
-#include "../../maths/FrustumCulling.hpp"
-#include "../../maths/voxmaths.hpp"
-#include "../../objects/Entities.hpp"
-#include "../../objects/Player.hpp"
-#include "../../settings.hpp"
-#include "../../voxels/Block.hpp"
-#include "../../voxels/Chunk.hpp"
-#include "../../voxels/Chunks.hpp"
-#include "../../window/Camera.hpp"
-#include "../../window/Window.hpp"
-#include "../../world/Level.hpp"
-#include "../../world/LevelEvents.hpp"
-#include "../../world/World.hpp"
-#include "../core/Atlas.hpp"
-#include "../core/Batch3D.hpp"
-#include "../core/DrawContext.hpp"
-#include "../core/LineBatch.hpp"
-#include "../core/PostProcessing.hpp"
-#include "../../graphics/render/ModelBatch.hpp"
-
-#ifdef USE_DIRECTX
-#include "../../directx/graphics/DXMesh.hpp"
-#include "../../directx/graphics/DXTexture.hpp"
-#include "../../directx/graphics/DXShader.hpp"
-#include "../../directx/graphics/DXSkybox.hpp"
-#elif USE_OPENGL
-#include "../core/Mesh.hpp"
-#include "../core/Texture.hpp"
-#include "../core/Shader.hpp"
 #include "assets/Assets.hpp"
+#include "assets/assets_util.hpp"
 #include "content/Content.hpp"
 #include "engine.hpp"
 #include "frontend/LevelFrontend.hpp"
@@ -67,23 +23,30 @@
 #include "world/Level.hpp"
 #include "world/LevelEvents.hpp"
 #include "world/World.hpp"
+#include "graphics/commons/Model.hpp"
 #include "graphics/core/Atlas.hpp"
 #include "graphics/core/Batch3D.hpp"
 #include "graphics/core/DrawContext.hpp"
 #include "graphics/core/LineBatch.hpp"
-#include "graphics/core/Mesh.hpp"
-#include "graphics/core/Model.hpp"
 #include "graphics/core/PostProcessing.hpp"
-#include "graphics/core/Shader.hpp"
-#include "graphics/core/Texture.hpp"
+#include "ParticlesRenderer.hpp"
 #include "ChunksRenderer.hpp"
 #include "ModelBatch.hpp"
+#ifdef USE_DIRECTX
+#include "directx/graphics/DXMesh.hpp"
+#include "directx/graphics/DXTexture.hpp"
+#include "directx/graphics/DXShader.hpp"
+#include "directx/graphics/DXSkybox.hpp"
+#undef far
+#elif USE_OPENGL
+#include "graphics/core/Mesh.hpp"
+#include "graphics/core/Texture.hpp"
+#include "graphics/core/Shader.hpp"
 #include "Skybox.hpp"
 #include <GL/glew.h>
 #endif // USE_DIRECTX
 
 #include <assert.h>
-#include <GL/glew.h>
 #include <algorithm>
 #include <memory>
 
@@ -102,8 +65,15 @@ WorldRenderer::WorldRenderer(
       frustumCulling(std::make_unique<Frustum>()),
       lineBatch(std::make_unique<LineBatch>()),
       modelBatch(std::make_unique<ModelBatch>(
-          20'000, engine->getAssets(), level->chunks.get(), 
+          20'000,
+          engine->getAssets(),
+          level->chunks.get(),
           &engine->getSettings()
+      )),
+      particles(std::make_unique<ParticlesRenderer>(
+          *engine->getAssets(),
+          *frontend->getLevel(),
+          &engine->getSettings().graphics
       )) {
     renderer = std::make_unique<ChunksRenderer>(
         level, frontend->getContentGfxCache(), &engine->getSettings()
@@ -125,17 +95,17 @@ WorldRenderer::WorldRenderer(
 WorldRenderer::~WorldRenderer() = default;
 
 bool WorldRenderer::drawChunk(
-    size_t index, Camera* camera, Shader* shader, bool culling
+    size_t index, const Camera& camera, Shader* shader, bool culling
 ) {
     auto chunk = level->chunks->getChunks()[index];
     if (!chunk->flags.lighted) {
         return false;
     }
     float distance = glm::distance(
-        camera->position,
+        camera.position,
         glm::vec3(
             (chunk->x + 0.5f) * CHUNK_W,
-            camera->position.y,
+            camera.position.y,
             (chunk->z + 0.5f) * CHUNK_D
         )
     );
@@ -163,7 +133,9 @@ bool WorldRenderer::drawChunk(
     return true;
 }
 
-void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
+void WorldRenderer::drawChunks(
+    Chunks* chunks, const Camera& camera, Shader* shader
+) {
     auto assets = engine->getAssets();
     auto atlas = assets->get<Atlas>("blocks");
 
@@ -177,8 +149,8 @@ void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
         if (chunks->getChunks()[i] == nullptr) continue;
         indices.emplace_back(i);
     }
-    float px = camera->position.x / static_cast<float>(CHUNK_W) - 0.5f;
-    float pz = camera->position.z / static_cast<float>(CHUNK_D) - 0.5f;
+    float px = camera.position.x / static_cast<float>(CHUNK_W) - 0.5f;
+    float pz = camera.position.z / static_cast<float>(CHUNK_D) - 0.5f;
     std::sort(indices.begin(), indices.end(), [chunks, px, pz](auto i, auto j) {
         const auto& chunksBuffer = chunks->getChunks();
         const auto a = chunksBuffer[i].get();
@@ -191,7 +163,7 @@ void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
     });
     bool culling = engine->getSettings().graphics.frustumCulling.get();
     if (culling) {
-        frustumCulling->update(camera->getProjView());
+        frustumCulling->update(camera.getProjView());
     }
     chunks->visible = 0;
     for (size_t i = 0; i < indices.size(); i++) {
@@ -201,20 +173,21 @@ void WorldRenderer::drawChunks(Chunks* chunks, Camera* camera, Shader* shader) {
 
 void WorldRenderer::setupWorldShader(
     Shader* shader,
-    Camera* camera,
+    const Camera& camera,
     const EngineSettings& settings,
     float fogFactor
 ) {
     shader->use();
     shader->uniformMatrix("u_model", glm::mat4(1.0f));
-    shader->uniformMatrix("u_proj", camera->getProjection());
-    shader->uniformMatrix("u_view", camera->getView());
+    shader->uniformMatrix("u_proj", camera.getProjection());
+    shader->uniformMatrix("u_view", camera.getView());
     shader->uniform1f("u_timer", timer);
     shader->uniform1f("u_gamma", settings.graphics.gamma.get());
     shader->uniform1f("u_fogFactor", fogFactor);
     shader->uniform1f("u_fogCurve", settings.graphics.fogCurve.get());
     shader->uniform1f("u_dayTime", level->getWorld()->getInfo().daytime);
-    shader->uniform3f("u_cameraPos", camera->position);
+    shader->uniform2f("u_lightDir", skybox->getLightDir());
+    shader->uniform3f("u_cameraPos", camera.position);
 #ifdef USE_OPENGL
     shader->uniform1i("u_cubemap", 1);
 #endif // USE_OPENGL
@@ -234,11 +207,15 @@ void WorldRenderer::setupWorldShader(
         );
         shader->uniform1f("u_torchlightDistance", 6.0f);
     }
+#ifdef USE_DIRECTX
+    shader->applyChanges();
+#endif // USE_DIRECTX
+
 }
 
 void WorldRenderer::renderLevel(
-    const DrawContext&,
-    Camera* camera,
+    const DrawContext& ctx,
+    const Camera& camera,
     const EngineSettings& settings,
     float delta,
     bool pause
@@ -246,7 +223,8 @@ void WorldRenderer::renderLevel(
     auto assets = engine->getAssets();
 
     bool culling = engine->getSettings().graphics.frustumCulling.get();
-    float fogFactor = 15.0f / ((float)settings.chunks.loadDistance.get() - 2);
+    float fogFactor =
+        15.0f / static_cast<float>(settings.chunks.loadDistance.get() - 2);
 
     auto entityShader = assets->get<Shader>("entity");
     setupWorldShader(entityShader, camera, settings, fogFactor);
@@ -264,6 +242,7 @@ void WorldRenderer::renderLevel(
         delta,
         pause
     );
+    particles->render(camera, delta * !pause);
     modelBatch->render();
 
     auto shader = assets->get<Shader>("main");
@@ -308,9 +287,9 @@ void WorldRenderer::renderBlockSelection() {
 }
 
 void WorldRenderer::renderLines(
-    Camera* camera, Shader* linesShader, const DrawContext& pctx
+    const Camera& camera, Shader* linesShader, const DrawContext& pctx
 ) {
-    linesShader->uniformMatrix("u_projview", camera->getProjView());
+    linesShader->uniformMatrix("u_projview", camera.getProjView());
     linesShader->use();
     if (player->selection.vox.id != BLOCK_VOID) {
         renderBlockSelection();
@@ -325,7 +304,7 @@ void WorldRenderer::renderLines(
 }
 
 void WorldRenderer::renderDebugLines(
-    const DrawContext& pctx, Camera* camera, Shader* linesShader
+    const DrawContext& pctx, const Camera& camera, Shader* linesShader
 ) {
     DrawContext ctx = pctx.sub(lineBatch.get());
     const auto& viewport = ctx.getViewport();
@@ -337,11 +316,11 @@ void WorldRenderer::renderDebugLines(
     linesShader->use();
 
     if (showChunkBorders) {
-        linesShader->uniformMatrix("u_projview", camera->getProjView());
+        linesShader->uniformMatrix("u_projview", camera.getProjView());
 #ifdef USE_DIRECTX
         linesShader->applyChanges();
 #endif // USE_DIRECTX
-        glm::vec3 coord = player->camera->position;
+        glm::vec3 coord = player->fpCamera->position;
         if (coord.x < 0) coord.x--;
         if (coord.z < 0) coord.z--;
         int cx = floordiv(static_cast<int>(coord.x), CHUNK_W);
@@ -370,7 +349,7 @@ void WorldRenderer::renderDebugLines(
             -length,
             length
         ) * model *
-            glm::inverse(camera->rotation)
+            glm::inverse(camera.rotation)
     );
 #ifdef USE_DIRECTX
     linesShader->applyChanges();
@@ -389,9 +368,72 @@ void WorldRenderer::renderDebugLines(
     lineBatch->line(0.f, 0.f, 0.f, 0.f, 0.f, length, 0.f, 0.f, 1.f, 1.f);
 }
 
+void WorldRenderer::renderHands(
+    const Camera& camera, const Assets& assets, float delta
+) {
+    auto entityShader = assets.get<Shader>("entity");
+    auto indices = level->content->getIndices();
+
+    // get current chosen item
+    const auto& inventory = player->getInventory();
+    int slot = player->getChosenSlot();
+    const ItemStack& stack = inventory->getSlot(slot);
+    const auto& def = indices->items.require(stack.getItemId());
+
+    // prepare modified HUD camera
+    Camera hudcam = camera;
+    hudcam.far = 100.0f;
+    hudcam.setFov(1.2f);
+    hudcam.position = {};
+
+    // configure model matrix
+    const glm::vec3 itemOffset(0.08f, 0.035f, -0.1);
+
+    static glm::mat4 prevRotation(1.0f);
+
+    const float speed = 24.0f;
+    glm::mat4 matrix = glm::translate(glm::mat4(1.0f), itemOffset);
+    matrix = glm::scale(matrix, glm::vec3(0.1f));
+    glm::mat4 rotation = camera.rotation;
+    glm::quat rot0 = glm::quat_cast(prevRotation);
+    glm::quat rot1 = glm::quat_cast(rotation);
+    glm::quat finalRot =
+        glm::slerp(rot0, rot1, static_cast<float>(delta * speed));
+    rotation = glm::mat4_cast(finalRot);
+    matrix = rotation * matrix *
+             glm::rotate(
+                 glm::mat4(1.0f), -glm::pi<float>() * 0.5f, glm::vec3(0, 1, 0)
+             );
+    prevRotation = rotation;
+    auto offset = -(camera.position - player->getPosition());
+    float angle = glm::radians(player->cam.x - 90);
+    float cos = glm::cos(angle);
+    float sin = glm::sin(angle);
+
+    float newX = offset.x * cos - offset.z * sin;
+    float newZ = offset.x * sin + offset.z * cos;
+    offset = glm::vec3(newX, offset.y, newZ);
+    matrix = matrix * glm::translate(glm::mat4(1.0f), offset);
+
+    // render
+    modelBatch->setLightsOffset(camera.position);
+    modelBatch->draw(
+        matrix,
+        glm::vec3(1.0f),
+        assets.get<model::Model>(def.modelName),
+        nullptr
+    );
+    Window::clearDepth();
+    setupWorldShader(entityShader, hudcam, engine->getSettings(), 0.0f);
+    skybox->bind();
+    modelBatch->render();
+    modelBatch->setLightsOffset(glm::vec3());
+    skybox->unbind();
+}
+
 void WorldRenderer::draw(
     const DrawContext& pctx,
-    Camera* camera,
+    Camera& camera,
     bool hudVisible,
     bool pause,
     float delta,
@@ -400,15 +442,15 @@ void WorldRenderer::draw(
     timer += delta * !pause;
     auto world = level->getWorld();
     const Viewport& vp = pctx.getViewport();
-    camera->aspect = vp.getWidth() / static_cast<float>(vp.getHeight());
+    camera.aspect = vp.getWidth() / static_cast<float>(vp.getHeight());
 
     const auto& settings = engine->getSettings();
     const auto& worldInfo = world->getInfo();
 
     skybox->refresh(pctx, worldInfo.daytime, 1.0f + worldInfo.fog * 2.0f, 4);
 
-    auto assets = engine->getAssets();
-    auto linesShader = assets->get<Shader>("lines");
+    const auto& assets = *engine->getAssets();
+    auto linesShader = assets.get<Shader>("lines");
 
     // World render scope with diegetic HUD included
     {
@@ -429,20 +471,68 @@ void WorldRenderer::draw(
             // Debug lines
             if (hudVisible) {
                 renderLines(camera, linesShader, ctx);
+                if (player->currentCamera == player->fpCamera) {
+                    renderHands(camera, assets, delta * !pause);
+                }
             }
         }
-
         if (hudVisible && player->debug) {
             renderDebugLines(wctx, camera, linesShader);
         }
+        renderBlockOverlay(wctx, assets);
     }
 
     // Rendering fullscreen quad with
-    auto screenShader = assets->get<Shader>("screen");
+    auto screenShader = assets.get<Shader>("screen");
     screenShader->use();
     screenShader->uniform1f("u_timer", timer);
     screenShader->uniform1f("u_dayTime", worldInfo.daytime);
     postProcessing->render(pctx, screenShader);
+}
+
+void WorldRenderer::renderBlockOverlay(const DrawContext& wctx, const Assets& assets) {
+    int x = std::floor(player->currentCamera->position.x);
+    int y = std::floor(player->currentCamera->position.y);
+    int z = std::floor(player->currentCamera->position.z);
+    auto block = level->chunks->get(x, y, z);
+    if (block && block->id) {
+        const auto& def =
+            level->content->getIndices()->blocks.require(block->id);
+        if (def.overlayTexture.empty()) {
+            return;
+        }
+        auto textureRegion = util::get_texture_region(
+            assets, def.overlayTexture, "blocks:notfound"
+        );
+        DrawContext ctx = wctx.sub();
+        ctx.setDepthTest(false);
+        ctx.setCullFace(false);
+        
+        auto& shader = assets.require<Shader>("ui3d");
+        shader.use();
+        batch3d->begin();
+        shader.uniformMatrix("u_projview", glm::mat4(1.0f));
+        shader.uniformMatrix("u_apply", glm::mat4(1.0f));
+        auto light = level->chunks->getLight(x, y, z);
+        float s = Lightmap::extract(light, 3) / 15.0f;
+        glm::vec4 tint(
+            glm::min(1.0f, Lightmap::extract(light, 0) / 15.0f + s),
+            glm::min(1.0f, Lightmap::extract(light, 1) / 15.0f + s),
+            glm::min(1.0f, Lightmap::extract(light, 2) / 15.0f + s),
+            1.0f
+        );
+        batch3d->texture(textureRegion.texture);
+        batch3d->sprite(
+            glm::vec3(),
+            glm::vec3(0, 1, 0),
+            glm::vec3(1, 0, 0),
+            2,
+            2,
+            textureRegion.region,
+            tint
+        );
+        batch3d->flush();
+    }
 }
 
 void WorldRenderer::drawBorders(

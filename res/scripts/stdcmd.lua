@@ -28,17 +28,17 @@ console.add_command(
     function(args, kwargs)
         local name = args[1]
         if #name == 0 then
-
             local commands = console.get_commands_list()
             table.sort(commands)
             local str = "Available commands:"
 
             for i,k in ipairs(commands) do
-                str = str .. "\n  " .. build_scheme(console.get_command_info(k))
+                if rules.get("allow-cheats") or not table.has(console.cheats, k) then
+                    str = str .. "\n  " .. build_scheme(console.get_command_info(k))
+                end
             end
 
             return str .. "\nuse 'help <command>'"
-
         end
 
         local command = console.get_command_info(name)
@@ -110,19 +110,39 @@ console.add_command(
         return "Time set to " .. args[1]
     end
 )
+
 console.add_command(
-    "blocks.fill id:str x:num~pos.x y:num~pos.y z:num~pos.z w:int h:int d:int",
+    "time.daycycle operation:[stop|reset]",
+    "Control time.daycycle. Operations: stop, reset",
+    function(args, kwargs)
+        local operation = args[1]
+        if operation == "stop" then
+            world.set_day_time_speed(0)
+            return "Daily cycle has stopped"
+        else
+            world.set_day_time_speed(1.0)
+            return "Daily cycle has started"
+        end
+    end
+)
+
+console.add_command(
+    "blocks.fill id:str x1:int~pos.x y1:int~pos.y z1:int~pos.z "..
+                       "x2:int~pos.x y2:int~pos.y z2:int~pos.z",
     "Fill specified zone with blocks",
     function(args, kwargs)
-        local name, x, y, z, w, h, d = unpack(args)
+        local name, x1,y1,z1, x2,y2,z2 = unpack(args)
         local id = block.index(name)
-        for ly = 0, h - 1 do
-            for lz = 0, d - 1 do
-                for lx = 0, w - 1 do
-                    block.set(x + lx, y + ly, z + lz, id)
+        for y=y1,y2 do
+            for z=z1,z2 do
+                for x=x1,x2 do
+                    block.set(x, y, z, id)
                 end
             end
         end
+        local w = math.floor(math.abs(x2-x1+1) + 0.5)
+        local h = math.floor(math.abs(y2-y1+1) + 0.5)
+        local d = math.floor(math.abs(z2-z1+1) + 0.5)
         return tostring(w * h * d) .. " blocks set"
     end
 )
@@ -151,22 +171,24 @@ console.add_command(
 )
 
 console.add_command(
-    "fragment.save x:int y:int z:int w:int h:int d:int name:str='untitled' crop:bool=false",
+    "fragment.save x1:int~pos.x y1:int~pos.y z1:int~pos.z "..
+                  "x2:int~pos.x y2:int~pos.y z2:int~pos.z "..
+                  "name:str='untitled' crop:bool=false",
     "Save fragment",
     function(args, kwargs)
-        local x = args[1]
-        local y = args[2]
-        local z = args[3]
+        local x1 = args[1]
+        local y1 = args[2]
+        local z1 = args[3]
 
-        local w = args[4]
-        local h = args[5]
-        local d = args[6]
+        local x2 = args[4]
+        local y2 = args[5]
+        local z2 = args[6]
 
         local name = args[7]
         local crop = args[8]
         
         local fragment = generation.create_fragment(
-            {x, y, z}, {x + w, y + h, z + d}, crop, false
+            {x1, y1, z1}, {x2, y2, z2}, crop, false
         )
         local filename = 'export:'..name..'.vox'
         generation.save_fragment(fragment, filename, crop)
@@ -176,7 +198,7 @@ console.add_command(
 )
 
 console.add_command(
-    "fragment.crop filename:str",
+    "fragment.crop file:str",
     "Crop fragment",
     function(args, kwargs)
         local filename = args[1]
@@ -187,3 +209,59 @@ console.add_command(
                     " has been saved as "..file.resolve(filename))
     end
 )
+
+console.add_command(
+    "fragment.place file:str x:num~pos.x y:num~pos.y z:num~pos.z rotation:int=0",
+    "Place fragment to the world",
+    function(args, kwargs)
+        local filename = args[1]
+        local x = args[2]
+        local y = args[3]
+        local z = args[4]
+        local rotation = args[5]
+        local fragment = generation.load_fragment(filename)
+        fragment:place({x, y, z}, rotation)
+    end
+)
+
+console.add_command(
+    "rule.set name:str value:bool",
+    "Set rule value",
+    function(args, kwargs)
+        local name = args[1]
+        local value = args[2]
+        rules.set(name, value)
+        return "rule '"..name.."' set to "..tostring(value)
+    end
+)
+
+console.add_command(
+    "rule.list",
+    "Show registered rules list",
+    function(args, kwargs)
+        local names = ""
+        for name, rule in pairs(rules.rules) do
+            if #names > 0 then
+                names = names .. "\n  "
+            else
+                names = "  "
+            end
+            local value = rule.value
+            if value == nil then
+                value = "not set"
+            end
+            names = names .. name .. ":\t" .. tostring(value)
+        end
+        return "registered rules:\n" .. names
+    end
+)
+
+console.cheats = {
+    "blocks.fill",
+    "tp",
+    "fragment.place",
+    "time.set",
+    "time.daycycle",
+    "entity.despawn",
+    "player.respawn"
+}

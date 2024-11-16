@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <glm/vec2.hpp>
 
 struct UVRegion {
     float u1;
@@ -21,5 +22,22 @@ struct UVRegion {
 
     inline float getHeight() const {
         return fabs(v2 - v1);
+    }
+
+    void autoSub(float w, float h, float x, float y) {
+        x *= 1.0f - w;
+        y *= 1.0f - h;
+        float uvw = getWidth();
+        float uvh = getHeight();
+        u1 = u1 + uvw * x;
+        v1 = v1 + uvh * y;
+        u2 = u1 + uvw * w;
+        v2 = v1 + uvh * h;
+    }
+
+    inline glm::vec2 apply(const glm::vec2& uv) {
+        float w = getWidth();
+        float h = getHeight();
+        return glm::vec2(u1 + uv.x * w, v1 + uv.y * h);
     }
 };

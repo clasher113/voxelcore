@@ -2,6 +2,7 @@
 #define CONSTANT_BUFFER_HPP
 
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 
 #include "ShaderTypes.hpp"
 

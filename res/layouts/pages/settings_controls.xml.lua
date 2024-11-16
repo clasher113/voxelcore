@@ -1,3 +1,32 @@
+
+function refresh_search()
+    local search_text = document.search_textbox.text
+    local search_key = document.search_key_checkbox.checked
+
+    local panel = document.bindings_panel
+    local bindings = input.get_bindings()
+    panel:clear()
+
+    table.sort(bindings, function(a, b) return a > b end)
+    if search_text ~= "" then
+        for i,name in ipairs(bindings) do
+            local _name = gui.str(name)
+            if ((_name:lower():find(search_text:lower()) and not search_key) or
+                (input.get_binding_text(name):lower():find(search_text:lower()) and search_key)) then
+                panel:add(gui.template("binding", {
+                    id=name, name=_name
+                }))
+            end
+        end
+    else
+        for i,name in ipairs(bindings) do
+            panel:add(gui.template("binding", {
+                id=name, name=gui.str(name)
+            }))
+        end
+    end
+end
+
 function refresh_sensitivity()
     document.sensitivity_label.text = string.format(
         "%s: %s", 

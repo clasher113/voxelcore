@@ -1,6 +1,9 @@
 # Библиотека *world*
 
 ```lua
+-- Проверяет, открыт ли мир
+world.is_open() -> bool
+
 -- Возвращает информацию о мирах.
 world.get_list() -> массив таблиц {
     -- название мира
@@ -26,6 +29,9 @@ world.get_total_time() -> number
 
 -- Возвращает зерно мира.
 world.get_seed() -> int
+
+-- Возвращает имя генератора.
+world.get_generator() -> str
 
 -- Проверяет существование мира по имени.
 world.exists() -> bool

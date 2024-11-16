@@ -1,18 +1,18 @@
 #ifdef USE_DIRECTX
 #include "DXSkybox.hpp"
+#include "window/Camera.hpp"
 #include "DXMesh.hpp"
-#include "../window/DXDevice.hpp"
-#include "../util/DXError.hpp"
-#include "../ConstantBuffer.hpp"
+#include "directx/window/DXDevice.hpp"
+#include "directx/util/DXError.hpp"
+#include "directx/ConstantBuffer.hpp"
 #include "DXShader.hpp"
 #include "DXTexture.hpp"
-#include "../math/DXMathHelper.hpp"
-#include "../../window/Window.hpp"
-#include "../../graphics/core/DrawContext.hpp"
-#include "../../window/Camera.hpp"
-#include "../../assets/Assets.hpp"
-#include "../../graphics/core/Batch3D.hpp"
-#include "../../maths/UVRegion.hpp"
+#include "directx/math/DXMathHelper.hpp"
+#include "window/Window.hpp"
+#include "graphics/core/DrawContext.hpp"
+#include "assets/Assets.hpp"
+#include "graphics/core/Batch3D.hpp"
+#include "maths/UVRegion.hpp"
 
 #include <glm\glm.hpp>
 #include <d3d11_1.h>
@@ -128,10 +128,10 @@ Skybox::~Skybox() {
 	delete m_p_batch3d;
 }
 
-void Skybox::drawBackground(Camera* camera, Assets* assets, int width, int height) {
-	Shader* backShader = assets->get<Shader>("background");
-	backShader->uniformMatrix("u_view", camera->getView(false));
-	backShader->uniform1f("u_zoom", camera->zoom * camera->getFov() / (M_PI * 0.5f));
+void Skybox::drawBackground(const Camera& camera, const Assets& assets, int width, int height) {
+	Shader* backShader = assets.get<Shader>("background");
+	backShader->uniformMatrix("u_view", camera.getView(false));
+	backShader->uniform1f("u_zoom", camera.zoom * camera.getFov() / (M_PI * 0.5f));
 	backShader->uniform1f("u_ar", float(width) / float(height));
 	backShader->use();
 
@@ -162,7 +162,7 @@ void Skybox::drawStars(float angle, float opacity) {
 	m_p_batch3d->flushPoints();
 }
 
-void Skybox::draw(const DrawContext& pctx, Camera* camera, Assets* assets, float daytime, float fog) {
+void Skybox::draw(const DrawContext& pctx, const Camera& camera, const Assets& assets, float daytime, float fog) {
 	const Viewport& viewport = pctx.getViewport();
 	int width = viewport.getWidth();
 	int height = viewport.getHeight();
@@ -172,8 +172,8 @@ void Skybox::draw(const DrawContext& pctx, Camera* camera, Assets* assets, float
 	DrawContext ctx = pctx.sub();
 	ctx.setBlendMode(BlendMode::addition);
 
-	Shader* shader = assets->get<Shader>("ui3d");
-	shader->uniformMatrix("u_projview", camera->getProjView(false));
+	Shader* shader = assets.get<Shader>("ui3d");
+	shader->uniformMatrix("u_projview", camera.getProjView(false));
 	shader->uniformMatrix("u_apply", glm::mat4(1.0f));
 	shader->use();
 	m_p_batch3d->begin();
@@ -182,7 +182,7 @@ void Skybox::draw(const DrawContext& pctx, Camera* camera, Assets* assets, float
 	float opacity = glm::pow(1.0f - fog, 7.0f);
 
 	for (auto& sprite : sprites) {
-		m_p_batch3d->texture(assets->get<Texture>(sprite.texture));
+		m_p_batch3d->texture(assets.get<Texture>(sprite.texture));
 
 		float sangle = daytime * M_PI * 2 + sprite.phase;
 		float distance = sprite.distance;
@@ -201,6 +201,9 @@ void Skybox::draw(const DrawContext& pctx, Camera* camera, Assets* assets, float
 }
 
 void Skybox::refresh(const DrawContext& pctx, float t, float mie, uint quality) {
+	frameid++;
+	float dayTime = t;
+
 	DrawContext ctx = pctx.sub();
 	ctx.setDepthMask(false);
 	ctx.setDepthTest(false);
@@ -211,21 +214,36 @@ void Skybox::refresh(const DrawContext& pctx, float t, float mie, uint quality) 
 
 	t *= M_PI * 2.0f;
 
+	lightDir = glm::normalize(glm::vec3(sin(t), -cos(t), 0.0f));
 	m_p_shader->uniform1i("c_quality", quality);
 	m_p_shader->uniform1f("c_mie", mie);
 	m_p_shader->uniform1f("c_fog", mie - 1.0f);
-	m_p_shader->uniform3f("c_lightDir", glm::normalize(glm::vec3(sin(t), -cos(t), 0.0f)));
-	for (uint face = 0; face < 6; face++) {
-		DXDevice::getContext()->OMSetRenderTargets(1, &m_p_renderTargets[face], nullptr);
-		m_p_shader->uniform3f("c_xAxis", xaxs[face]);
-		m_p_shader->uniform3f("c_yAxis", yaxs[face]);
-		m_p_shader->uniform3f("c_zAxis", zaxs[face]);
+	m_p_shader->uniform3f("c_lightDir", lightDir);
+	m_p_shader->uniform1f("c_dayTime", dayTime);
 
-		m_p_shader->applyChanges();
-		m_p_mesh->draw();
+	if (glm::abs(mie - prevMie) + glm::abs(t - prevT) >= 0.01) {
+		for (uint face = 0; face < 6; face++) {
+			refreshFace(face);
+		}
+	} else {
+		uint face = frameid % 6;
+		refreshFace(face);
 	}
+	prevMie = mie;
+	prevT = t;
 
 	DXDevice::resetRenderTarget();
+}
+
+void Skybox::refreshFace(uint face) {
+	DXDevice::getContext()->OMSetRenderTargets(1, &m_p_renderTargets[face], nullptr);
+
+	m_p_shader->uniform3f("c_xAxis", xaxs[face]);
+	m_p_shader->uniform3f("c_yAxis", yaxs[face]);
+	m_p_shader->uniform3f("c_zAxis", zaxs[face]);
+
+	m_p_shader->applyChanges();
+	m_p_mesh->draw();
 }
 
 void Skybox::bind() const {

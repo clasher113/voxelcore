@@ -79,6 +79,7 @@ struct ContentPack {
             case ContentType::ENTITY: return ContentPack::ENTITIES_FOLDER;
             case ContentType::GENERATOR: return ContentPack::GENERATORS_FOLDER;
             case ContentType::NONE: return fs::u8path("");
+            default: return fs::u8path("");
         }
     }
 };
@@ -96,6 +97,7 @@ struct ContentPackStats {
 struct world_funcs_set {
     bool onblockplaced : 1;
     bool onblockbroken : 1;
+    bool onblockinteract : 1;
 };
 
 class ContentPackRuntime {

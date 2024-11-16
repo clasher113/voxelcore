@@ -81,7 +81,7 @@ void Batch2D::vertex(
     buffer[index++] = a;
 }
 
-void Batch2D::texture(Texture* new_texture){
+void Batch2D::texture(const Texture* new_texture){
     if (currentTexture == new_texture) {
         return;
     }

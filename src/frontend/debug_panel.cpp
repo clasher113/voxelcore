@@ -2,6 +2,7 @@
 #include "delegates.hpp"
 #include "engine.hpp"
 #include "settings.hpp"
+#include "hud.hpp"
 #include "content/Content.hpp"
 #include "graphics/core/Mesh.hpp"
 #include "graphics/ui/elements/CheckBox.hpp"
@@ -9,6 +10,7 @@
 #include "graphics/ui/elements/TrackBar.hpp"
 #include "graphics/ui/elements/InputBindBox.hpp"
 #include "graphics/render/WorldRenderer.hpp"
+#include "graphics/render/ParticlesRenderer.hpp"
 #include "logic/scripting/scripting.hpp"
 #include "objects/Player.hpp"
 #include "objects/Entities.hpp"
@@ -36,10 +38,12 @@ static std::shared_ptr<Label> create_label(wstringsupplier supplier) {
 }
 
 // TODO: move to xml
+// TODO: move to xml finally
 std::shared_ptr<UINode> create_debug_panel(
     Engine* engine, 
     Level* level, 
-    Player* player
+    Player* player,
+    bool allowDebugCheats
 ) {
     auto panel = std::make_shared<Panel>(glm::vec2(300, 200), glm::vec4(5.0f), 2.0f);
     panel->setId("hud.debug-panel");
@@ -84,6 +88,12 @@ std::shared_ptr<UINode> create_debug_panel(
         return L"frustum-culling: "+std::wstring(culling ? L"on" : L"off");
     }));
     panel->add(create_label([=]() {
+        return L"particles: " +
+               std::to_wstring(ParticlesRenderer::visibleParticles) +
+               L" emitters: " +
+               std::to_wstring(ParticlesRenderer::aliveEmitters);
+    }));
+    panel->add(create_label([=]() {
         return L"chunks: "+std::to_wstring(level->chunks->getChunksCount())+
                L" visible: "+std::to_wstring(level->chunks->visible);
     }));
@@ -103,6 +113,15 @@ std::shared_ptr<UINode> create_debug_panel(
             return L"block: "+std::to_wstring(vox.id)+
                    L" "+stream.str();
         }
+    }));
+    panel->add(create_label([=]() -> std::wstring {
+        const auto& vox = player->selection.vox;
+        if (vox.id == BLOCK_VOID) {
+            return L"x: - y: - z: -";
+        }
+        return L"x: " + std::to_wstring(player->selection.actualPosition.x) +
+               L" y: " + std::to_wstring(player->selection.actualPosition.y) +
+               L" z: " + std::to_wstring(player->selection.actualPosition.z);
     }));
     panel->add(create_label([=]() {
         auto eid = player->getSelectedEntity();
@@ -144,16 +163,20 @@ std::shared_ptr<UINode> create_debug_panel(
         box->setTextSupplier([=]() {
             return util::to_wstring(player->getPosition()[ax], 2);
         });
-        box->setTextConsumer([=](const std::wstring& text) {
-            try {
-                glm::vec3 position = player->getPosition();
-                position[ax] = std::stoi(text);
-                player->teleport(position);
-            } catch (std::exception& _){
-            }
-        });
-        box->setOnEditStart([=](){
-            boxRef->setText(std::to_wstring(static_cast<int>(player->getPosition()[ax])));
+        if (allowDebugCheats) {
+            box->setTextConsumer([=](const std::wstring& text) {
+                try {
+                    glm::vec3 position = player->getPosition();
+                    position[ax] = std::stoi(text);
+                    player->teleport(position);
+                } catch (std::exception& _){
+                }
+            });
+        }
+        box->setOnEditStart([=]() {
+            boxRef->setText(
+                std::to_wstring(static_cast<int>(player->getPosition()[ax]))
+            );
         });
         box->setSize(glm::vec2(230, 27));
 
@@ -170,13 +193,13 @@ std::shared_ptr<UINode> create_debug_panel(
                 util::lfill(std::to_wstring(minute), 2, L'0');
         return L"time: "+timeString;
     }));
-    {
+    if (allowDebugCheats) {
         auto bar = std::make_shared<TrackBar>(0.0f, 1.0f, 1.0f, 0.005f, 8);
         bar->setSupplier([&]() {return worldInfo.daytime;});
         bar->setConsumer([&](double val) {worldInfo.daytime = val;});
         panel->add(bar);
     }
-    {
+    if (allowDebugCheats) {
         auto bar = std::make_shared<TrackBar>(0.0f, 1.0f, 0.0f, 0.005f, 8);
         bar->setSupplier([&]() {return worldInfo.fog;});
         bar->setConsumer([&](double val) {worldInfo.fog = val;});
@@ -203,6 +226,18 @@ std::shared_ptr<UINode> create_debug_panel(
         });
         checkbox->setConsumer([=](bool checked) {
             WorldRenderer::showEntitiesDebug = checked;
+        });
+        panel->add(checkbox);
+    }
+    {
+        auto checkbox = std::make_shared<FullCheckBox>(
+            L"Show Generator Minimap", glm::vec2(400, 24)
+        );
+        checkbox->setSupplier([=]() {
+            return Hud::showGeneratorMinimap;
+        });
+        checkbox->setConsumer([=](bool checked) {
+            Hud::showGeneratorMinimap = checked;
         });
         panel->add(checkbox);
     }

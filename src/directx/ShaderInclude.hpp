@@ -1,6 +1,9 @@
 #ifndef SHADER_INCLUDE_HPP
 #define SHADER_INCLUDE_HPP
 
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+
 #include <filesystem>
 #include <stack>
 #include <d3dcommon.h>

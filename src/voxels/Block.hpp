@@ -4,10 +4,14 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <array>
 
+#include "data/dv.hpp"
 #include "maths/UVRegion.hpp"
 #include "maths/aabb.hpp"
 #include "typedefs.hpp"
+
+struct ParticlesPreset;
 
 namespace data {
     class StructLayout;
@@ -111,13 +115,7 @@ public:
     std::string caption;
 
     /// @brief Textures set applied to block sides
-    std::string textureFaces[6];  // -x,x, -y,y, -z,z
-
-    std::vector<std::string> modelTextures = {};
-    std::vector<BoxModel> modelBoxes = {};
-    std::vector<glm::vec3> modelExtraPoints =
-        {};                               // initially made for tetragons
-    std::vector<UVRegion> modelUVs = {};  // boxes' tex-UVs also there
+    std::array<std::string, 6> textureFaces;  // -x,x, -y,y, -z,z
 
     /// @brief id of used BlockMaterial, may specify non-existing material
     std::string material = DEFAULT_MATERIAL;
@@ -133,6 +131,11 @@ public:
 
     /// @brief Block model type
     BlockModel model = BlockModel::block;
+
+    /// @brief Custom model raw data
+    dv::value customModelRaw = nullptr;
+
+    std::string modelName = "";
 
     /// @brief Does the block passing lights into itself
     bool lightPassing = false;
@@ -184,6 +187,9 @@ public:
     /// @brief Block will be used instead of this if generated on surface
     std::string surfaceReplacement = name;
 
+    /// @brief Texture will be shown on screen if camera is inside of the block
+    std::string overlayTexture;
+
     /// @brief Default block layout will be used by hud.open_block(...)
     std::string uiLayout = name;
 
@@ -194,6 +200,8 @@ public:
     uint tickInterval = 1;
 
     std::unique_ptr<data::StructLayout> dataStruct;
+
+    std::unique_ptr<ParticlesPreset> particles;
 
     /// @brief Runtime indices (content indexing results)
     struct {

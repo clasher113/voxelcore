@@ -2,6 +2,7 @@
 #define DX_TEXTURE_HPP
 
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 
 #include "../../typedefs.hpp"
 #include "../../graphics/core/ImageData.hpp"

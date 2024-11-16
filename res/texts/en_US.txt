@@ -15,6 +15,9 @@ world.generators.flat=Flat
 graphics.gamma.tooltip=Lighting brightness curve
 graphics.backlight.tooltip=Backlight to prevent total darkness
 
+# settings
+settings.Controls Search Mode=Search by attached button name
+
 # Bindings
 chunks.reload=Reload Chunks
 devtools.console=Console
@@ -28,8 +31,10 @@ movement.crouch=Crouch
 movement.cheat=Cheat
 hud.inventory=Inventory
 player.pick=Pick Block
-player.attack=Attack / Break
+player.attack=Attack
+player.destroy=Destroy
 player.build=Place Block
+player.fast_interaction=Accelerated interaction
 player.flight=Flight
 player.noclip=No-clip
 player.drop=Drop Item

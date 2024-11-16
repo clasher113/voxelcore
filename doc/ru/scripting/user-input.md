@@ -59,10 +59,22 @@ input.get_bindings() -> массив строк
 Возвращает названия всех доступных привязок.
 
 ```python
+input.get_binding_text(bindname: str) -> str
+```
+
+Возвращает текстовое представление кнопки по имени привязки.
+
+```python
 input.is_active(bindname: str) -> bool
 ```
 
 Проверяет активность привязки.
+
+```python
+input.set_enabled(bindname: str, flag: bool)
+```
+
+Включает/выключает привязку до выхода из мира.
 
 ```python
 input.is_pressed(code: str) -> bool
