@@ -63,7 +63,7 @@ float4 PShader(PSInput input) : SV_TARGET {
     float4 tex_color = my_texture.Sample(my_sampler, input.texCoord);
     float depth = (input.distance / 256.f);
     float alpha = input.color.a * tex_color.a;
-    if (alpha < 0.3f)
+    if (alpha < 0.5f)
         discard;
     return float4(lerp(input.color * tex_color, float4(fogColor, 1.0), min(1.0, pow(abs(depth * u_fogFactor), u_fogCurve))).rgb, alpha);
 }

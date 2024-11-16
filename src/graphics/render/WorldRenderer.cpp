@@ -509,10 +509,10 @@ void WorldRenderer::renderBlockOverlay(const DrawContext& wctx, const Assets& as
         ctx.setCullFace(false);
         
         auto& shader = assets.require<Shader>("ui3d");
-        shader.use();
         batch3d->begin();
         shader.uniformMatrix("u_projview", glm::mat4(1.0f));
         shader.uniformMatrix("u_apply", glm::mat4(1.0f));
+        shader.use();
         auto light = level->chunks->getLight(x, y, z);
         float s = Lightmap::extract(light, 3) / 15.0f;
         glm::vec4 tint(
