@@ -1,13 +1,12 @@
 #ifdef USE_DIRECTX
 #include "DXShader.hpp"
-#include "../window/DXDevice.hpp"
-#include "../util/DXError.hpp"
-#include "../util/DebugUtil.hpp"
-#include "../util/InputLayoutBuilder.hpp"
-#include "../util/ConstantBufferBuilder.hpp"
-#include "../../util/stringutil.hpp"
-
-#include "../ShaderInclude.hpp"
+#include "directx/window/DXDevice.hpp"
+#include "directx/util/DXError.hpp"
+#include "directx/util/DebugUtil.hpp"
+#include "directx/util/InputLayoutBuilder.hpp"
+#include "directx/util/ConstantBufferBuilder.hpp"
+#include "util/stringutil.hpp"
+#include "directx/ShaderInclude.hpp"
 
 #include <d3dcompiler.h>
 

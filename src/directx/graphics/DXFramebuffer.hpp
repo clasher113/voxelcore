@@ -1,7 +1,7 @@
 #ifndef DX_FRAMEBUFFER_HPP
 #define DX_FRAMEBUFFER_HPP
 
-#include "../../typedefs.hpp"
+#include "typedefs.hpp"
 
 #include <memory>
 

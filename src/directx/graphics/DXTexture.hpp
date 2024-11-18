@@ -1,13 +1,13 @@
 #ifndef DX_TEXTURE_HPP
 #define DX_TEXTURE_HPP
 
+#include "typedefs.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "directx/ShaderTypes.hpp"
+#include "maths/UVRegion.hpp"
+
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
-
-#include "../../typedefs.hpp"
-#include "../../graphics/core/ImageData.hpp"
-#include "../ShaderTypes.hpp"
-#include "../../maths/UVRegion.hpp"
 
 #include <d3d11_1.h>
 #include <memory>

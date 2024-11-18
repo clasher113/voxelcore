@@ -1,7 +1,7 @@
 #ifndef DX_SHADER_HPP
 #define DX_SHADER_HPP
 
-#include "../ConstantBuffer.hpp"
+#include "directx/ConstantBuffer.hpp"
 
 #include <string_view>
 #include <memory>
@@ -9,6 +9,7 @@
 struct ID3D11VertexShader;
 struct ID3D11PixelShader;
 struct ID3D11InputLayout;
+struct ID3DInclude;
 
 class Shader : public ConstantBuffer {
 public:
@@ -22,7 +23,7 @@ private:
 	ID3D11InputLayout* m_p_inputLayout;
 public:
 	static void compileShader(const std::wstring_view& shaderFile, ID3D10Blob** shader, ShaderType shaderType, 
-		ID3DInclude* include = D3D_COMPILE_STANDARD_FILE_INCLUDE);
+		ID3DInclude* include);
 	static std::unique_ptr<Shader> loadShader(const std::wstring_view& shaderFile, ID3DInclude* include);
 };
 

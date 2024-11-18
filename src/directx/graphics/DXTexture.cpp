@@ -1,10 +1,10 @@
 #ifdef USE_DIRECTX
 #include "DXTexture.hpp"
-#include "../window/DXDevice.hpp"
-#include "../util/DXError.hpp"
-#include "../../graphics/core/ImageData.hpp"
-#include "../util/DebugUtil.hpp"
-#include "../util/TextureUtil.hpp"
+#include "directx/window/DXDevice.hpp"
+#include "directx/util/DXError.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "directx/util/DebugUtil.hpp"
+#include "directx/util/TextureUtil.hpp"
 
 #include <stdexcept>
 

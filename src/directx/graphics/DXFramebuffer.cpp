@@ -1,9 +1,9 @@
 #ifdef USE_DIRECTX
 #include "DXFramebuffer.hpp"
-#include "../window/DXDevice.hpp"
-#include "../util/DXError.hpp"
+#include "directx/window/DXDevice.hpp"
+#include "directx/util/DXError.hpp"
 #include "DXTexture.hpp"
-#include "../util/DebugUtil.hpp"
+#include "directx//util/DebugUtil.hpp"
 
 #include <d3d11.h>
 

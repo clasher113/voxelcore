@@ -1,19 +1,19 @@
 #ifndef CONSTANT_BUFFER_HPP
 #define CONSTANT_BUFFER_HPP
 
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-
 #include "ShaderTypes.hpp"
 
-#include <d3dcompiler.h>
 #include <unordered_map>
-#include <DirectXMath.h>
-#include <glm\glm.hpp>
+#include <glm\fwd.hpp>
 #include <string_view>
 
 struct ID3D10Blob;
 struct ID3D11Buffer;
+namespace DirectX {
+	struct XMFLOAT4X4;
+	struct XMFLOAT2;
+	struct XMFLOAT3;
+}
 
 struct ConstantBufferVariable {
 	size_t startOffset;
@@ -34,7 +34,7 @@ public:
 	void uniformMatrix(const std::string_view& name, const DirectX::XMFLOAT4X4& matrix);
 	void uniformMatrix(const std::string_view& name, const glm::mat4& matrix);
 	void uniform1i(const std::string_view& name, int x);
-	void uniform2i(const std::string_view& name, glm::ivec2 xy);
+	void uniform2i(const std::string_view& name, const glm::ivec2& xy);
 	void uniform1f(const std::string_view& name, float x);
 	void uniform2f(const std::string_view& name, float x, float y);
 	void uniform2f(const std::string_view& name, const DirectX::XMFLOAT2& xy);
@@ -43,7 +43,7 @@ public:
 	void uniform3f(const std::string_view& name, const DirectX::XMFLOAT3& xyz);
 	void uniform3f(const std::string_view& name, const glm::vec3& xyz);
 
-	void bind(UINT startSlot = 0u);
+	void bind(unsigned int startSlot = 0u);
 	void applyChanges();
 
 private:

@@ -2,9 +2,11 @@
 #define DX_DEVICE_HPP
 
 #define NOMINMAX
+
 #include <d3d11_1.h>
 #include <wrl/client.h>
 #include <DirectXColors.h>
+
 #undef DELETE
 
 class AdapterData;

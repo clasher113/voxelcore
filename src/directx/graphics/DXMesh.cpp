@@ -1,8 +1,8 @@
 #ifdef USE_DIRECTX
 #include "DXMesh.hpp"
-#include "../window/DXDevice.hpp"
-#include "../util/DXError.hpp"
-#include "../util/DebugUtil.hpp"
+#include "directx/window/DXDevice.hpp"
+#include "directx/util/DXError.hpp"
+#include "directx/util/DebugUtil.hpp"
 
 #include <d3d11_1.h>
 
@@ -114,6 +114,10 @@ void Mesh::releaseResources() {
 		m_p_indexBuffer->Release();
 		m_p_indexBuffer = nullptr;
 	}
+}
+
+void Mesh::draw(){
+	draw(D3D_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 #endif // USE_DIRECTX

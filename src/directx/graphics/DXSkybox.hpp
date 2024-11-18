@@ -1,8 +1,8 @@
 #ifndef DX_SKYBOX_HPP
 #define DX_SKYBOX_HPP
 
-#include "../../typedefs.hpp"
-#include "../../maths/fastmaths.hpp"
+#include "typedefs.hpp"
+#include "maths/fastmaths.hpp"
 
 #include <string>
 #include <vector>

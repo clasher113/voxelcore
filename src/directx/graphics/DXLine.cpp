@@ -1,23 +1,22 @@
 #ifdef USE_DIRECTX
 #include "DXLine.hpp"
-#include "../window/DXDevice.hpp"
-#include "../util/DXError.hpp"
-#include "../ConstantBuffer.hpp"
-#include "../util/ConstantBufferBuilder.hpp"
+#include "directx/window/DXDevice.hpp"
+#include "directx/util/DXError.hpp"
+#include "directx/ConstantBuffer.hpp"
+#include "directx/util/ConstantBufferBuilder.hpp"
 #include "DXMesh.hpp"
 #include "DXShader.hpp"
 
-#include <d3dcommon.h>
-#include <iostream>
+#include <d3dcompiler.h>
 
 void DXLine::initialize(ID3D11Device* device) {
 	if (s_m_initialized) {
-		std::cout << "DXLine already initialized" << std::endl;
+		PRINT_ERROR2(ERROR_ALREADY_INITIALIZED, "DXLine already initialized");
 		return;
 	}
 	ID3D10Blob* GS;
 
-	Shader::compileShader(L"res\\dx-shaders\\lines.hlsl", &GS, ShaderType::GEOMETRY);
+	Shader::compileShader(L"res\\dx-shaders\\lines.hlsl", &GS, ShaderType::GEOMETRY, D3D_COMPILE_STANDARD_FILE_INCLUDE);
 
 	CHECK_ERROR1(device->CreateGeometryShader(GS->GetBufferPointer(), GS->GetBufferSize(), NULL, &s_m_p_geometryShader));
 
@@ -32,7 +31,7 @@ void DXLine::initialize(ID3D11Device* device) {
 
 void DXLine::terminate() {
 	if (!s_m_initialized) {
-		std::cout << "DXLine not initialized" << std::endl;
+		PRINT_ERROR2(E_UNEXPECTED, "DXLine not initialized");
 		return;
 	}
 	s_m_p_geometryShader->Release();

@@ -1,6 +1,8 @@
 #include "DXMathHelper.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
+#include <DirectXMath.h>
+
 DirectX::XMFLOAT4X4 toFloat4x4(const DirectX::XMMATRIX& matrix) {
 	DirectX::XMFLOAT4X4 result{};
 	DirectX::XMStoreFloat4x4(&result, matrix);
@@ -31,7 +33,7 @@ inline DirectX::XMFLOAT4X4 glm2dxm(const glm::mat4& matrix) {
 	return DirectX::XMFLOAT4X4(glm::value_ptr(matrix));
 }
 
-inline glm::mat4 dxm2glm(DirectX::XMFLOAT4X4 matrix) {
+inline glm::mat4 dxm2glm(const DirectX::XMFLOAT4X4& matrix) {
 	return glm::make_mat4x4(&matrix._11);
 }
 

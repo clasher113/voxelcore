@@ -2,6 +2,8 @@
 #include "ConstantBufferBuilder.hpp"
 #include "DXError.hpp"
 
+#include <d3dcompiler.h>
+
 void ConstantBufferBuilder::build(ID3D10Blob* shader, unsigned int shaderType) {
 	ID3D11ShaderReflection* pReflector = nullptr;
 	CHECK_ERROR1(D3DReflect(shader->GetBufferPointer(), shader->GetBufferSize(), IID_PPV_ARGS(&pReflector)));

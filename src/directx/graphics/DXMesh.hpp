@@ -1,14 +1,13 @@
 #ifndef DX_MESH_HPP
 #define DX_MESH_HPP
 
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-
-#include <d3dcommon.h>
 #include "typedefs.hpp"
 #include "graphics/core/MeshData.hpp"
 
-struct ID3D11Buffer;
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+
+#include <d3d11_1.h>
 
 class Mesh {
 public:
@@ -19,7 +18,8 @@ public:
 	~Mesh();
 
 	void reload(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer = nullptr, size_t indices = 0);
-	void draw(D3D_PRIMITIVE_TOPOLOGY primitive = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	void draw(D3D_PRIMITIVE_TOPOLOGY primitive);
+	void draw();
 
 private:
 	size_t m_vertices;

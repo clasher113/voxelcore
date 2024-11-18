@@ -52,7 +52,7 @@ void ConstantBuffer::uniform1i(const std::string_view& name, int x) {
 	modifyVariable(name, &x);
 }
 
-void ConstantBuffer::uniform2i(const std::string_view& name, glm::ivec2 xy) {
+void ConstantBuffer::uniform2i(const std::string_view& name, const glm::ivec2& xy) {
 	modifyVariable(name, glm::value_ptr(xy));
 }
 
