@@ -15,7 +15,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 			xmlDocs.emplace(fullName, xml::parse(path.u8string(), files::read_string(path)));
 		}
 
-		std::shared_ptr<xml::Document> xmlDoc(xml::parse(path.u8string(), files::read_string(path)));
+		std::shared_ptr<xml::Document> xmlDoc(xmlDocs[fullName]);
 		auto updatePreview = [this, xmlDoc](bool forceUpdate = true) {
 			preview->setUiDocument(xmlDoc, engine->getContent()->getPackRuntime(currentPackId)->getEnvironment(), forceUpdate);
 		};
@@ -99,6 +99,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 				if (elementPanel.getMaxLength() != maxLength) {
 					elementPanel.setMaxLength(maxLength);
 					elementPanel.cropToContent();
+					panel.cropToContent();
 				}
 			});
 			if (currentElement->getElements().empty())
@@ -262,7 +263,7 @@ void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const 
 					break;
 				}
 			}
-			if (innerText->has("#")) return innerText->attr("#").getText();
+			if (innerText && innerText->has("#")) return innerText->attr("#").getText();
 			return "";
 		};
 
