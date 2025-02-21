@@ -12,15 +12,13 @@
 class Mesh {
 public:
 	Mesh(const MeshData& data);
-	Mesh(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer, size_t indices, const vattr* attrs);
-	Mesh(const float* vertexBuffer, size_t vertices, const vattr* attrs) :
+	Mesh(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer, size_t indices, const VertexAttribute* attrs);
+	Mesh(const float* vertexBuffer, size_t vertices, const VertexAttribute* attrs) :
 		Mesh(vertexBuffer, vertices, nullptr, 0, attrs) {};
 	~Mesh();
 
 	void reload(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer = nullptr, size_t indices = 0);
-	void draw(D3D_PRIMITIVE_TOPOLOGY primitive);
-	void draw();
-
+	void draw(D3D_PRIMITIVE_TOPOLOGY primitive = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST) const;
 private:
 	size_t m_vertices;
 	size_t m_indices;

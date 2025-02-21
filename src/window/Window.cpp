@@ -85,15 +85,14 @@ bool Window::isFocused() {
 
 void window_size_callback(GLFWwindow*, int width, int height) {
     if (width && height) {
-        if (Window::isFocused()) {
 #ifdef USE_DIRECTX
-            DXDevice::onWindowResize(width, height);
+        DXDevice::onWindowResize(width, height);
 #elif USE_OPENGL
-            glViewport(0, 0, width, height);
+        glViewport(0, 0, width, height);
 #endif // !USE_DIRECTX
-            Window::width = width;
-            Window::height = height;
-        }
+        Window::width = width;
+        Window::height = height;
+        
 
         if (!Window::isFullscreen() && !Window::isMaximized()) {
             Window::getSettings()->width.set(width);
@@ -237,6 +236,9 @@ int Window::initialize(DisplaySettings* settings) {
     logger.info() << "GL Renderer: " << (char*)renderer;
 #endif // USE_DIRECTX
     logger.info() << "GLFW: " << glfwGetVersionString();
+    glm::vec2 scale;
+    glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &scale.x, &scale.y);
+    logger.info() << "monitor content scale: " << scale.x << "x" << scale.y;
 
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);

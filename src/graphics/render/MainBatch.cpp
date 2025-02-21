@@ -12,7 +12,7 @@
 #include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
 
-static const vattr attrs[] = {
+static const VertexAttribute attrs[] = {
     {3}, {2}, {3}, {1}, {0}
 };
 

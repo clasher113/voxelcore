@@ -9,7 +9,7 @@
 int Mesh::meshesCount = 0;
 int Mesh::drawCalls = 0;
 
-inline size_t calc_vertex_size(const vattr* attrs) {
+inline size_t calc_vertex_size(const VertexAttribute* attrs) {
 	size_t vertexSize = 0;
 	for (int i = 0; attrs[i].size; i++) {
 		vertexSize += attrs[i].size;
@@ -24,7 +24,7 @@ Mesh::Mesh(const MeshData& data)
 		   data.indices.size(),
 		   data.attrs.data()) {}
 
-Mesh::Mesh(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer, size_t indices, const vattr* attrs) :
+Mesh::Mesh(const float* vertexBuffer, size_t vertices, const DWORD* indexBuffer, size_t indices, const VertexAttribute* attrs) :
 	m_vertexSize(0),
 	m_vertices(vertices),
 	m_indices(indices),
@@ -88,7 +88,7 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 	}
 }
 
-void Mesh::draw(D3D_PRIMITIVE_TOPOLOGY primitive) {
+void Mesh::draw(D3D_PRIMITIVE_TOPOLOGY primitive) const {
 	auto context = DXDevice::getContext();
 
 	UINT offset = 0;
@@ -114,10 +114,6 @@ void Mesh::releaseResources() {
 		m_p_indexBuffer->Release();
 		m_p_indexBuffer = nullptr;
 	}
-}
-
-void Mesh::draw(){
-	draw(D3D_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 #endif // USE_DIRECTX

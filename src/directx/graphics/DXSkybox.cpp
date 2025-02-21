@@ -51,7 +51,7 @@ const DirectX::XMFLOAT3 zaxs[] = {
 	{ 0.f, 0.f, 1.f },
 };
 
-Skybox::Skybox(uint size, Shader* shader) :
+Skybox::Skybox(uint size, Shader& shader) :
 	m_size(size),
 	m_p_shader(shader),
 	m_p_batch3d(new Batch3D(4096)),
@@ -100,7 +100,7 @@ Skybox::Skybox(uint size, Shader* shader) :
 		-1.0f, -1.0f, 1.0f,  1.0f, -1.0f, 1.0f,
 		-1.0f, -1.0f, 1.0f, -1.0f,  1.0f, 1.0f,
 	};
-	vattr attrs[]{ {2}, {0} };
+	VertexAttribute attrs[]{ {2}, {0} };
 	m_p_mesh = new Mesh(vertices, 6, attrs);
 
 	sprites.push_back(skysprite {
@@ -210,16 +210,16 @@ void Skybox::refresh(const DrawContext& pctx, float t, float mie, uint quality) 
 	ctx.setViewport(Viewport(m_size, m_size));
 
 	ready = true;
-	m_p_shader->use();
+	m_p_shader.use();
 
 	t *= M_PI * 2.0f;
 
 	lightDir = glm::normalize(glm::vec3(sin(t), -cos(t), 0.0f));
-	m_p_shader->uniform1i("c_quality", quality);
-	m_p_shader->uniform1f("c_mie", mie);
-	m_p_shader->uniform1f("c_fog", mie - 1.0f);
-	m_p_shader->uniform3f("c_lightDir", lightDir);
-	m_p_shader->uniform1f("c_dayTime", dayTime);
+	m_p_shader.uniform1i("c_quality", quality);
+	m_p_shader.uniform1f("c_mie", mie);
+	m_p_shader.uniform1f("c_fog", mie - 1.0f);
+	m_p_shader.uniform3f("c_lightDir", lightDir);
+	m_p_shader.uniform1f("c_dayTime", dayTime);
 
 	if (glm::abs(mie - prevMie) + glm::abs(t - prevT) >= 0.01) {
 		for (uint face = 0; face < 6; face++) {
@@ -238,11 +238,11 @@ void Skybox::refresh(const DrawContext& pctx, float t, float mie, uint quality) 
 void Skybox::refreshFace(uint face) {
 	DXDevice::getContext()->OMSetRenderTargets(1, &m_p_renderTargets[face], nullptr);
 
-	m_p_shader->uniform3f("c_xAxis", xaxs[face]);
-	m_p_shader->uniform3f("c_yAxis", yaxs[face]);
-	m_p_shader->uniform3f("c_zAxis", zaxs[face]);
+	m_p_shader.uniform3f("c_xAxis", xaxs[face]);
+	m_p_shader.uniform3f("c_yAxis", yaxs[face]);
+	m_p_shader.uniform3f("c_zAxis", zaxs[face]);
 
-	m_p_shader->applyChanges();
+	m_p_shader.applyChanges();
 	m_p_mesh->draw();
 }
 

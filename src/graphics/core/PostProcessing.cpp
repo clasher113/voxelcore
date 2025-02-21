@@ -24,8 +24,7 @@ PostProcessing::PostProcessing() {
         -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
         -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f,
     };
-
-    vattr attrs[] {{2}, {0}};
+    VertexAttribute attrs[] {{2}, {0}};
     quadMesh = std::make_unique<Mesh>(vertices, 6, attrs);
 }
 

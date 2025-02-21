@@ -5,7 +5,7 @@
 
 #include <unordered_map>
 #include <glm\fwd.hpp>
-#include <string_view>
+#include <string>
 
 struct ID3D10Blob;
 struct ID3D11Buffer;

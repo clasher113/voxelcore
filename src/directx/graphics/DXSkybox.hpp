@@ -27,7 +27,7 @@ struct skysprite {
 
 class Skybox {
 public:
-	Skybox(uint size, Shader* shader);
+	Skybox(uint size, Shader& shader);
 	~Skybox();
 
 	void draw(
@@ -57,7 +57,7 @@ private:
 
 	glm::vec3 lightDir;
 
-	Shader* m_p_shader;
+	Shader& m_p_shader;
 	Mesh* m_p_mesh;
 	Batch3D* m_p_batch3d;
 

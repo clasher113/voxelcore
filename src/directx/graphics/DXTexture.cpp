@@ -83,7 +83,7 @@ Texture::~Texture() {
 }
 
 void Texture::setNearestFilter() {
-
+	// todo: implement
 }
 
 void Texture::bind(unsigned int shaderType, UINT startSlot) const {
@@ -102,6 +102,10 @@ void Texture::reload(const ImageData& image) {
 	m_description.Width = image.getWidth();
 	m_description.Height = image.getHeight();
 	reload(image.getData());
+}
+
+void Texture::setMipMapping(bool flag) {
+	// todo: implement
 }
 
 std::unique_ptr<ImageData> Texture::readData() {
