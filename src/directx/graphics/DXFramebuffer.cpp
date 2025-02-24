@@ -11,22 +11,26 @@ Framebuffer::Framebuffer(ID3D11RenderTargetView* fbo, ID3D11RenderTargetView* de
 {
 }
 
-static ID3D11Texture2D* create_texture(int width, int height, DXGI_FORMAT format, UINT bindFlags) {
+static ID3D11Texture2D* create_texture(UINT width, UINT height, DXGI_FORMAT format, UINT bindFlags) {
 	auto device = DXDevice::getDevice();
 
-	D3D11_TEXTURE2D_DESC description;
-	ZeroMemory(&description, sizeof(description));
-	description.Width = width;
-	description.Height = height;
-	description.MipLevels = 1;
-	description.ArraySize = 1;
-	description.Format = format;
-	description.SampleDesc.Count = 1;
-	description.SampleDesc.Quality = 0;
-	description.Usage = D3D11_USAGE_DEFAULT;
-	description.BindFlags = bindFlags;
-	description.CPUAccessFlags = 0;
-	description.MiscFlags = 0;
+	DXGI_SAMPLE_DESC sampleDesc {
+		/* UINT Count */	1U,
+		/* UINT Quality */	0U
+	};
+
+	D3D11_TEXTURE2D_DESC description {
+		/* UINT Width */					width,
+		/* UINT Height */					height,
+		/* UINT MipLevels */				1U,
+		/* UINT ArraySize */				1U,
+		/* DXGI_FORMAT Format */			format,
+		/* DXGI_SAMPLE_DESC SampleDesc */	sampleDesc,
+		/* D3D11_USAGE Usage */				D3D11_USAGE_DEFAULT,
+		/* UINT BindFlags */				bindFlags,
+		/* UINT CPUAccessFlags */			0U,
+		/* UINT MiscFlags */				0U
+	};
 
 	ID3D11Texture2D* tex = nullptr;
 

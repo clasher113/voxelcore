@@ -11,7 +11,7 @@
 
 void DXLine::initialize(ID3D11Device* device) {
 	if (s_m_initialized) {
-		PRINT_ERROR2(ERROR_ALREADY_INITIALIZED, "DXLine already initialized");
+		PRINT_ERROR2(ERROR_ALREADY_INITIALIZED, L"DXLine already initialized");
 		return;
 	}
 	ID3D10Blob* GS;
@@ -31,7 +31,7 @@ void DXLine::initialize(ID3D11Device* device) {
 
 void DXLine::terminate() {
 	if (!s_m_initialized) {
-		PRINT_ERROR2(E_UNEXPECTED, "DXLine not initialized");
+		PRINT_ERROR2(E_UNEXPECTED, L"DXLine not initialized");
 		return;
 	}
 	s_m_p_geometryShader->Release();

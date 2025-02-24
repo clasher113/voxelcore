@@ -39,30 +39,35 @@ Texture::Texture(ID3D11Texture2D* texture) :
 	SET_DEBUG_OBJECT_NAME(m_p_resourceView, "Resource View");
 }
 
-Texture::Texture(ubyte* data, uint width, uint height, ImageFormat format) {
-	ZeroMemory(&m_description, sizeof(D3D11_TEXTURE2D_DESC));
-	m_description.Width = width;
-	m_description.Height = height;
-	m_description.MipLevels = 0;
-	m_description.ArraySize = 1;
-	m_description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	m_description.SampleDesc.Count = 1;
-	m_description.SampleDesc.Quality = 0;
-	m_description.CPUAccessFlags = 0;
-	m_description.Usage = D3D11_USAGE_DEFAULT;
-	m_description.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-	m_description.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
-
+Texture::Texture(ubyte* data, uint width, uint height, ImageFormat format) :
+	m_description({
+	    /* UINT Width */					width,
+		/* UINT Height */					height,
+		/* UINT MipLevels */				0U,
+		/* UINT ArraySize */				1U,
+		/* DXGI_FORMAT Format */			DXGI_FORMAT_R8G8B8A8_UNORM,
+		/* DXGI_SAMPLE_DESC SampleDesc */	{
+			/* UINT Count */	1,
+			/* UINT Quality */	0
+		},
+		/* D3D11_USAGE Usage */				D3D11_USAGE_DEFAULT,
+		/* UINT BindFlags */				D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
+		/* UINT CPUAccessFlags */			0U,
+		/* UINT MiscFlags */				D3D11_RESOURCE_MISC_GENERATE_MIPS
+	})
+{
 	auto device = DXDevice::getDevice();
 	CHECK_ERROR2(device->CreateTexture2D(&m_description, nullptr, &m_p_texture),
 		L"Failed to create texture");
 
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	ZeroMemory(&srvDesc, sizeof(D3D11_SHADER_RESOURCE_VIEW_DESC));
-	srvDesc.Format = m_description.Format;
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = GetNumMipLevels(width, height);
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc {
+		/* DXGI_FORMAT Format */				m_description.Format,
+		/* D3D11_SRV_DIMENSION ViewDimension */	D3D11_SRV_DIMENSION_TEXTURE2D,
+		/* D3D11_TEX2D_SRV Texture2D */			{
+			/* UINT MostDetailedMip */	0,
+			/* UINT MipLevels */		GetNumMipLevels(width, height)
+		}
+	};
 
 	CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, &srvDesc, &m_p_resourceView),
 		L"Failed to create shader resource view");

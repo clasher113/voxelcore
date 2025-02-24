@@ -18,13 +18,14 @@ ConstantBuffer::ConstantBuffer(const ConstantBufferData& data) :
 {
 	auto device = DXDevice::getDevice();
 
-	D3D11_BUFFER_DESC desc{};
-	desc.Usage = D3D11_USAGE_DYNAMIC;
-	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	desc.MiscFlags = 0;
-	desc.ByteWidth = static_cast<UINT>(m_size + (16 - m_size % 16));
-	desc.StructureByteStride = 0;
+	D3D11_BUFFER_DESC desc {
+		/* UINT ByteWidth */			static_cast<UINT>(m_size + (16 - m_size % 16)),
+		/* D3D11_USAGE Usage */			D3D11_USAGE_DYNAMIC,
+		/* UINT BindFlags */			D3D11_BIND_CONSTANT_BUFFER,
+		/* UINT CPUAccessFlags */		D3D11_CPU_ACCESS_WRITE,
+		/* UINT MiscFlags */			0,
+		/* UINT StructureByteStride */	0,
+	};
 
 	CHECK_ERROR2(device->CreateBuffer(&desc, 0, &m_p_buffer),
 		L"Failed to create constant buffer");

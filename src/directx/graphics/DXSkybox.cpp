@@ -59,36 +59,47 @@ Skybox::Skybox(uint size, Shader& shader) :
 {
 	auto device = DXDevice::getDevice();
 
-	D3D11_TEXTURE2D_DESC description;
-	ZeroMemory(&description, sizeof(description));
-	description.Width = m_size;
-	description.Height = m_size;
-	description.MipLevels = 1;
-	description.ArraySize = 6;
-	description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	description.SampleDesc.Count = 1;
-	description.SampleDesc.Quality = 0;
-	description.Usage = D3D11_USAGE_DEFAULT;
-	description.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-	description.CPUAccessFlags = 0;
-	description.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
+	DXGI_SAMPLE_DESC sampleDesc {
+		/* UINT Count */	1U,
+		/* UINT Quality */	0U
+	};
+
+	D3D11_TEXTURE2D_DESC description {
+		/* UINT Width */					m_size,
+		/* UINT Height */					m_size,
+		/* UINT MipLevels */				1U,
+		/* UINT ArraySize */				6U,
+		/* DXGI_FORMAT Format */			DXGI_FORMAT_R8G8B8A8_UNORM,
+		/* DXGI_SAMPLE_DESC SampleDesc */	sampleDesc,
+		/* D3D11_USAGE Usage */				D3D11_USAGE_DEFAULT,
+		/* UINT BindFlags */				D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET,
+		/* UINT CPUAccessFlags */			0U,
+		/* UINT MiscFlags */				D3D11_RESOURCE_MISC_TEXTURECUBE
+	};
 
 	CHECK_ERROR2(device->CreateTexture2D(&description, nullptr, &m_p_texture),
 		L"Failed to create texture");
 
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-	srvDesc.Format = description.Format;
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = 1;
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc {
+		/* DXGI_FORMAT Format */				description.Format,
+		/* D3D11_SRV_DIMENSION ViewDimension */	D3D11_SRV_DIMENSION_TEXTURECUBE,
+		/* D3D11_TEX2D_SRV Texture2D */			{
+			/* UINT MostDetailedMip */	0U,
+			/* UINT MipLevels */		1U
+		}
+	};
 
 	CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, &srvDesc, &m_p_resourceView),
 		L"Failed to create shader resource view");
 
-	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc{};
-	rtvDesc.Format = description.Format;
-	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DARRAY;
-	rtvDesc.Texture2DArray.MipSlice = 0;
+	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc {
+		/* DXGI_FORMAT Format */					description.Format,
+		/* D3D11_RTV_DIMENSION ViewDimension */		D3D11_RTV_DIMENSION_TEXTURE2DARRAY,
+		/* D3D11_TEX2D_ARRAY_RTV Texture2DArray */	{
+			/* UINT MipSlice */			0U,
+			/* UINT FirstArraySlice */	1U
+		}
+	};
 	rtvDesc.Texture2DArray.ArraySize = 1;
 
 	for (size_t i = 0; i < 6; i++) {

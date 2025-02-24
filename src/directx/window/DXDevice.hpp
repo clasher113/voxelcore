@@ -48,7 +48,7 @@ private:
 	static inline UINT s_m_windowWidth = 0, s_m_windowHeight = 0;
 	static inline DirectX::XMVECTORF32 s_m_clearColor = DirectX::Colors::CornflowerBlue;
 
-	static inline D3D_FEATURE_LEVEL									s_m_featureLevel = D3D_FEATURE_LEVEL_9_1;
+	static inline D3D_FEATURE_LEVEL									s_m_featureLevel = D3D_FEATURE_LEVEL_1_0_CORE;
 	static inline const AdapterData*								s_m_p_adapterData = nullptr;
 	static inline D3D11_RASTERIZER_DESC								s_m_rasterizerStateDesc;
 	static inline D3D11_DEPTH_STENCIL_DESC							s_m_depthStencilStateDesc;

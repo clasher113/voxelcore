@@ -56,17 +56,20 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 	m_vertices = vertices;
 	m_stride = sizeof(float) * m_vertexSize;
 
-	D3D11_BUFFER_DESC bufferDesc;
-	ZeroMemory(&bufferDesc, sizeof(bufferDesc));
-	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	bufferDesc.ByteWidth = sizeof(float) * vertices * m_vertexSize;
-	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	bufferDesc.CPUAccessFlags = 0;
-	bufferDesc.MiscFlags = 0;
+	D3D11_BUFFER_DESC bufferDesc {
+		/* UINT ByteWidth */			sizeof(float)* vertices* m_vertexSize,
+		/* D3D11_USAGE Usage */			D3D11_USAGE_DEFAULT,
+		/* UINT BindFlags */			D3D11_BIND_VERTEX_BUFFER,
+		/* UINT CPUAccessFlags */		0U,
+		/* UINT MiscFlags */			0U,
+		/* UINT StructureByteStride */	0U
+	};
 
-	D3D11_SUBRESOURCE_DATA bufferData;
-	ZeroMemory(&bufferData, sizeof(bufferData));
-	bufferData.pSysMem = vertexBuffer;
+	D3D11_SUBRESOURCE_DATA bufferData {
+		/* const void* pSysMem */		vertexBuffer,
+		/* UINT SysMemPitch */			0U,
+		/* UINT SysMemSlicePitch */		0U,
+	};
 
 	CHECK_ERROR2(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_vertexBuffer),
 		L"Failed to create vertex buffer");
@@ -78,7 +81,6 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 
 		bufferDesc.ByteWidth = sizeof(DWORD) * indices;
 		bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-
 		bufferData.pSysMem = indexBuffer;
 
 		CHECK_ERROR2(device->CreateBuffer(&bufferDesc, &bufferData, &m_p_indexBuffer),

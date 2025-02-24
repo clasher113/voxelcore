@@ -30,15 +30,15 @@ Shader::~Shader() {
 void Shader::use() {
 	ConstantBuffer::bind();
 	auto context = DXDevice::getContext();
-	context->VSSetShader(m_p_vertexShader, 0, 0);
-	context->PSSetShader(m_p_pixelShader, 0, 0);
+	context->VSSetShader(m_p_vertexShader, nullptr, 0U);
+	context->PSSetShader(m_p_pixelShader, nullptr, 0U);
 	context->IASetInputLayout(m_p_inputLayout);
 }
 
 void Shader::compileShader(const std::wstring_view& shaderFile, ID3D10Blob** shader, ShaderType shaderType, ID3DInclude* include) {
 	ID3D10Blob* errorMsg = nullptr;
 	HRESULT errorCode = S_OK;
-	UINT flag1 = 0, flag2 = 0;
+	UINT flag1 = 0U, flag2 = 0U;
 #ifdef _DEBUG
 	flag1 = D3DCOMPILE_DEBUG;
 	flag2 = D3DCOMPILE_SKIP_OPTIMIZATION;

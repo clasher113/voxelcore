@@ -55,7 +55,7 @@ void DXDevice::terminate() {
 }
 
 void DXDevice::createDevice() {
-	UINT creationFlags = 0;
+	UINT creationFlags = 0U;
 
 #ifdef _DEBUG
 	creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
@@ -80,7 +80,7 @@ void DXDevice::createDevice() {
 		auto it = std::max_element(adapters.begin(), adapters.end(), [](const AdapterData& a, const AdapterData& b) {
 			return a.m_description.DedicatedVideoMemory < b.m_description.DedicatedVideoMemory;
 		});
-		s_m_p_adapterData = &(*it);
+		s_m_p_adapterData = &*it;
 	}
     performanceAdapter = s_m_p_adapterData->m_adapter.Get();
 
@@ -128,16 +128,35 @@ void DXDevice::createSwapChain() {
 	Microsoft::WRL::ComPtr<IDXGIFactory> dxgiFactory;
 	CHECK_ERROR1(dxgiAdapter->GetParent(IID_PPV_ARGS(dxgiFactory.GetAddressOf())));
 
-	DXGI_SWAP_CHAIN_DESC swapChainDesc{};
-	swapChainDesc.BufferDesc.Width = s_m_windowWidth;
-	swapChainDesc.BufferDesc.Height = s_m_windowHeight;
-	swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	swapChainDesc.SampleDesc.Count = 1;
-	swapChainDesc.SampleDesc.Quality = 0;
-	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapChainDesc.BufferCount = 1;
-	swapChainDesc.OutputWindow = s_m_windowHandle;
-	swapChainDesc.Windowed = TRUE;
+	DXGI_RATIONAL dxgiRational {
+		/* UINT Numerator */	0U,
+		/* UINT Denominator */	0U
+	};
+
+	DXGI_MODE_DESC dxgiModeDesc {
+		/* UINT Width */								s_m_windowWidth,
+		/* UINT Height */								s_m_windowHeight,
+		/* DXGI_RATIONAL RefreshRate */					dxgiRational,
+		/* DXGI_FORMAT Format */						DXGI_FORMAT_B8G8R8A8_UNORM,
+		/* DXGI_MODE_SCANLINE_ORDER ScanlineOrdering */	DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED,
+		/* DXGI_MODE_SCALING Scaling */					DXGI_MODE_SCALING_UNSPECIFIED
+	};
+
+	DXGI_SAMPLE_DESC dxgiSampleDesc {
+		/* UINT Count */	1U,
+		/* UINT Quality */	0U
+	};
+
+	DXGI_SWAP_CHAIN_DESC swapChainDesc {
+		/* DXGI_MODE_DESC BufferDesc */		dxgiModeDesc,
+		/* DXGI_SAMPLE_DESC SampleDesc */	dxgiSampleDesc,
+		/* DXGI_USAGE BufferUsage */		DXGI_USAGE_RENDER_TARGET_OUTPUT,
+		/* UINT BufferCount */				1U,
+		/* HWND OutputWindow */				s_m_windowHandle,
+		/* BOOL Windowed */					TRUE,
+		/* DXGI_SWAP_EFFECT SwapEffect */	DXGI_SWAP_EFFECT_DISCARD,
+		/* UINT Flags */					0U
+	};
 
 	CHECK_ERROR2(dxgiFactory->CreateSwapChain(s_m_device.Get(), &swapChainDesc, s_m_swapChain.GetAddressOf()),
 		L"Failed to create swapchain");
@@ -195,17 +214,18 @@ void DXDevice::createResources() {
 	updateRasterizerState();
 
 	// create sampler state
-	D3D11_SAMPLER_DESC samplerDesc{};
-	ZeroMemory(&samplerDesc, sizeof(samplerDesc));
-
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-	samplerDesc.MipLODBias = 0.f;
-	samplerDesc.MinLOD = 0.f;
-	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	D3D11_SAMPLER_DESC samplerDesc {
+		/* D3D11_FILTER Filter */					D3D11_FILTER_MIN_MAG_MIP_POINT,
+		/* D3D11_TEXTURE_ADDRESS_MODE AddressU */	D3D11_TEXTURE_ADDRESS_WRAP,
+		/* D3D11_TEXTURE_ADDRESS_MODE AddressV */	D3D11_TEXTURE_ADDRESS_WRAP,
+		/* D3D11_TEXTURE_ADDRESS_MODE AddressW */	D3D11_TEXTURE_ADDRESS_WRAP,
+		/* FLOAT MipLODBias */						0.f,
+		/* UINT MaxAnisotropy */					0U,
+		/* D3D11_COMPARISON_FUNC ComparisonFunc */	D3D11_COMPARISON_NEVER,
+		/* FLOAT BorderColor[4] */					{ 0.f, 0.f, 0.f, 0.f },
+		/* FLOAT MinLOD */							0.f,
+		/* FLOAT MaxLOD */							D3D11_FLOAT32_MAX
+	};
 
 	PRINT_ERROR2(s_m_device->CreateSamplerState(&samplerDesc, s_m_samplerState.ReleaseAndGetAddressOf()),
 		L"Failed to create sampler");
@@ -240,8 +260,11 @@ void DXDevice::updateDepthStencilState() {
 }
 
 void DXDevice::updateBlendState() {
-	D3D11_BLEND_DESC blendStateDesc{};
-	ZeroMemory(&blendStateDesc, sizeof(blendStateDesc));
+	D3D11_BLEND_DESC blendStateDesc {
+		/* BOOL AlphaToCoverageEnable */						false,
+		/* BOOL IndependentBlendEnable */						false,
+		/* D3D11_RENDER_TARGET_BLEND_DESC RenderTarget[8] */	0
+	};
 	blendStateDesc.RenderTarget[0] = s_m_renderTargetBlendDesc;
 
 	PRINT_ERROR2(s_m_device->CreateBlendState(&blendStateDesc, s_m_blendState.ReleaseAndGetAddressOf()),

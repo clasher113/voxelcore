@@ -26,6 +26,7 @@ cbuffer CBuff : register(b0) {
     float3 u_fogColor;
     float u_fogFactor;
     float u_fogCurve;
+    bool u_alphaClip;
 }
 
 Texture2D my_texture : register(t0);
@@ -63,7 +64,7 @@ float4 PShader(PSInput input) : SV_TARGET {
     float4 tex_color = my_texture.Sample(my_sampler, input.texCoord);
     float depth = (input.distance / 256.f);
     float alpha = input.color.a * tex_color.a;
-    if (alpha < 0.5f)
+    if (alpha < (u_alphaClip ? 0.5f : 0.2f))
         discard;
     return float4(lerp(input.color * tex_color, float4(fogColor, 1.0), min(1.0, pow(abs(depth * u_fogFactor), u_fogCurve))).rgb, alpha);
 }
