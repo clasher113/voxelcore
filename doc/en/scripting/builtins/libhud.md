@@ -8,8 +8,17 @@ hud.open_inventory()
 hud.close_inventory()
 
 -- Open UI and inventory.
--- Throws an exception if has no UI layout.
-hud.open(invid: int, layoutid: str)
+-- Throws an exception if has UI layout does not exists.
+-- If invid is not specified, a virtual (temporary) inventory is created.
+-- Returns the invid or id of the virtual inventory.
+hud.open(
+    -- UI layout name
+    layoutid: str, 
+    -- Don't open player inventory
+    [optional] disablePlayerInventory: bool, 
+    -- Inventory that UI layout will be bound to
+    [optional] invid: int
+) -> int
 
 -- Open block UI and inventory.
 -- Throws an exception if block has no UI layout.
@@ -24,7 +33,9 @@ hud.open_block(x: int, y: int, z: int) -> int, str
 ```lua
 -- Show overlay with layout specified.
 -- Shows player inventory also if playerinv is true.
-hud.show_overlay(layoutid: str, playerinv: bool)
+-- Using `args` you can specify an array of parameter values ​​that will be passed
+-- to on_open of the overlay being shown.
+hud.show_overlay(layoutid: str, playerinv: bool, [optional] args: table)
 
 -- Add element to the screen. 
 -- The element will be removed on world close only.

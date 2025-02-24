@@ -43,18 +43,32 @@ player.get_inventory(playerid: int) -> int, int
 Возвращает id инвентаря игрока и индекс выбранного слота (от 0 до 9)
 
 ```lua
-player.is_flight() -> bool
-player.set_flight(bool)
+player.is_flight(playerid: int) -> bool
+player.set_flight(playerid: int, bool)
 ```
 
 Геттер и сеттер режима полета
 
 ```lua
-player.is_noclip() -> bool
-player.set_noclip(bool)
+player.is_noclip(playerid: int) -> bool
+player.set_noclip(playerid: int, bool)
 ```
 
 Геттер и сеттер noclip режима (выключенная коллизия игрока)
+
+```lua
+player.is_infinite_items(playerid: int) -> bool
+player.set_infinite_items(playerid: int, bool)
+```
+
+Геттер и сеттер бесконечных предметов (не удаляются из инвентаря при использовании)
+
+```lua
+player.is_instant_destruction(playerid: int) -> bool
+player.set_instant_destruction(playerid: int, bool)
+```
+
+Геттер и сеттер мнгновенного разрушения блоков при активации привязки `player.destroy`.
 
 ```lua
 player.set_spawnpoint(playerid: int, x: number, y: number, z: number) 
@@ -62,6 +76,13 @@ player.get_spawnpoint(playerid: int) -> number, number, number
 ```
 
 Сеттер и геттер точки спавна игрока
+
+```lua
+player.set_name(playerid: int, name: str) 
+player.get_name(playerid: int) -> str
+```
+
+Сеттер и геттер имени игрока
 
 ```lua
 player.get_selected_block(playerid: int) -> x,y,z

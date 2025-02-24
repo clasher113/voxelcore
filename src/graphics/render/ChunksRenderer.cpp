@@ -210,8 +210,8 @@ void ChunksRenderer::drawChunks(
 #endif // USE_DIRECTX
 
     // TODO: minimize draw calls number
-    for (size_t i = 0; i < indices.size(); i++) {
-        auto chunk = chunks.getChunks()[indices[i].index];
+    for (int i = indices.size()-1; i >= 0; i--) {
+        auto& chunk = chunks.getChunks()[indices[i].index];
         auto mesh = retrieveChunk(indices[i].index, camera, shader, culling);
 
         if (mesh) {
@@ -253,6 +253,7 @@ void ChunksRenderer::drawSortedMeshes(const Camera& camera, Shader& shader) {
     const auto& cameraPos = camera.position;
     const auto& atlas = assets.require<Atlas>("blocks");
 
+    shader.use();
     atlas.getTexture()->bind();
     shader.uniformMatrix("u_model", glm::mat4(1.0f));
     shader.uniform1i("u_alphaClip", false);
@@ -270,14 +271,16 @@ void ChunksRenderer::drawSortedMeshes(const Camera& camera, Shader& shader) {
             continue;
         }
 
-        glm::vec3 min(chunk->x * CHUNK_W, chunk->bottom, chunk->z * CHUNK_D);
-        glm::vec3 max(
-            chunk->x * CHUNK_W + CHUNK_W,
-            chunk->top,
-            chunk->z * CHUNK_D + CHUNK_D
-        );
+        if (culling) {
+            glm::vec3 min(chunk->x * CHUNK_W, chunk->bottom, chunk->z * CHUNK_D);
+            glm::vec3 max(
+                chunk->x * CHUNK_W + CHUNK_W,
+                chunk->top,
+                chunk->z * CHUNK_D + CHUNK_D
+            );
 
-        if (!frustum.isBoxVisible(min, max)) continue;
+            if (!frustum.isBoxVisible(min, max)) continue;
+        }
 
         auto& chunkEntries = found->second.sortingMeshData.entries;
 

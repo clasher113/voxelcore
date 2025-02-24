@@ -13,6 +13,7 @@
 #include "lighting/Lighting.hpp"
 #include "objects/Entities.hpp"
 #include "objects/Player.hpp"
+#include "objects/Players.hpp"
 #include "physics/Hitbox.hpp"
 #include "physics/PhysicsSolver.hpp"
 #include "settings.hpp"
@@ -40,7 +41,7 @@ const float C_ZOOM = 0.1f;
 const float CROUCH_SHIFT_Y = -0.2f;
 
 CameraControl::CameraControl(
-    const std::shared_ptr<Player>& player, const CameraSettings& settings
+    Player* player, const CameraSettings& settings
 )
     : player(player),
       camera(player->fpCamera),
@@ -193,9 +194,10 @@ PlayerController::PlayerController(
     BlocksController* blocksController
 )
     : settings(settings), level(level),
-      player(level->getObject<Player>(0)),
+      player(level->players->get(0)),
       camControl(player, settings.camera),
-      blocksController(blocksController) {
+      blocksController(blocksController),
+      playerTickClock(60, 1) {
 }
 
 void PlayerController::onFootstep(const Hitbox& hitbox) {
@@ -214,7 +216,7 @@ void PlayerController::onFootstep(const Hitbox& hitbox) {
                     continue;
                 }
                 blocksController->onBlockInteraction(
-                    player.get(),
+                    player,
                     glm::ivec3(x, y, z),
                     def,
                     BlockInteraction::step
@@ -249,6 +251,13 @@ void PlayerController::update(float delta, bool input, bool pause) {
             resetKeyboard();
         }
         updatePlayer(delta);
+
+        if (playerTickClock.update(delta)) {
+            if (player->getId() % playerTickClock.getParts() ==
+                playerTickClock.getPart()) {
+                scripting::on_player_tick(player, playerTickClock.getTickRate());
+            }
+        }
     }
 }
 
@@ -302,7 +311,7 @@ void PlayerController::updatePlayer(float delta) {
 }
 
 static int determine_rotation(
-    const Block* def, const glm::ivec3& norm, glm::vec3& camDir
+    const Block* def, const glm::ivec3& norm, const glm::vec3& camDir
 ) {
     if (def && def->rotatable) {
         const std::string& name = def->rotations.name;
@@ -382,12 +391,12 @@ voxel* PlayerController::updateSelection(float maxDistance) {
     if (selection.entity != prevEntity) {
         if (prevEntity != ENTITY_NONE) {
             if (auto pentity = level->entities->get(prevEntity)) {
-                scripting::on_aim_off(*pentity, player.get());
+                scripting::on_aim_off(*pentity, player);
             }
         }
         if (selection.entity != ENTITY_NONE) {
             if (auto pentity = level->entities->get(selection.entity)) {
-                scripting::on_aim_on(*pentity, player.get());
+                scripting::on_aim_on(*pentity, player);
             }
         }
     }
@@ -424,8 +433,8 @@ void PlayerController::processRightClick(const Block& def, const Block& target) 
 
     if (!input.shift && target.rt.funcsset.oninteract) {
         if (scripting::on_block_interact(
-                player.get(), target, selection.actualPosition
-            )) {
+            player, target, selection.actualPosition
+        )) {
             return;
         }
     }
@@ -461,8 +470,12 @@ void PlayerController::processRightClick(const Block& def, const Block& target) 
         }
     }
     if (chosenBlock != vox->id && chosenBlock) {
+        if (!player->isInfiniteItems()) {
+            auto& slot = player->getInventory()->getSlot(player->getChosenSlot());
+            slot.setCount(slot.getCount()-1);
+        }
         blocksController->placeBlock(
-            player.get(), def, state, coord.x, coord.y, coord.z
+            player, def, state, coord.x, coord.y, coord.z
         );
     }
 }
@@ -476,10 +489,10 @@ void PlayerController::updateEntityInteraction(
     }
     auto entity = *entityOpt;
     if (lclick) {
-        scripting::on_attacked(entity, player.get(), player->getEntity());
+        scripting::on_attacked(entity, player, player->getEntity());
     }
     if (rclick) {
-        scripting::on_entity_used(entity, player.get());
+        scripting::on_entity_used(entity, player);
     }
 }
 
@@ -496,8 +509,7 @@ void PlayerController::updateInteraction(float delta) {
     bool longInteraction = interactionTimer <= 0 || xkey;
     bool lclick = Events::jactive(BIND_PLAYER_DESTROY) ||
         (longInteraction && Events::active(BIND_PLAYER_DESTROY));
-    bool lattack = Events::jactive(BIND_PLAYER_ATTACK) ||
-        (longInteraction && Events::active(BIND_PLAYER_ATTACK));
+    bool lattack = Events::jactive(BIND_PLAYER_ATTACK);
     bool rclick = Events::jactive(BIND_PLAYER_BUILD) ||
         (longInteraction && Events::active(BIND_PLAYER_BUILD));
     if (lclick || rclick) {
@@ -511,7 +523,7 @@ void PlayerController::updateInteraction(float delta) {
     auto vox = updateSelection(maxDistance);
     if (vox == nullptr) {
         if (rclick && item.rt.funcsset.on_use) {
-            scripting::on_item_use(player.get(), item);
+            scripting::on_item_use(player, item);
         }
         if (selection.entity) {
             updateEntityInteraction(selection.entity, lattack, rclick);
@@ -522,25 +534,27 @@ void PlayerController::updateInteraction(float delta) {
     auto iend = selection.position;
     if (lclick && !input.shift && item.rt.funcsset.on_block_break_by) {
         if (scripting::on_item_break_block(
-                player.get(), item, iend.x, iend.y, iend.z
-            )) {
+            player, item, iend.x, iend.y, iend.z
+        )) {
             return;
         }
     }
     auto& target = indices->blocks.require(vox->id);
-    if (lclick && target.breakable) {
-        blocksController->breakBlock(
-            player.get(), target, iend.x, iend.y, iend.z
-        );
+    if (lclick) {
+        if (player->isInstantDestruction() && target.breakable) {
+            blocksController->breakBlock(
+                player, target, iend.x, iend.y, iend.z
+            );
+        }
     }
     if (rclick && !input.shift) {
         bool preventDefault = false;
         if (item.rt.funcsset.on_use_on_block) {
             preventDefault = scripting::on_item_use_on_block(
-                player.get(), item, iend, selection.normal
+                player, item, iend, selection.normal
             );
         } else if (item.rt.funcsset.on_use) {
-            preventDefault = scripting::on_item_use(player.get(), item);
+            preventDefault = scripting::on_item_use(player, item);
         }
         if (preventDefault) {
             return;
@@ -552,10 +566,10 @@ void PlayerController::updateInteraction(float delta) {
     }
     if (Events::jactive(BIND_PLAYER_PICK)) {
         auto coord = selection.actualPosition;
-        pick_block(indices, chunks, player.get(), coord.x, coord.y, coord.z);
+        pick_block(indices, chunks, player, coord.x, coord.y, coord.z);
     }
 }
 
 Player* PlayerController::getPlayer() {
-    return player.get();
+    return player;
 }

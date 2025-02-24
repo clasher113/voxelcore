@@ -57,7 +57,9 @@ assetload::postfunc assetload::texture(
 ) {
     auto actualFile = paths->find(filename + ".png").u8string();
     try {
-        std::shared_ptr<ImageData> image(imageio::read(actualFile).release());
+        std::shared_ptr<ImageData> image(
+            imageio::read(fs::u8path(actualFile)).release()
+        );
         return [name, image, actualFile](auto assets) {
             assets->store(Texture::from(image.get()), name);
         };
@@ -113,19 +115,32 @@ static bool append_atlas(AtlasBuilder& atlas, const fs::path& file) {
     if (atlas.has(name)) {
         return false;
     }
-    auto image = imageio::read(file.string());
+    auto image = imageio::read(file);
     image->fixAlphaColor();
     atlas.add(name, std::move(image));
     return true;
 }
 
 assetload::postfunc assetload::atlas(
-    AssetsLoader*,
+    AssetsLoader* loader,
     const ResPaths* paths,
     const std::string& directory,
     const std::string& name,
-    const std::shared_ptr<AssetCfg>&
+    const std::shared_ptr<AssetCfg>& config
 ) {
+    auto atlasConfig = std::dynamic_pointer_cast<AtlasCfg>(config);
+    if (atlasConfig && atlasConfig->type == AtlasType::SEPARATE) {
+        for (const auto& file : paths->listdir(directory)) {
+            if (!imageio::is_read_supported(file.extension().u8string()))
+                continue;
+            loader->add(
+                AssetType::TEXTURE,
+                directory + "/" + file.stem().u8string(),
+                name + "/" + file.stem().u8string()
+            );
+        }
+        return [](auto){};
+    }
     AtlasBuilder builder;
     for (const auto& file : paths->listdir(directory)) {
         if (!imageio::is_read_supported(file.extension().u8string())) continue;
@@ -154,7 +169,7 @@ assetload::postfunc assetload::font(
         std::string pagefile = filename + "_" + std::to_string(i) + ".png";
         auto file = paths->find(pagefile);
         if (fs::exists(file)) {
-            pages->push_back(imageio::read(file.u8string()));
+            pages->push_back(imageio::read(file));
         } else if (i == 0) {
             throw std::runtime_error("font must have page 0");
         } else {
@@ -189,7 +204,17 @@ assetload::postfunc assetload::layout(
     return [=](auto assets) {
         try {
             auto cfg = std::dynamic_pointer_cast<LayoutCfg>(config);
-            assets->store(UiDocument::read(cfg->env, name, file), name);
+            size_t pos = name.find(':');
+            auto prefix = name.substr(0, pos);
+            assets->store(
+                UiDocument::read(
+                    cfg->env,
+                    name,
+                    file,
+                    prefix + ":layouts/" + name.substr(pos + 1) + ".xml"
+                ),
+                name
+            );
         } catch (const parsing_error& err) {
             throw std::runtime_error(
                 "failed to parse layout XML '" + file + "':\n" + err.errorLog()

@@ -35,6 +35,16 @@ Block model type from list:
 - "X" - grass model (two crossed sprites)
 - "aabb" - model based of block hitbox (complex hitbox will be combined into one). Examples: pipes, bulbs, panels.
 
+### *model-name*
+
+In addition to built-in model types, you can use your own, loaded from file.
+
+The property specifies the model name without `entry_point:models/` nor extension.
+
+> [!WARNING]
+> Textures (materials) used in the model must be in the `blocks` atlas and specified in the *atlas-texture* format:
+> `blocks:texture_name`
+
 ### *draw-group*
 
 Integer specifying number of block draw group (render order). Used for semi-transparent blocks.
@@ -187,3 +197,12 @@ Available data types:
 - Currently, the total sum of the field sizes cannot exceed 240 bytes.
 - A field without an array length specification is equivalent to an array of 1 element.
 - A character array can be used to store UTF-8 strings.
+
+## User properties
+
+User properties must be declared in `pack:config/user-props.toml` file:
+```toml
+"pack:property_name" = {}
+```
+
+Example: [user properties of pack **base**](../../res/content/base/config/user-props.toml).

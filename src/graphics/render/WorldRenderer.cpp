@@ -30,6 +30,7 @@
 #include "graphics/core/LineBatch.hpp"
 #include "graphics/core/PostProcessing.hpp"
 #include "graphics/core/Font.hpp"
+#include "BlockWrapsRenderer.hpp"
 #include "ParticlesRenderer.hpp"
 #include "TextsRenderer.hpp"
 #include "ChunksRenderer.hpp"
@@ -81,7 +82,8 @@ WorldRenderer::WorldRenderer(
           *frustumCulling,
           frontend.getContentGfxCache(),
           engine->getSettings()
-      )) {
+      )),
+      blockWraps(std::make_unique<BlockWrapsRenderer>(assets, level)) {
     auto& settings = engine->getSettings();
     level.events->listen(
         EVT_CHUNK_HIDDEN,
@@ -160,6 +162,7 @@ void WorldRenderer::renderLevel(
         frustumCulling->update(camera.getProjView());
     }
 
+    entityShader.uniform1i("u_alphaClip", true);
     level.entities->render(
         assets,
         *modelBatch,
@@ -176,6 +179,7 @@ void WorldRenderer::renderLevel(
     setupWorldShader(shader, camera, settings, fogFactor);
 
     chunks->drawChunks(camera, shader);
+    blockWraps->draw(ctx, *player);
 
     if (hudVisible) {
         renderLines(camera, linesShader, ctx);
@@ -253,12 +257,12 @@ void WorldRenderer::renderHands(
 
     // prepare modified HUD camera
     Camera hudcam = camera;
-    hudcam.far = 100.0f;
-    hudcam.setFov(1.2f);
+    hudcam.far = 10.0f;
+    hudcam.setFov(0.9f);
     hudcam.position = {};
 
     // configure model matrix
-    const glm::vec3 itemOffset(0.08f, 0.035f, -0.1);
+    const glm::vec3 itemOffset(0.06f, 0.035f, -0.1);
 
     static glm::mat4 prevRotation(1.0f);
 

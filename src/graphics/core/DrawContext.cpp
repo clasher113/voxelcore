@@ -128,6 +128,7 @@ DrawContext DrawContext::sub(Flushable* flushable) const {
     auto ctx = DrawContext(*this);
     ctx.parent = this;
     ctx.flushable = flushable;
+    ctx.scissorsCount = 0;
     return ctx;
 }
 
@@ -200,7 +201,7 @@ void DrawContext::setBlendMode(BlendMode mode) {
 
 }
 
-void DrawContext::setScissors(glm::vec4 area) {
+void DrawContext::setScissors(const glm::vec4& area) {
     Window::pushScissor(area);
     scissorsCount++;
 }

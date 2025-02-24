@@ -32,16 +32,17 @@ void scripting::on_frontend_init(Hud* hud, WorldRenderer* renderer) {
     auto L = lua::get_main_state();
 
     lua::openlib(L, "hud", hudlib);
+    lua::openlib(L, "gfx", "blockwraps", blockwrapslib);
     lua::openlib(L, "gfx", "particles", particleslib);
     lua::openlib(L, "gfx", "text3d", text3dlib);
 
     load_script("hud_classes.lua");
 
-    if (lua::getglobal(L, "__vc_create_hud_rules")) {
+    if (lua::getglobal(L, "__vc_on_hud_open")) {
         lua::call_nothrow(L, 0, 0);
     }
 
-    for (auto& pack : engine->getContentPacks()) {
+    for (auto& pack : engine->getAllContentPacks()) {
         lua::emit_event(
             lua::get_main_state(),
             pack.id + ":.hudopen",
@@ -53,7 +54,7 @@ void scripting::on_frontend_init(Hud* hud, WorldRenderer* renderer) {
 }
 
 void scripting::on_frontend_render() {
-    for (auto& pack : engine->getContentPacks()) {
+    for (auto& pack : engine->getAllContentPacks()) {
         lua::emit_event(
             lua::get_main_state(),
             pack.id + ":.hudrender",
@@ -63,7 +64,7 @@ void scripting::on_frontend_render() {
 }
 
 void scripting::on_frontend_close() {
-    for (auto& pack : engine->getContentPacks()) {
+    for (auto& pack : engine->getAllContentPacks()) {
         lua::emit_event(
             lua::get_main_state(),
             pack.id + ":.hudclose",
@@ -76,13 +77,16 @@ void scripting::on_frontend_close() {
 }
 
 void scripting::load_hud_script(
-    const scriptenv& senv, const std::string& packid, const fs::path& file
+    const scriptenv& senv,
+    const std::string& packid,
+    const fs::path& file,
+    const std::string& fileName
 ) {
     int env = *senv;
     std::string src = files::read_string(file);
     logger.info() << "loading script " << file.u8string();
 
-    lua::execute(lua::get_main_state(), env, src, file.u8string());
+    lua::execute(lua::get_main_state(), env, src, fileName);
 
     register_event(env, "init", packid + ":.init");
     register_event(env, "on_hud_open", packid + ":.hudopen");

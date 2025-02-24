@@ -17,6 +17,12 @@ function on_broken(x, y, z, playerid)
 Called on block broken by player
 
 ```lua
+function on_replaced(x, y, z, playerid)
+```
+
+Called on block replaced with other by player
+
+```lua
 function on_interact(x, y, z, playerid) -> bool
 ```
 
@@ -38,7 +44,13 @@ Called on random block update (grass growth)
 function on_blocks_tick(tps: int)
 ```
 
-Called tps (20) times per second.
+Called tps (20) times per second. Use 1/tps instead of `time.delta()`.
+
+```lua
+function on_player_tick(playerid: int, tps: int)
+```
+
+Called tps (20) times per second. Use 1/tps instead of `time.delta()`.
 
 ## Item events
 
@@ -95,6 +107,12 @@ function on_block_placed(blockid, x, y, z, playerid)
 ```
 
 Called on block placed by player
+
+```lua
+function on_block_replaced(blockid, x, y, z, playerid)
+```
+
+Called on block replaced with other by player
 
 ```lua
 function on_block_broken(blockid, x, y, z, playerid)

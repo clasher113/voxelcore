@@ -19,7 +19,7 @@ static fs::path resolve_path(const std::string& path) {
 
 static fs::path resolve_path_soft(const std::string& path) {
     if (path.find(':') == std::string::npos) {
-        return path;
+        return fs::u8path("");
     }
     return engine->getPaths()->resolve(path, false);
 }
@@ -57,11 +57,12 @@ static fs::path get_writeable_path(lua::State* L) {
     fs::path path = resolve_path(rawpath);
     auto entryPoint = rawpath.substr(0, rawpath.find(':'));
     if (writeable_entry_points.find(entryPoint) == writeable_entry_points.end()) {
-        lua::emit_event(L, "core:warning", [=](auto L) {
+        if (lua::getglobal(L, "__vc_warning")) {
             lua::pushstring(L, "writing to read-only entry point");
             lua::pushstring(L, entryPoint);
-            return 2;
-        });
+            lua::pushinteger(L, 1);
+            lua::call_nothrow(L, 3);
+        }
     }
     return path;
 }
@@ -148,24 +149,24 @@ static int l_read_bytes(lua::State* L) {
     );
 }
 
-static int read_bytes_from_table(
+static void read_bytes_from_table(
     lua::State* L, int tableIndex, std::vector<ubyte>& bytes
 ) {
     if (!lua::istable(L, tableIndex)) {
         throw std::runtime_error("table expected");
     } else {
-        lua::pushnil(L);
-        while (lua::next(L, tableIndex - 1) != 0) {
+        size_t size = lua::objlen(L, tableIndex);
+        for (size_t i = 0; i < size; i++) {
+            lua::rawgeti(L, i + 1, tableIndex);
             const int byte = lua::tointeger(L, -1);
+            lua::pop(L);
             if (byte < 0 || byte > 255) {
                 throw std::runtime_error(
                     "invalid byte '" + std::to_string(byte) + "'"
                 );
             }
             bytes.push_back(byte);
-            lua::pop(L);
         }
-        return 1;
     }
 }
 
@@ -180,14 +181,10 @@ static int l_write_bytes(lua::State* L) {
     }
 
     std::vector<ubyte> bytes;
-    int result = read_bytes_from_table(L, -1, bytes);
-    if (result != 1) {
-        return result;
-    } else {
-        return lua::pushboolean(
-            L, files::write_bytes(path, bytes.data(), bytes.size())
-        );
-    }
+    read_bytes_from_table(L, 2, bytes);
+    return lua::pushboolean(
+        L, files::write_bytes(path, bytes.data(), bytes.size())
+    );
 }
 
 static int l_list_all_res(lua::State* L, const std::string& path) {
@@ -226,39 +223,29 @@ static int l_list(lua::State* L) {
 static int l_gzip_compress(lua::State* L) {
     std::vector<ubyte> bytes;
 
-    int result = read_bytes_from_table(L, -1, bytes);
+    read_bytes_from_table(L, 1, bytes);
+    auto compressed_bytes = gzip::compress(bytes.data(), bytes.size());
+    int newTable = lua::gettop(L);
 
-    if (result != 1) {
-        return result;
-    } else {
-        auto compressed_bytes = gzip::compress(bytes.data(), bytes.size());
-        int newTable = lua::gettop(L);
-
-        for (size_t i = 0; i < compressed_bytes.size(); i++) {
-            lua::pushinteger(L, compressed_bytes.data()[i]);
-            lua::rawseti(L, i + 1, newTable);
-        }
-        return 1;
+    for (size_t i = 0; i < compressed_bytes.size(); i++) {
+        lua::pushinteger(L, compressed_bytes.data()[i]);
+        lua::rawseti(L, i + 1, newTable);
     }
+    return 1;
 }
 
 static int l_gzip_decompress(lua::State* L) {
     std::vector<ubyte> bytes;
 
-    int result = read_bytes_from_table(L, -1, bytes);
+    read_bytes_from_table(L, 1, bytes);
+    auto decompressed_bytes = gzip::decompress(bytes.data(), bytes.size());
+    int newTable = lua::gettop(L);
 
-    if (result != 1) {
-        return result;
-    } else {
-        auto decompressed_bytes = gzip::decompress(bytes.data(), bytes.size());
-        int newTable = lua::gettop(L);
-
-        for (size_t i = 0; i < decompressed_bytes.size(); i++) {
-            lua::pushinteger(L, decompressed_bytes.data()[i]);
-            lua::rawseti(L, i + 1, newTable);
-        }
-        return 1;
+    for (size_t i = 0; i < decompressed_bytes.size(); i++) {
+        lua::pushinteger(L, decompressed_bytes.data()[i]);
+        lua::rawseti(L, i + 1, newTable);
     }
+    return 1;
 }
 
 static int l_read_combined_list(lua::State* L) {

@@ -172,6 +172,9 @@ static void _readContainer(UiXmlReader& reader, const xml::xmlelement& element, 
     if (element->has("scrollable")) {
         container.setScrollable(element->attr("scrollable").asBool());
     }
+    if (element->has("scroll-step")) {
+        container.setScrollStep(element->attr("scroll-step").asInt());
+    }
     for (auto& sub : element->getElements()) {
         if (sub->isText())
             continue;
@@ -342,7 +345,16 @@ static std::shared_ptr<UINode> readTextBox(UiXmlReader& reader, const xml::xmlel
     auto textbox = std::make_shared<TextBox>(placeholder, glm::vec4(0.0f));
     textbox->setHint(hint);
     
-    _readPanel(reader, element, *textbox);
+    _readContainer(reader, element, *textbox);
+    if (element->has("padding")) {
+        glm::vec4 padding = element->attr("padding").asVec4();
+        textbox->setPadding(padding);
+        glm::vec2 size = textbox->getSize();
+        textbox->setSize(glm::vec2(
+            size.x + padding.x + padding.z,
+            size.y + padding.y + padding.w
+        ));
+    }
     textbox->setText(text);
 
     if (element->has("multiline")) {
@@ -356,6 +368,9 @@ static std::shared_ptr<UINode> readTextBox(UiXmlReader& reader, const xml::xmlel
     }
     if (element->has("autoresize")) {
         textbox->setAutoResize(element->attr("autoresize").asBool());
+    }
+    if (element->has("line-numbers")) {
+        textbox->setShowLineNumbers(element->attr("line-numbers").asBool());
     }
     if (element->has("consumer")) {
         textbox->setTextConsumer(scripting::create_wstring_consumer(
@@ -383,6 +398,9 @@ static std::shared_ptr<UINode> readTextBox(UiXmlReader& reader, const xml::xmlel
     }
     if (element->has("error-color")) {
         textbox->setErrorColor(element->attr("error-color").asColor());
+    }
+    if (element->has("text-color")) {
+        textbox->setTextColor(element->attr("text-color").asColor());
     }
     if (element->has("validator")) {
         textbox->setTextValidator(scripting::create_wstring_validator(
@@ -465,6 +483,8 @@ static slotcallback readSlotFunc(InventoryView* view, UiXmlReader& reader, xml::
 static void readSlot(InventoryView* view, UiXmlReader& reader, xml::xmlelement element) {
     int index = element->attr("index", "0").asInt();
     bool itemSource = element->attr("item-source", "false").asBool();
+    bool taking = element->attr("taking", "true").asBool();
+    bool placing = element->attr("placing", "true").asBool();
     SlotLayout layout(index, glm::vec2(), true, itemSource, nullptr, nullptr, nullptr);
     if (element->has("pos")) {
         layout.position = element->attr("pos").asVec2();
@@ -478,6 +498,8 @@ static void readSlot(InventoryView* view, UiXmlReader& reader, xml::xmlelement e
     if (element->has("onrightclick")) {
         layout.rightClick = readSlotFunc(view, reader, element, "onrightclick");
     }
+    layout.taking = taking;
+    layout.placing = placing;
     auto slot = view->addSlot(layout);
     reader.readUINode(reader, element, *slot);
     view->add(slot);
@@ -489,6 +511,8 @@ static void readSlotsGrid(InventoryView* view, UiXmlReader& reader, xml::xmlelem
     int cols = element->attr("cols", "0").asInt();
     int count = element->attr("count", "0").asInt();
     const int slotSize = InventoryView::SLOT_SIZE;
+    bool taking = element->attr("taking", "true").asBool();
+    bool placing = element->attr("placing", "true").asBool();
     int interval = element->attr("interval", "-1").asInt();
     if (interval < 0) {
         interval = InventoryView::SLOT_INTERVAL;
@@ -519,6 +543,8 @@ static void readSlotsGrid(InventoryView* view, UiXmlReader& reader, xml::xmlelem
         layout.rightClick = readSlotFunc(view, reader, element, "onrightclick");
     }
     layout.padding = padding;
+    layout.taking = taking;
+    layout.placing = placing;
 
     int idx = 0;
     for (int row = 0; row < rows; row++) {

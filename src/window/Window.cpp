@@ -325,14 +325,14 @@ void Window::pushScissor(glm::vec4 area) {
     }
     scissorStack.push(scissorArea);
 
-    area.z += area.x;
-    area.w += area.y;
+    area.z += glm::ceil(area.x);
+    area.w += glm::ceil(area.y);
 
-    area.x = fmax(area.x, scissorArea.x);
-    area.y = fmax(area.y, scissorArea.y);
+    area.x = glm::max(area.x, scissorArea.x);
+    area.y = glm::max(area.y, scissorArea.y);
 
-    area.z = fmin(area.z, scissorArea.z);
-    area.w = fmin(area.w, scissorArea.w);
+    area.z = glm::min(area.z, scissorArea.z);
+    area.w = glm::min(area.w, scissorArea.w);
 
     if (area.z < 0.0f || area.w < 0.0f) {
 #ifdef USE_DIRECTX
@@ -340,16 +340,15 @@ void Window::pushScissor(glm::vec4 area) {
 #elif USE_OPENGL
         glScissor(0, 0, 0, 0);
 #endif // USE_DIRECTX
-    }
-    else {
+    } else {
 #ifdef USE_DIRECTX
         DXDevice::setScissorRect(area.x, area.y,
-            std::max(0, int(area.z - area.x)),
-            std::max(0, int(area.w - area.y)));
+            std::max(0, static_cast<int>(area.z - area.x)),
+            std::max(0, static_cast<int>(area.w - area.y)));
 #elif USE_OPENGL
         glScissor(area.x, Window::height - area.w,
-            std::max(0, int(area.z - area.x)),
-            std::max(0, int(area.w - area.y)));
+            std::max(0, static_cast<int>(area.z - area.x)),
+            std::max(0, static_cast<int>(area.w - area.y)));
 #endif // USE_DIRECTX
     }
     scissorArea = area;

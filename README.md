@@ -3,7 +3,7 @@
 ## Latest release
 
 - [Download](https://github.com/MihailRis/VoxelEngine-Cpp/releases/latest) | [Скачать](https://github.com/MihailRis/VoxelEngine-Cpp/releases/latest)
-- [Documentation](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.24/doc/en/main-page.md) | [Документация](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.24/doc/ru/main-page.md)
+- [Documentation](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.25/doc/en/main-page.md) | [Документация](https://github.com/MihailRis/VoxelEngine-Cpp/blob/release-0.25/doc/ru/main-page.md)
 
 ## Build project in Linux
 
@@ -25,13 +25,13 @@ sudo make install
 
 ```sh
 su -
-apt-get install entt-devel libglfw3-devel libGLEW-devel libglm-devel libpng-devel libvorbis-devel libopenal-devel libluajit-devel libstdc++13-devel-static
+apt-get install entt-devel libglfw3-devel libGLEW-devel libglm-devel libpng-devel libvorbis-devel libopenal-devel libluajit-devel libstdc++13-devel-static libcurl-devel
 ```
 
 #### Debian based distro
 
 ```sh
-sudo apt install libglfw3-dev libglfw3 libglew-dev libglm-dev libpng-dev libopenal-dev libluajit-5.1-dev libvorbis-dev
+sudo apt install libglfw3-dev libglfw3 libglew-dev libglm-dev libpng-dev libopenal-dev libluajit-5.1-dev libvorbis-dev libcurl4-openssl-dev
 ```
 
 > [!TIP]
@@ -45,7 +45,7 @@ sudo apt install libglfw3-dev libglfw3 libglew-dev libglm-dev libpng-dev libopen
 #### RHEL based distro
 
 ```sh
-sudo dnf install glfw-devel glfw glew-devel glm-devel libpng-devel libvorbis-devel openal-devel luajit-devel
+sudo dnf install glfw-devel glfw glew-devel glm-devel libpng-devel libvorbis-devel openal-devel luajit-devel libcurl-devel
 ```
 
 #### Arch based distro
@@ -53,13 +53,19 @@ sudo dnf install glfw-devel glfw glew-devel glm-devel libpng-devel libvorbis-dev
 If you use X11
 
 ```sh
-sudo pacman -S glfw-x11 glew glm libpng libvorbis openal luajit
+sudo pacman -S glfw-x11 glew glm libpng libvorbis openal luajit libcurl
 ```
 
 If you use Wayland
 
 ```sh
-sudo pacman -S glfw-wayland glew glm libpng libvorbis openal luajit
+sudo pacman -S glfw-wayland glew glm libpng libvorbis openal luajit libcurl
+```
+
+And you need entt. In yay you can use
+
+```sh
+yay -S entt
 ```
 
 ### Build engine with CMake
@@ -78,7 +84,7 @@ cmake --build .
 ### Install libraries
 
 ```sh
-brew install glfw3 glew glm libpng libvorbis lua luajit openal-soft skypjack/entt/entt
+brew install glfw3 glew glm libpng libvorbis lua luajit libcurl openal-soft skypjack/entt/entt
 ```
 
 > [!TIP]
