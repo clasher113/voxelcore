@@ -18,16 +18,18 @@
 #elif USE_OPENGL
 #include "graphics/core/Shader.hpp"
 #endif // USE_DIRECTX
-
-BlockWrapsRenderer::BlockWrapsRenderer(const Assets& assets, const Level& level)
-    : assets(assets), level(level), batch(std::make_unique<MainBatch>(1024)) {
+BlockWrapsRenderer::BlockWrapsRenderer(
+    const Assets& assets, const Level& level, const Chunks& chunks
+)
+    : assets(assets),
+      level(level),
+      chunks(chunks),
+      batch(std::make_unique<MainBatch>(1024)) {
 }
 
 BlockWrapsRenderer::~BlockWrapsRenderer() = default;
 
 void BlockWrapsRenderer::draw(const BlockWrapper& wrapper) {
-    const auto& chunks = *level.chunks;
-
     auto textureRegion = util::get_texture_region(assets, wrapper.texture, "");
 
     auto& shader = assets.require<Shader>("entity");
@@ -50,8 +52,7 @@ void BlockWrapsRenderer::draw(const BlockWrapper& wrapper) {
         return;
     }
     if (vox->id != BLOCK_VOID) {
-        const auto& def =
-            level.content->getIndices()->blocks.require(vox->id);
+        const auto& def = level.content.getIndices()->blocks.require(vox->id);
         switch (def.model) {
             case BlockModel::block:
                 batch->cube(
@@ -63,7 +64,10 @@ void BlockWrapsRenderer::draw(const BlockWrapper& wrapper) {
                 );
                 break;
             case BlockModel::aabb: {
-                const auto& aabb = def.rt.hitboxes[vox->state.rotation].at(0);
+                const auto& aabb =
+                    (def.rotatable ? def.rt.hitboxes[vox->state.rotation]
+                                   : def.hitboxes)
+                        .at(0);
                 const auto& size = aabb.size();
                 regions[0].scale(size.z, size.y);
                 regions[1].scale(size.z, size.y);

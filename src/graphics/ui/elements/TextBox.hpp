@@ -6,9 +6,8 @@
 class Font;
 
 namespace gui {
-    class Label;
-    
     class TextBox : public Container {
+        LabelCache rawTextCache;
     protected:
         glm::vec4 focusedColor {0.0f, 0.0f, 0.0f, 1.0f};
         glm::vec4 invalidColor {0.1f, 0.05f, 0.03f, 1.0f};
@@ -43,11 +42,12 @@ namespace gui {
         /// @brief Actual local (line) position of the caret on vertical move
         size_t maxLocalCaret = 0;
         size_t textOffset = 0;
-        int textInitX;
+        int textInitX = 0;
         /// @brief Last time of the caret was moved (used for blink animation)
         double caretLastMove = 0.0;
         Font* font = nullptr;
 
+        // Note: selection does not include markup
         size_t selectionStart = 0;
         size_t selectionEnd = 0;
         size_t selectionOrigin = 0;
@@ -56,6 +56,8 @@ namespace gui {
         bool editable = true;
         bool autoresize = false;
         bool showLineNumbers = false;
+        std::string markup;
+        std::string syntax;
 
         void stepLeft(bool shiftPressed, bool breakSelection);
         void stepRight(bool shiftPressed, bool breakSelection);
@@ -84,6 +86,8 @@ namespace gui {
         void refreshLabel();
 
         void onInput();
+
+        void refreshSyntax();
     public:
         TextBox(
             std::wstring placeholder, 
@@ -212,12 +216,20 @@ namespace gui {
         virtual void click(GUI*, int, int) override;
         virtual void mouseMove(GUI*, int x, int y) override;
         virtual bool isFocuskeeper() const override {return true;}
-        virtual void draw(const DrawContext* pctx, Assets* assets) override;
-        virtual void drawBackground(const DrawContext* pctx, Assets* assets) override;
+        virtual void draw(const DrawContext& pctx, const Assets& assets) override;
+        virtual void drawBackground(const DrawContext& pctx, const Assets& assets) override;
         virtual void typed(unsigned int codepoint) override; 
         virtual void keyPressed(keycode key) override;
-        virtual std::shared_ptr<UINode> getAt(glm::vec2 pos, std::shared_ptr<UINode> self) override;
+        virtual std::shared_ptr<UINode> getAt(
+            const glm::vec2& pos, const std::shared_ptr<UINode>& self
+        ) override;
         virtual void setOnUpPressed(const runnable &callback);
         virtual void setOnDownPressed(const runnable &callback);
+
+        virtual void setSyntax(std::string_view lang);
+        virtual const std::string& getSyntax() const;
+
+        virtual void setMarkup(std::string_view lang);
+        virtual const std::string& getMarkup() const;
     };
 }

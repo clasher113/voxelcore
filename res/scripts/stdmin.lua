@@ -1,6 +1,6 @@
 -- Check if given table is an array
 function is_array(x)
-    if #t > 0 then
+    if #x > 0 then
         return true
     end
     for k, v in pairs(x) do
@@ -34,11 +34,11 @@ end
 
 
 function timeit(iters, func, ...)
-    local tm = time.uptime()
+    local tm = os.clock()
     for i=1,iters do
         func(...)
     end
-    print("[time mcs]", (time.uptime()-tm) * 1000000)
+    print("[time mcs]", (os.clock()-tm) * 1000000)
 end
 
 ----------------------------------------------
@@ -49,6 +49,19 @@ end
 
 function math.rand(low, high)
     return low + (high - low) * math.random()
+end
+
+function math.normalize(num, conf)
+    conf = conf or 1
+
+    return (num / conf) % 1
+end
+
+function math.round(num, places)
+    places = places or 0
+
+    local mult = 10 ^ places
+    return math.floor(num * mult + 0.5) / mult
 end
 
 ----------------------------------------------
@@ -63,6 +76,20 @@ function table.copy(t)
     return copied
 end
 
+function table.deep_copy(t)
+    local copied = {}
+
+    for k, v in pairs(t) do
+        if type(v) == "table" then
+            copied[k] = table.deep_copy(v)
+        else
+            copied[k] = v
+        end
+    end
+
+    return setmetatable(copied, getmetatable(t))
+end
+
 function table.count_pairs(t)
     local count = 0
 
@@ -75,6 +102,15 @@ end
 
 function table.random(t)
     return t[math.random(1, #t)]
+end
+
+function table.shuffle(t)
+    for i = #t, 2, -1 do
+        local j = math.random(i)
+        t[i], t[j] = t[j], t[i]
+    end
+
+    return t
 end
 
 ----------------------------------------------
@@ -324,4 +360,21 @@ function __vc_warning(msg, detail, n)
         events.emit(
             "core:warning", msg, detail, debug.get_traceback(1 + (n or 0)))
     end
+end
+
+function file.name(path)
+    return path:match("([^:/\\]+)$")
+end
+
+function file.stem(path)
+    local name = file.name(path)
+    return name:match("(.+)%.[^%.]+$") or name
+end
+
+function file.ext(path)
+    return path:match("%.([^:/\\]+)$")
+end
+
+function file.prefix(path)
+    return path:match("^([^:]+)")
 end

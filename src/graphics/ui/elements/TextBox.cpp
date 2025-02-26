@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "Label.hpp"
+#include "devtools/syntax_highlighting.hpp"
 #include "graphics/core/DrawContext.hpp"
 #include "graphics/core/Batch2D.hpp"
 #include "graphics/core/Font.hpp"
@@ -12,6 +13,7 @@
 #include "util/stringutil.hpp"
 #include "window/Events.hpp"
 #include "window/Window.hpp"
+#include "../markdown.hpp"
 
 using namespace gui;
 
@@ -23,6 +25,7 @@ TextBox::TextBox(std::wstring placeholder, glm::vec4 padding)
     input(L""),
     placeholder(std::move(placeholder))
 {
+    setCursor(CursorShape::TEXT);
     setOnUpPressed(nullptr);
     setOnDownPressed(nullptr);
     setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.75f));
@@ -46,50 +49,80 @@ TextBox::TextBox(std::wstring placeholder, glm::vec4 padding)
     scrollStep = 0;
 }
 
-void TextBox::draw(const DrawContext* pctx, Assets* assets) {
+void TextBox::draw(const DrawContext& pctx, const Assets& assets) {
     Container::draw(pctx, assets);
 
-    font = assets->get<Font>(label->getFontName());
+    font = assets.get<Font>(label->getFontName());
 
     if (!isFocused()) {
         return;
     }
+    const auto& labelText = getText();
+
     glm::vec2 pos = calcPos();
     glm::vec2 size = getSize();
 
-    auto subctx = pctx->sub();
+    auto subctx = pctx.sub();
     subctx.setScissors(glm::vec4(pos.x, pos.y, size.x, size.y));
 
     const int lineHeight = font->getLineHeight() * label->getLineInterval();
     glm::vec2 lcoord = label->calcPos();
     lcoord.y -= 2;
-    auto batch = pctx->getBatch2D();
+    auto batch = pctx.getBatch2D();
     batch->texture(nullptr);
+    batch->setColor(glm::vec4(1.0f));
     if (editable && int((Window::time() - caretLastMove) * 2) % 2 == 0) {
-        uint line = label->getLineByTextIndex(caret);
-        uint lcaret = caret - label->getTextLineOffset(line);
-        batch->setColor(glm::vec4(1.0f));
-
+        uint line = rawTextCache.getLineByTextIndex(caret);
+        uint lcaret = caret - rawTextCache.getTextLineOffset(line);
         int width = font->calcWidth(input, lcaret);
-        batch->rect(lcoord.x + width, lcoord.y+label->getLineYOffset(line), 2, lineHeight);
+        batch->rect(
+            lcoord.x + width,
+            lcoord.y + label->getLineYOffset(line),
+            2,
+            lineHeight
+        );
     }
     if (selectionStart != selectionEnd) {
+        auto selectionCtx = subctx.sub(batch);
+        selectionCtx.setBlendMode(BlendMode::addition);
+
         uint startLine = label->getLineByTextIndex(selectionStart);
         uint endLine = label->getLineByTextIndex(selectionEnd);
 
         batch->setColor(glm::vec4(0.8f, 0.9f, 1.0f, 0.25f));
-        int start = font->calcWidth(input, selectionStart-label->getTextLineOffset(startLine));
-        int end = font->calcWidth(input, selectionEnd-label->getTextLineOffset(endLine));
+        int start = font->calcWidth(
+            labelText, selectionStart - label->getTextLineOffset(startLine)
+        );
+        int end = font->calcWidth(
+            labelText, selectionEnd - label->getTextLineOffset(endLine)
+        );
         int lineY = label->getLineYOffset(startLine);
 
         if (startLine == endLine) {
-            batch->rect(lcoord.x + start, lcoord.y+lineY, end-start, lineHeight);
+            batch->rect(
+                lcoord.x + start, lcoord.y + lineY, end - start, lineHeight
+            );
         } else {
-            batch->rect(lcoord.x + start, lcoord.y+lineY, label->getSize().x-start-padding.z-padding.x-2, lineHeight);
-            for (uint i = startLine+1; i < endLine; i++) {
-                batch->rect(lcoord.x, lcoord.y+label->getLineYOffset(i), label->getSize().x-padding.z-padding.x-2, lineHeight);
+            batch->rect(
+                lcoord.x + start,
+                lcoord.y + lineY,
+                label->getSize().x - start - padding.z - padding.x - 2,
+                lineHeight
+            );
+            for (uint i = startLine + 1; i < endLine; i++) {
+                batch->rect(
+                    lcoord.x,
+                    lcoord.y + label->getLineYOffset(i),
+                    label->getSize().x - padding.z - padding.x - 2,
+                    lineHeight
+                );
             }
-            batch->rect(lcoord.x, lcoord.y+label->getLineYOffset(endLine), end, lineHeight);
+            batch->rect(
+                lcoord.x,
+                lcoord.y + label->getLineYOffset(endLine),
+                end,
+                lineHeight
+            );
         }
     }
 
@@ -132,13 +165,13 @@ void TextBox::draw(const DrawContext* pctx, Assets* assets) {
     }
 }
 
-void TextBox::drawBackground(const DrawContext* pctx, Assets*) {
+void TextBox::drawBackground(const DrawContext& pctx, const Assets&) {
     glm::vec2 pos = calcPos();
 
-    auto batch = pctx->getBatch2D();
+    auto batch = pctx.getBatch2D();
     batch->texture(nullptr);
 
-    auto subctx = pctx->sub();
+    auto subctx = pctx.sub();
     subctx.setScissors(glm::vec4(pos.x, pos.y-0.5, size.x, size.y+1));
 
     if (valid) {
@@ -161,8 +194,22 @@ void TextBox::drawBackground(const DrawContext* pctx, Assets*) {
 }
 
 void TextBox::refreshLabel() {
+    rawTextCache.prepare(font, static_cast<size_t>(getSize().x));
+    rawTextCache.update(input, multiline, false);
+
     label->setColor(textColor * glm::vec4(input.empty() ? 0.5f : 1.0f));
-    label->setText(input.empty() && !hint.empty() ? hint : getText());
+
+    const auto& displayText = input.empty() && !hint.empty() ? hint : getText();
+    if (markup == "md") {
+        auto [processedText, styles] = markdown::process(displayText, !focused || !editable);
+        label->setText(std::move(processedText));
+        label->setStyles(std::move(styles));
+    } else {
+        label->setText(displayText);
+        if (syntax.empty()) {
+            label->setStyles(nullptr);
+        }
+    }
     
     if (showLineNumbers) {
         if (lineNumbersLabel->getLinesNumber() != label->getLinesNumber()) {
@@ -202,7 +249,8 @@ void TextBox::refreshLabel() {
 
     if (multiline && font) {
         setScrollable(true);
-        uint height = label->getLinesNumber() * font->getLineHeight() * label->getLineInterval();
+        uint height = label->getLinesNumber() * font->getLineHeight() *
+                      label->getLineInterval();
         label->setSize(glm::vec2(label->getSize().x, height));
         actualLength = height;
     } else {
@@ -250,6 +298,7 @@ bool TextBox::eraseSelected() {
     }
     erase(selectionStart, selectionEnd-selectionStart);
     resetSelection();
+    onInput();
     return true;
 }
 
@@ -269,7 +318,7 @@ size_t TextBox::getLineLength(uint line) const {
     size_t position = label->getTextLineOffset(line);
     size_t lineLength = label->getTextLineOffset(line+1)-position;
     if (lineLength == 0) {
-        lineLength = input.length() - position + 1;
+        lineLength = label->getText().length() - position + 1;
     }
     return lineLength;
 }
@@ -281,8 +330,8 @@ size_t TextBox::getSelectionLength() const {
 /// @brief Set scroll offset
 /// @param x scroll offset
 void TextBox::setTextOffset(uint x) {
-    label->setPos(glm::vec2(textInitX - int(x), label->getPos().y));
     textOffset = x;
+    refresh();
 }
 
 void TextBox::typed(unsigned int codepoint) {
@@ -359,7 +408,9 @@ void TextBox::refresh() {
     Container::refresh();
     label->setSize(size-glm::vec2(padding.z+padding.x, padding.w+padding.y));
     label->setPos(glm::vec2(
-        padding.x + LINE_NUMBERS_PANE_WIDTH * showLineNumbers, padding.y
+        padding.x + LINE_NUMBERS_PANE_WIDTH * showLineNumbers + textInitX -
+            static_cast<int>(textOffset),
+        padding.y
     ));
 }
 
@@ -377,18 +428,19 @@ size_t TextBox::normalizeIndex(int index) {
 int TextBox::calcIndexAt(int x, int y) const {
     if (font == nullptr)
         return 0;
+    const auto& labelText = label->getText();
     glm::vec2 lcoord = label->calcPos();
     uint line = label->getLineByYOffset(y-lcoord.y);
     line = std::min(line, label->getLinesNumber()-1);
     size_t lineLength = getLineLength(line);
     uint offset = 0;
-    while (lcoord.x + font->calcWidth(input, offset) < x && offset < lineLength-1) {
+    while (lcoord.x + font->calcWidth(labelText, offset) < x && offset < lineLength-1) {
         offset++;
     }
-    return std::min(offset+label->getTextLineOffset(line), input.length());
+    return std::min(offset+label->getTextLineOffset(line), labelText.length());
 }
 
-inline std::wstring get_alphabet(wchar_t c) {
+static inline std::wstring get_alphabet(wchar_t c) {
     std::wstring alphabet {c};
     if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_') {
         return L"abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -399,21 +451,22 @@ inline std::wstring get_alphabet(wchar_t c) {
 }
 
 void TextBox::tokenSelectAt(int index) {
-    if (input.empty()) {
+    const auto& actualText = label->getText();
+    if (actualText.empty()) {
         return;
     }
     int left = index;
     int right = index;
     
-    std::wstring alphabet = get_alphabet(input.at(index));
+    std::wstring alphabet = get_alphabet(actualText.at(index));
     while (left >= 0) {
-        if (alphabet.find(input.at(left)) == std::wstring::npos) {
+        if (alphabet.find(actualText.at(left)) == std::wstring::npos) {
             break;
         }
         left--;
     }
-    while (static_cast<size_t>(right) < input.length()) {
-        if (alphabet.find(input.at(right)) == std::wstring::npos) {
+    while (static_cast<size_t>(right) < actualText.length()) {
+        if (alphabet.find(actualText.at(right)) == std::wstring::npos) {
             break;
         }
         right++;
@@ -433,7 +486,11 @@ void TextBox::click(GUI*, int x, int y) {
     selectionOrigin = index;
 }
 
-void TextBox::mouseMove(GUI*, int x, int y) {
+void TextBox::mouseMove(GUI* gui, int x, int y) {
+    Container::mouseMove(gui, x, y);
+    if (isScrolling()) {
+        return;
+    }
     ptrdiff_t index = calcIndexAt(x, y);
     setCaret(index);
     extendSelection(index);
@@ -529,10 +586,19 @@ void TextBox::stepDefaultUp(bool shiftPressed, bool breakSelection) {
     }
 }
 
+void TextBox::refreshSyntax() {
+    if (!syntax.empty()) {
+        if (auto styles = devtools::syntax_highlight(syntax, input)) {
+            label->setStyles(std::move(styles));
+        }
+    }
+}
+
 void TextBox::onInput() {
     if (subconsumer) {
         subconsumer(input);
     }
+    refreshSyntax();
 }
 
 void TextBox::performEditingKeyboardEvents(keycode key) {
@@ -632,13 +698,19 @@ size_t TextBox::getLinePos(uint line) const {
     return label->getTextLineOffset(line);
 }
 
-std::shared_ptr<UINode> TextBox::getAt(glm::vec2 pos, std::shared_ptr<UINode> self) {
+std::shared_ptr<UINode> TextBox::getAt(
+    const glm::vec2& pos, const std::shared_ptr<UINode>& self
+) {
     return UINode::getAt(pos, self);
 }
 
 void TextBox::setOnUpPressed(const runnable &callback) {
     if (callback == nullptr) {
         onUpPressed = [this]() {
+            if (Events::pressed(keycode::LEFT_CONTROL)) {
+                scrolled(1);
+                return;
+            }
             bool shiftPressed = Events::pressed(keycode::LEFT_SHIFT);
             bool breakSelection = getSelectionLength() != 0 && !shiftPressed;
             stepDefaultUp(shiftPressed, breakSelection);
@@ -651,6 +723,10 @@ void TextBox::setOnUpPressed(const runnable &callback) {
 void TextBox::setOnDownPressed(const runnable &callback) {
     if (callback == nullptr) {
         onDownPressed = [this]() {
+            if (Events::pressed(keycode::LEFT_CONTROL)) {
+                scrolled(-1);
+                return;
+            }
             bool shiftPressed = Events::pressed(keycode::LEFT_SHIFT);
             bool breakSelection = getSelectionLength() != 0 && !shiftPressed;
             stepDefaultDown(shiftPressed, breakSelection);
@@ -710,6 +786,7 @@ const std::wstring& TextBox::getText() const {
 void TextBox::setText(const std::wstring& value) {
     this->input = value;
     input.erase(std::remove(input.begin(), input.end(), '\r'), input.end());
+    refreshSyntax();
 }
 
 const std::wstring& TextBox::getPlaceholder() const {
@@ -730,7 +807,8 @@ void TextBox::setHint(const std::wstring& text) {
 }
 
 std::wstring TextBox::getSelection() const {
-    return input.substr(selectionStart, selectionEnd-selectionStart);
+    const auto& text = label->getText();
+    return text.substr(selectionStart, selectionEnd-selectionStart);
 }
 
 size_t TextBox::getCaret() const {
@@ -738,26 +816,34 @@ size_t TextBox::getCaret() const {
 }
 
 void TextBox::setCaret(size_t position) {
-    this->caret = std::min(static_cast<size_t>(position), input.length());
+    const auto& labelText = label->getText();
+    caret = std::min(static_cast<size_t>(position), input.length());
     if (font == nullptr) {
         return;
     }
-    caretLastMove = Window::time();
     int width = label->getSize().x;
-    uint line = label->getLineByTextIndex(caret);
+
+    rawTextCache.prepare(font, width);
+    rawTextCache.update(input, multiline, label->isTextWrapping());
+
+    caretLastMove = Window::time();
+
+    uint line = rawTextCache.getLineByTextIndex(caret);
     int offset = label->getLineYOffset(line) + getContentOffset().y;
     uint lineHeight = font->getLineHeight()*label->getLineInterval();
     if (scrollStep == 0) {
         scrollStep = lineHeight;
     }
     if (offset < 0) {
-        scrolled(-glm::floor(offset/static_cast<double>(scrollStep)+0.5f));
+        scrolled(-glm::floor(offset / static_cast<double>(scrollStep)+0.5f));
     } else if (offset >= getSize().y) {
         offset -= getSize().y;
-        scrolled(-glm::ceil(offset/static_cast<double>(scrollStep)+0.5f));
+        scrolled(-glm::ceil(offset / static_cast<double>(scrollStep)+0.5f));
     }
-    uint lcaret = caret - label->getTextLineOffset(line);
-    int realoffset = font->calcWidth(input, lcaret)-int(textOffset)+2;
+    int lcaret = caret - rawTextCache.getTextLineOffset(line);
+    int realoffset =
+        font->calcWidth(labelText, lcaret) - static_cast<int>(textOffset) + 2;
+
     if (realoffset-width > 0) {
         setTextOffset(textOffset + realoffset-width);
     } else if (realoffset < 0) {
@@ -788,4 +874,25 @@ void TextBox::setShowLineNumbers(bool flag) {
 
 bool TextBox::isShowLineNumbers() const {
     return showLineNumbers;
+}
+
+void TextBox::setSyntax(std::string_view lang) {
+    syntax = lang;
+    if (syntax.empty()) {
+        label->setStyles(nullptr);
+    } else {
+        refreshSyntax();
+    }
+}
+
+const std::string& TextBox::getSyntax() const {
+    return syntax;
+}
+
+void TextBox::setMarkup(std::string_view lang) {
+    markup = lang;
+}
+
+const std::string& TextBox::getMarkup() const {
+    return markup;
 }

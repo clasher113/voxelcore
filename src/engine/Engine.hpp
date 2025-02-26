@@ -2,31 +2,31 @@
 
 #include "delegates.hpp"
 #include "typedefs.hpp"
+#include "settings.hpp"
 
 #include "assets/Assets.hpp"
 #include "content/content_fwd.hpp"
 #include "content/ContentPack.hpp"
 #include "content/PacksManager.hpp"
 #include "files/engine_paths.hpp"
+#include "files/settings_io.hpp"
 #include "util/ObjectsKeeper.hpp"
+#include "PostRunnables.hpp"
+#include "Time.hpp"
 
 #include <filesystem>
 #include <memory>
-#include <queue>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <mutex>
 
+class Level;
 class Screen;
 class EnginePaths;
 class ResPaths;
-class Batch2D;
 class EngineController;
 class SettingsHandler;
 struct EngineSettings;
-
-namespace fs = std::filesystem;
 
 namespace gui {
     class GUI;
@@ -45,44 +45,60 @@ public:
     initialize_error(const std::string& message) : std::runtime_error(message) {}
 };
 
-class Engine : public util::ObjectsKeeper {
-    EngineSettings& settings;
-    SettingsHandler& settingsHandler;
-    EnginePaths* paths;
+struct CoreParameters {
+    bool headless = false;
+    bool testMode = false;
+    std::filesystem::path resFolder {"res"};
+    std::filesystem::path userFolder {"."};
+    std::filesystem::path scriptFile;
+};
 
+using OnWorldOpen = std::function<void(std::unique_ptr<Level>, int64_t)>;
+
+class Engine : public util::ObjectsKeeper {
+    CoreParameters params;
+    EngineSettings settings;
+    EnginePaths paths;
+
+    std::unique_ptr<SettingsHandler> settingsHandler;
     std::unique_ptr<Assets> assets;
     std::shared_ptr<Screen> screen;
     std::vector<ContentPack> contentPacks;
     std::unique_ptr<Content> content;
     std::unique_ptr<ResPaths> resPaths;
-    std::queue<runnable> postRunnables;
-    std::recursive_mutex postRunnablesMutex;
     std::unique_ptr<EngineController> controller;
     std::unique_ptr<cmd::CommandsInterpreter> interpreter;
     std::unique_ptr<network::Network> network;
     std::vector<std::string> basePacks;
-
-    uint64_t frame = 0;
-    double lastTime = 0.0;
-    double delta = 0.0;
-
     std::unique_ptr<gui::GUI> gui;
+    PostRunnables postRunnables;
+    Time time;
+    OnWorldOpen levelConsumer;
+    bool quitSignal = false;
     
     void loadControls();
     void loadSettings();
     void saveSettings();
-    void updateTimers();
     void updateHotkeys();
-    void renderFrame(Batch2D& batch);
-    void processPostRunnables();
     void loadAssets();
 public:
-    Engine(EngineSettings& settings, SettingsHandler& settingsHandler, EnginePaths* paths);
+    Engine();
     ~Engine();
- 
-    /// @brief Start main engine input/update/render loop. 
-    /// Automatically sets MenuScreen
-    void mainloop();
+
+    static Engine& getInstance();
+
+    void initialize(CoreParameters coreParameters);
+
+    static void terminate();
+
+    /// @brief Start the engine
+    void run();
+
+    void postUpdate();
+
+    void updateFrontend();
+    void renderFrame();
+    void nextFrame();
 
     /// @brief Called after assets loading when all engine systems are initialized
     void onAssetsLoaded();
@@ -100,6 +116,7 @@ public:
     /// @brief Load all selected content-packs and reload assets
     void loadContent();
 
+    /// @brief Reset content to base packs list
     void resetContent();
     
     /// @brief Collect world content-packs and load content
@@ -109,9 +126,6 @@ public:
 
     /// @brief Collect all available content-packs from res/content
     void loadAllPacks();
-
-    /// @brief Get current frame delta-time
-    double getDelta() const;
 
     /// @brief Get active assets storage instance
     Assets* getAssets();
@@ -123,10 +137,17 @@ public:
     EngineSettings& getSettings();
 
     /// @brief Get engine filesystem paths source
-    EnginePaths* getPaths();
+    EnginePaths& getPaths();
 
     /// @brief Get engine resource paths controller
     ResPaths* getResPaths();
+
+    void onWorldOpen(std::unique_ptr<Level> level, int64_t localPlayer);
+    void onWorldClosed();
+
+    void quit();
+
+    bool isQuitSignal() const;
 
     /// @brief Get current Content instance
     const Content* getContent() const;
@@ -142,7 +163,9 @@ public:
     std::shared_ptr<Screen> getScreen();
 
     /// @brief Enqueue function call to the end of current frame in draw thread
-    void postRunnable(const runnable& callback);
+    void postRunnable(const runnable& callback) {
+        postRunnables.postRunnable(callback);
+    }
 
     void saveScreenshot();
 
@@ -151,7 +174,15 @@ public:
 
     PacksManager createPacksManager(const fs::path& worldFolder);
 
+    void setLevelConsumer(OnWorldOpen levelConsumer);
+
     SettingsHandler& getSettingsHandler();
 
     network::Network& getNetwork();
+
+    Time& getTime();
+
+    const CoreParameters& getCoreParameters() const;
+
+    bool isHeadless() const;
 };

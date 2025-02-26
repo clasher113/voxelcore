@@ -1,5 +1,6 @@
 #ifdef USE_OPENGL
 #include "Mesh.hpp"
+#include <assert.h>
 #include <GL/glew.h>
 
 int Mesh::meshesCount = 0;
@@ -10,6 +11,7 @@ inline size_t calc_vertex_size(const VertexAttribute* attrs) {
     for (int i = 0; attrs[i].size; i++) {
         vertexSize += attrs[i].size;
     }
+    assert(vertexSize != 0);
     return vertexSize;
 }
 

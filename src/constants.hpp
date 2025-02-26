@@ -6,7 +6,7 @@
 #include <string>
 
 inline constexpr int ENGINE_VERSION_MAJOR = 0;
-inline constexpr int ENGINE_VERSION_MINOR = 25;
+inline constexpr int ENGINE_VERSION_MINOR = 26;
 
 #ifdef NDEBUG
 inline constexpr bool ENGINE_DEBUG_BUILD = false;
@@ -14,7 +14,7 @@ inline constexpr bool ENGINE_DEBUG_BUILD = false;
 inline constexpr bool ENGINE_DEBUG_BUILD = true;
 #endif // NDEBUG
 
-inline const std::string ENGINE_VERSION_STRING = "0.25";
+inline const std::string ENGINE_VERSION_STRING = "0.26";
 
 /// @brief world regions format version
 inline constexpr uint REGION_FORMAT_VERSION = 3;
@@ -27,6 +27,7 @@ inline constexpr blockid_t BLOCK_OBSTACLE = 1;
 inline constexpr blockid_t BLOCK_STRUCT_AIR = 2;
 inline constexpr itemid_t ITEM_EMPTY = 0;
 inline constexpr entityid_t ENTITY_NONE = 0;
+inline constexpr entityid_t ENTITY_AUTO = std::numeric_limits<entityid_t>::max();
 
 inline constexpr int CHUNK_W = 16;
 inline constexpr int CHUNK_H = 256;
@@ -34,6 +35,11 @@ inline constexpr int CHUNK_D = 16;
 
 inline constexpr uint VOXEL_USER_BITS = 8;
 inline constexpr uint VOXEL_USER_BITS_OFFSET = sizeof(blockstate_t)*8-VOXEL_USER_BITS;
+
+/// @brief % unordered map max average buckets load factor.
+/// Low value gives significant performance impact by minimizing collisions and
+/// lookup latency. Default value (1.0) shows x2 slower work.
+inline constexpr float CHUNKS_MAP_MAX_LOAD_FACTOR = 0.1f;
 
 /// @brief chunk volume (count of voxels per Chunk)
 inline constexpr int CHUNK_VOL = (CHUNK_W * CHUNK_H * CHUNK_D);

@@ -23,6 +23,15 @@ namespace network {
             OnReject onReject=nullptr,
             long maxSize=0
         ) = 0;
+
+        virtual void post(
+            const std::string& url,
+            const std::string& data,
+            OnResponse onResponse,
+            OnReject onReject=nullptr,
+            long maxSize=0
+        ) = 0;
+
         virtual size_t getTotalUpload() const = 0;
         virtual size_t getTotalDownload() const = 0;
 
@@ -40,7 +49,7 @@ namespace network {
         virtual void connect(runnable callback) = 0;
         virtual int recv(char* buffer, size_t length) = 0;
         virtual int send(const char* buffer, size_t length) = 0;
-        virtual void close() = 0;
+        virtual void close(bool discardAll=false) = 0;
         virtual int available() = 0;
 
         virtual size_t pullUpload() = 0;
@@ -79,6 +88,14 @@ namespace network {
 
         void get(
             const std::string& url,
+            OnResponse onResponse,
+            OnReject onReject = nullptr,
+            long maxSize=0
+        );
+
+        void post(
+            const std::string& url,
+            const std::string& fieldsData,
             OnResponse onResponse,
             OnReject onReject = nullptr,
             long maxSize=0

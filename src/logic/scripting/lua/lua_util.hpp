@@ -2,6 +2,7 @@
 
 #include <typeindex>
 #include <typeinfo>
+#include <stdexcept>
 #include <unordered_map>
 
 #include "data/dv.hpp"
@@ -18,6 +19,7 @@ namespace lua {
     int userdata_destructor(lua::State* L);
 
     std::string env_name(int env);
+    void dump_stack(lua::State*);
 
     inline bool getglobal(lua::State* L, const std::string& name) {
         lua_getglobal(L, name.c_str());
@@ -207,7 +209,7 @@ namespace lua {
         return lua_isnumber(L, idx);
     }
     inline bool isstring(lua::State* L, int idx) {
-        return lua_isstring(L, idx);
+        return lua_type(L, idx) == LUA_TSTRING;
     }
     inline bool istable(lua::State* L, int idx) {
         return lua_istable(L, idx);
@@ -225,6 +227,11 @@ namespace lua {
         return lua_toboolean(L, idx);
     }
     inline lua::Integer tointeger(lua::State* L, int idx) {
+#ifndef NDEBUG
+        if (lua_type(L, idx) == LUA_TSTRING) {
+            throw std::runtime_error("integer expected, got string");
+        }
+#endif
         return lua_tointeger(L, idx);
     }
     inline uint64_t touinteger(lua::State* L, int idx) {
@@ -235,6 +242,11 @@ namespace lua {
         return static_cast<uint64_t>(val);
     }
     inline lua::Number tonumber(lua::State* L, int idx) {
+#ifndef NDEBUG
+        if (lua_type(L, idx) != LUA_TNUMBER && !lua_isnoneornil(L, idx)) {
+            throw std::runtime_error("integer expected");
+        }
+#endif
         return lua_tonumber(L, idx);
     }
     inline const char* tostring(lua::State* L, int idx) {
@@ -262,7 +274,7 @@ namespace lua {
     inline int newuserdata(lua::State* L, Args&&... args) {
         const auto& found = usertypeNames.find(typeid(T));
         void* ptr = lua_newuserdata(L, sizeof(T));
-        new (ptr) T(args...);
+        new (ptr) T(std::forward<Args>(args)...);
 
         if (found == usertypeNames.end()) {
             log_error(
@@ -538,10 +550,12 @@ namespace lua {
             if (getfield(L, name)) {
                 return 1;
             } else if (required) {
+                pop(L);
                 throw std::runtime_error(
                     "table " + tableName + " has no member " + name
                 );
             }
+            pop(L);
             return 0;
         } else {
             throw std::runtime_error("table " + tableName + " not found");
@@ -573,6 +587,7 @@ namespace lua {
     }
 
     runnable create_runnable(lua::State*);
+    KeyCallback create_simple_handler(lua::State*);
     scripting::common_func create_lambda(lua::State*);
     scripting::common_func create_lambda_nothrow(lua::State*);
 
@@ -584,7 +599,6 @@ namespace lua {
     }
     int create_environment(lua::State*, int parent);
     void remove_environment(lua::State*, int id);
-    void dump_stack(lua::State*);
 
     inline void close(lua::State* L) {
         lua_close(L);
@@ -697,5 +711,37 @@ namespace lua {
             return value;
         }
         return def;
+    }
+
+    inline void read_bytes_from_table(
+        lua::State* L, int tableIndex, std::vector<ubyte>& bytes
+    ) {
+        if (!lua::istable(L, tableIndex)) {
+            throw std::runtime_error("table expected");
+        } else {
+            size_t size = lua::objlen(L, tableIndex);
+            for (size_t i = 0; i < size; i++) {
+                lua::rawgeti(L, i + 1, tableIndex);
+                const int byte = lua::tointeger(L, -1);
+                lua::pop(L);
+                if (byte < 0 || byte > 255) {
+                    throw std::runtime_error(
+                        "invalid byte '" + std::to_string(byte) + "'"
+                    );
+                }
+                bytes.push_back(byte);
+            }
+        }
+    }
+
+    inline std::vector<ubyte> require_bytearray(lua::State* L, int idx) {
+        if (auto* bytearray = lua::touserdata<LuaBytearray>(L, idx)) {
+            return bytearray->data();
+        } else if (lua::istable(L, idx)) {
+            std::vector<ubyte> bytes;
+            read_bytes_from_table(L, idx, bytes);
+            return bytes;
+        }
+        throw std::runtime_error("bytearray expected");
     }
 }

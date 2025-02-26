@@ -5,7 +5,7 @@
 Inventory::Inventory(int64_t id, size_t size) : id(id), slots(size) {
 }
 
-Inventory::Inventory(const Inventory& orig) {
+Inventory::Inventory(const Inventory& orig) : id(0) {
     this->slots = orig.slots;
 }
 
@@ -23,10 +23,13 @@ size_t Inventory::findEmptySlot(size_t begin, size_t end) const {
     return npos;
 }
 
-size_t Inventory::findSlotByItem(itemid_t id, size_t begin, size_t end) {
+size_t Inventory::findSlotByItem(
+    itemid_t id, size_t begin, size_t end, size_t minCount
+) {
     end = std::min(slots.size(), end);
     for (size_t i = begin; i < end; i++) {
-        if (slots[i].getItemId() == id) {
+        const auto& stack = slots[i];
+        if (stack.getItemId() == id && stack.getCount() >= minCount) {
             return i;
         }
     }

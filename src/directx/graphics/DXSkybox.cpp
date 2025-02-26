@@ -57,7 +57,7 @@ Skybox::Skybox(uint size, Shader& shader) :
 	m_p_batch3d(new Batch3D(4096)),
 	random()
 {
-	auto device = DXDevice::getDevice();
+	ID3D11Device* const device = DXDevice::getDevice();
 
 	DXGI_SAMPLE_DESC sampleDesc {
 		/* UINT Count */	1U,
@@ -258,13 +258,13 @@ void Skybox::refreshFace(uint face) {
 }
 
 void Skybox::bind() const {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 	context->VSSetShaderResources(1, 1, &m_p_resourceView);
 	context->PSSetShaderResources(1, 1, &m_p_resourceView);
 }
 
 void Skybox::unbind() const {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 	ID3D11ShaderResourceView* nullSRV = { nullptr };
 	context->VSSetShaderResources(1, 1, &nullSRV);
 	context->PSSetShaderResources(1, 1, &nullSRV);

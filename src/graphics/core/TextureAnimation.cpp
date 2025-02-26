@@ -36,7 +36,7 @@ void TextureAnimator::addAnimations(const std::vector<TextureAnimation>& animati
 void TextureAnimator::update(float delta) {
 #ifdef USE_DIRECTX
     std::unordered_set<ID3D11ShaderResourceView*> changedTextures;
-    auto context = DXDevice::getContext();
+    ID3D11DeviceContext* const context = DXDevice::getContext();
 #elif USE_OPENGL
     std::unordered_set<uint> changedTextures;
 #endif // USE_DIRECTX

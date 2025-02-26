@@ -1,16 +1,24 @@
 #include <cmath>
-#include <stdexcept>
 #include <filesystem>
+#include <stdexcept>
 
-#include "assets/Assets.hpp"
+#include "api_lua.hpp"
 #include "assets/AssetsLoader.hpp"
 #include "coders/json.hpp"
-#include "engine.hpp"
-#include "files/files.hpp"
+#include "content/Content.hpp"
+#include "engine/Engine.hpp"
+#include "files/WorldFiles.hpp"
 #include "files/engine_paths.hpp"
+#include "files/files.hpp"
+#include "lighting/Lighting.hpp"
+#include "voxels/Chunk.hpp"
+#include "voxels/Chunks.hpp"
+#include "voxels/GlobalChunks.hpp"
+#include "voxels/compressed_chunks.hpp"
 #include "world/Level.hpp"
 #include "world/World.hpp"
-#include "api_lua.hpp"
+#include "logic/LevelController.hpp"
+#include "logic/ChunksController.hpp"
 
 using namespace scripting;
 namespace fs = std::filesystem;
@@ -27,8 +35,8 @@ static int l_is_open(lua::State* L) {
 }
 
 static int l_get_list(lua::State* L) {
-    auto paths = engine->getPaths();
-    auto worlds = paths->scanForWorlds();
+    const auto& paths = engine->getPaths();
+    auto worlds = paths.scanForWorlds();
 
     lua::createtable(L, worlds.size(), 0);
     for (size_t i = 0; i < worlds.size(); i++) {
@@ -36,11 +44,11 @@ static int l_get_list(lua::State* L) {
 
         const auto& folder = worlds[i];
 
-        auto root = json::parse(files::read_string(folder/fs::u8path("world.json")));
+        auto root =
+            json::parse(files::read_string(folder / fs::u8path("world.json")));
         const auto& versionMap = root["version"];
         int versionMajor = versionMap["major"].asInteger();
         int versionMinor = versionMap["minor"].asInteger();
-
 
         auto name = folder.filename().u8string();
         lua::pushstring(L, name);
@@ -48,12 +56,12 @@ static int l_get_list(lua::State* L) {
 
         auto assets = engine->getAssets();
         std::string icon = "world#" + name + ".icon";
-        if (!AssetsLoader::loadExternalTexture(
-            assets,
-            icon,
-            {worlds[i] / fs::path("icon.png"),
-                worlds[i] / fs::path("preview.png")}
-        )) {
+        if (!engine->isHeadless() && !AssetsLoader::loadExternalTexture(
+                assets,
+                icon,
+                {worlds[i] / fs::path("icon.png"),
+                 worlds[i] / fs::path("preview.png")}
+            )) {
             icon = "gui/no_world_icon";
         }
         lua::pushstring(L, icon);
@@ -97,7 +105,7 @@ static int l_get_seed(lua::State* L) {
 
 static int l_exists(lua::State* L) {
     auto name = lua::require_string(L, 1);
-    auto worldsDir = engine->getPaths()->getWorldFolderByName(name);
+    auto worldsDir = engine->getPaths().getWorldFolderByName(name);
     return lua::pushboolean(L, fs::is_directory(worldsDir));
 }
 
@@ -115,6 +123,96 @@ static int l_get_generator(lua::State* L) {
     return lua::pushstring(L, require_world_info().generator);
 }
 
+static int l_get_chunk_data(lua::State* L) {
+    int x = static_cast<int>(lua::tointeger(L, 1));
+    int z = static_cast<int>(lua::tointeger(L, 2));
+    const auto& chunk = level->chunks->getChunk(x, z);
+
+    std::vector<ubyte> chunkData;
+    if (chunk == nullptr) {
+        auto& regions = level->getWorld()->wfile->getRegions();
+        auto voxelData = regions.getVoxels(x, z);
+        if (voxelData == nullptr) {
+            return 0;
+        }
+        static util::Buffer<ubyte> rleBuffer(CHUNK_DATA_LEN * 2);
+        auto metadata = regions.getBlocksData(x, z);
+        chunkData =
+            compressed_chunks::encode(voxelData.get(), metadata, rleBuffer);
+    } else {
+        chunkData = compressed_chunks::encode(*chunk);
+    }
+    return lua::newuserdata<lua::LuaBytearray>(L, std::move(chunkData));
+}
+
+static void integrate_chunk_client(Chunk& chunk) {
+    int x = chunk.x;
+    int z = chunk.z;
+    auto chunksController = controller->getChunksController();
+    
+    Lighting& lighting = *chunksController->lighting;
+    chunk.flags.loadedLights = false;
+    chunk.flags.lighted = false;
+    chunk.lightmap.clear();
+    Lighting::prebuildSkyLight(chunk, *indices);
+
+    for (int lz = -1; lz <= 1; lz++) {
+        for (int lx = -1; lx <= 1; lx++) {
+            if (std::abs(lx) + std::abs(lz) != 1) {
+                continue;
+            }
+            if (auto other = level->chunks->getChunk(x + lx, z + lz)) {
+                other->flags.modified = true;
+            }
+        }
+    }
+}
+
+static int l_set_chunk_data(lua::State* L) {
+    if (level == nullptr) {
+        throw std::runtime_error("no open world");
+    }
+
+    int x = static_cast<int>(lua::tointeger(L, 1));
+    int z = static_cast<int>(lua::tointeger(L, 2));
+    auto buffer = lua::require_bytearray(L, 3);
+
+    auto chunk = level->chunks->getChunk(x, z);
+    if (chunk == nullptr) {
+        return lua::pushboolean(L, false);
+    }
+    compressed_chunks::decode(
+        *chunk, buffer.data(), buffer.size(), *content->getIndices()
+    );
+    if (controller->getChunksController()->lighting == nullptr) {
+        return lua::pushboolean(L, true);
+    }
+    integrate_chunk_client(*chunk);
+    return lua::pushboolean(L, true);
+}
+
+static int l_save_chunk_data(lua::State* L) {
+    if (level == nullptr) {
+        throw std::runtime_error("no open world");
+    }
+
+    int x = static_cast<int>(lua::tointeger(L, 1));
+    int z = static_cast<int>(lua::tointeger(L, 2));
+    auto buffer = lua::require_bytearray(L, 3);
+
+    compressed_chunks::save(
+        x, z, std::move(buffer), level->getWorld()->wfile->getRegions()
+    );
+    return 0;
+}
+
+static int l_count_chunks(lua::State* L) {
+    if (level == nullptr) {
+        return 0;
+    }
+    return lua::pushinteger(L, level->chunks->size());
+}
+
 const luaL_Reg worldlib[] = {
     {"is_open", lua::wrap<l_is_open>},
     {"get_list", lua::wrap<l_get_list>},
@@ -128,4 +226,9 @@ const luaL_Reg worldlib[] = {
     {"is_day", lua::wrap<l_is_day>},
     {"is_night", lua::wrap<l_is_night>},
     {"exists", lua::wrap<l_exists>},
-    {NULL, NULL}};
+    {"get_chunk_data", lua::wrap<l_get_chunk_data>},
+    {"set_chunk_data", lua::wrap<l_set_chunk_data>},
+    {"save_chunk_data", lua::wrap<l_save_chunk_data>},
+    {"count_chunks", lua::wrap<l_count_chunks>},
+    {NULL, NULL}
+};

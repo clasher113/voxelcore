@@ -3,6 +3,7 @@
 #include "UINode.hpp"
 
 class Font;
+struct FontStylesScheme;
 
 namespace gui {
     struct LineScheme {
@@ -19,6 +20,9 @@ namespace gui {
     
         void prepare(Font* font, size_t wrapWidth);
         void update(const std::wstring& text, bool multiline, bool wrap);
+
+        size_t getTextLineOffset(size_t line) const;
+        uint getLineByTextIndex(size_t index) const;
     };
 
     class Label : public UINode {
@@ -51,11 +55,18 @@ namespace gui {
 
         /// @brief Auto resize label to fit text
         bool autoresize = false;
+
+        /// @brief Text markup language
+        std::string markup;
+
+        std::unique_ptr<FontStylesScheme> styles;
     public:
         Label(const std::string& text, std::string fontName="normal");
         Label(const std::wstring& text, std::string fontName="normal");
 
-        virtual void setText(const std::wstring& text);
+        virtual ~Label();
+
+        virtual void setText(std::wstring text);
         const std::wstring& getText() const;
 
         virtual void setFontName(std::string name);
@@ -95,7 +106,7 @@ namespace gui {
         virtual uint getLinesNumber() const;
         virtual bool isFakeLine(size_t line) const;
 
-        virtual void draw(const DrawContext* pctx, Assets* assets) override;
+        virtual void draw(const DrawContext& pctx, const Assets& assets) override;
 
         virtual void textSupplier(wstringsupplier supplier);
 
@@ -107,5 +118,10 @@ namespace gui {
 
         virtual void setTextWrapping(bool flag);
         virtual bool isTextWrapping() const;
+
+        virtual void setMarkup(std::string_view lang);
+        virtual const std::string& getMarkup() const;
+
+        virtual void setStyles(std::unique_ptr<FontStylesScheme> styles);
     };
 }

@@ -16,6 +16,7 @@ devtools.traceback=Traceback (most recent call first)
 # Tooltips
 graphics.gamma.tooltip=Lighting brightness curve
 graphics.backlight.tooltip=Backlight to prevent total darkness
+graphics.dense-render.tooltip=Enables transparency in blocks like leaves
 
 # settings
 settings.Controls Search Mode=Search by attached button name
@@ -32,6 +33,7 @@ movement.sprint=Sprint
 movement.crouch=Crouch
 movement.cheat=Cheat
 hud.inventory=Inventory
+hud.chat=Chat
 player.pick=Pick Block
 player.attack=Attack
 player.destroy=Destroy

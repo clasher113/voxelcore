@@ -1,6 +1,6 @@
 #include "audio/audio.hpp"
 #include "delegates.hpp"
-#include "engine.hpp"
+#include "engine/Engine.hpp"
 #include "settings.hpp"
 #include "hud.hpp"
 #include "content/Content.hpp"
@@ -13,7 +13,9 @@
 #include "graphics/render/ParticlesRenderer.hpp"
 #include "graphics/render/ChunksRenderer.hpp"
 #include "logic/scripting/scripting.hpp"
+#include "network/Network.hpp"
 #include "objects/Player.hpp"
+#include "objects/Players.hpp"
 #include "objects/Entities.hpp"
 #include "objects/EntityDef.hpp"
 #include "physics/Hitbox.hpp"
@@ -21,6 +23,7 @@
 #include "voxels/Block.hpp"
 #include "voxels/Chunk.hpp"
 #include "voxels/Chunks.hpp"
+#include "voxels/GlobalChunks.hpp"
 #include "world/Level.hpp"
 #include "world/World.hpp"
 
@@ -40,8 +43,9 @@ static std::shared_ptr<Label> create_label(wstringsupplier supplier) {
 
 // TODO: move to xml
 // TODO: move to xml finally
+// TODO: move to xml finally
 std::shared_ptr<UINode> create_debug_panel(
-    Engine* engine, 
+    Engine& engine, 
     Level& level, 
     Player& player,
     bool allowDebugCheats
@@ -55,8 +59,12 @@ std::shared_ptr<UINode> create_debug_panel(
     static int fpsMax = fps;
     static std::wstring fpsString = L"";
 
-    panel->listenInterval(0.016f, [engine]() {
-        fps = 1.0f / engine->getDelta();
+    static size_t lastTotalDownload = 0;
+    static size_t lastTotalUpload = 0;
+    static std::wstring netSpeedString = L"";
+
+    panel->listenInterval(0.016f, [&engine]() {
+        fps = 1.0f / engine.getTime().getDelta();
         fpsMin = std::min(fps, fpsMin);
         fpsMax = std::max(fps, fpsMax);
     });
@@ -66,6 +74,19 @@ std::shared_ptr<UINode> create_debug_panel(
         fpsMin = fps;
         fpsMax = fps;
     });
+
+    panel->listenInterval(1.0f, [&engine]() {
+        const auto& network = engine.getNetwork();
+        size_t totalDownload = network.getTotalDownload();
+        size_t totalUpload = network.getTotalUpload();
+        netSpeedString =
+            L"download: " + std::to_wstring(totalDownload - lastTotalDownload) +
+            L" B/s upload: " + std::to_wstring(totalUpload - lastTotalUpload) +
+            L" B/s";
+        lastTotalDownload = totalDownload;
+        lastTotalUpload = totalUpload;
+    });
+
     panel->add(create_label([]() { return L"fps: "+fpsString;}));
    
     panel->add(create_label([]() {
@@ -83,8 +104,9 @@ std::shared_ptr<UINode> create_debug_panel(
     panel->add(create_label([]() {
         return L"lua-stack: " + std::to_wstring(scripting::get_values_on_stack());
     }));
-    panel->add(create_label([=]() {
-        auto& settings = engine->getSettings();
+    panel->add(create_label([]() { return netSpeedString; }));
+    panel->add(create_label([&engine]() {
+        auto& settings = engine.getSettings();
         bool culling = settings.graphics.frustumCulling.get();
         return L"frustum-culling: "+std::wstring(culling ? L"on" : L"off");
     }));
@@ -95,12 +117,16 @@ std::shared_ptr<UINode> create_debug_panel(
                std::to_wstring(ParticlesRenderer::aliveEmitters);
     }));
     panel->add(create_label([&]() {
-        return L"chunks: "+std::to_wstring(level.chunks->getChunksCount())+
+        return L"chunks: "+std::to_wstring(level.chunks->size())+
                L" visible: "+std::to_wstring(ChunksRenderer::visibleChunks);
     }));
     panel->add(create_label([&]() {
         return L"entities: "+std::to_wstring(level.entities->size())+L" next: "+
                std::to_wstring(level.entities->peekNextID());
+    }));
+    panel->add(create_label([&]() {
+        return L"players: "+std::to_wstring(level.players->size())+L" local: "+
+               std::to_wstring(player.getId());
     }));
     panel->add(create_label([&]() -> std::wstring {
         const auto& vox = player.selection.vox;
@@ -137,7 +163,7 @@ std::shared_ptr<UINode> create_debug_panel(
         }
     }));
     panel->add(create_label([&](){
-        auto* indices = level.content->getIndices();
+        auto indices = level.content.getIndices();
         if (auto def = indices->blocks.get(player.selection.vox.id)) {
             return L"name: " + util::str2wstr_utf8(def->name);
         } else {

@@ -2,12 +2,13 @@
 
 #include <queue>
 #include <sstream>
+#include <algorithm>
 
 #include "util/listutil.hpp"
 
 PacksManager::PacksManager() = default;
 
-void PacksManager::setSources(std::vector<fs::path> sources) {
+void PacksManager::setSources(std::vector<std::pair<std::string, fs::path>> sources) {
     this->sources = std::move(sources);
 }
 
@@ -15,8 +16,8 @@ void PacksManager::scan() {
     packs.clear();
 
     std::vector<ContentPack> packsList;
-    for (auto& folder : sources) {
-        ContentPack::scanFolder(folder, packsList);
+    for (auto& [path, folder] : sources) {
+        ContentPack::scanFolder(path, folder, packsList);
         for (auto& pack : packsList) {
             packs.try_emplace(pack.id, pack);
         }
@@ -116,7 +117,7 @@ static bool resolve_dependencies(
     return satisfied;
 }
 
-std::vector<std::string> PacksManager::assembly(
+std::vector<std::string> PacksManager::assemble(
     const std::vector<std::string>& names
 ) const {
     std::vector<std::string> allNames = names;
@@ -124,7 +125,9 @@ std::vector<std::string> PacksManager::assembly(
     std::queue<const ContentPack*> queue;
     std::queue<const ContentPack*> queue2;
 
-    for (auto& name : names) {
+    std::sort(allNames.begin(), allNames.end());
+
+    for (auto& name : allNames) {
         auto found = packs.find(name);
         if (found == packs.end()) {
             throw contentpack_error(name, fs::path(""), "pack not found");

@@ -1,9 +1,10 @@
 #include "scripting_hud.hpp"
 
 #include "debug/Logger.hpp"
-#include "engine.hpp"
+#include "engine/Engine.hpp"
 #include "files/files.hpp"
 #include "frontend/hud.hpp"
+#include "frontend/UiDocument.hpp"
 #include "graphics/render/WorldRenderer.hpp"
 #include "objects/Player.hpp"
 #include "lua/libs/api_lua.hpp"
@@ -18,7 +19,7 @@ Hud* scripting::hud = nullptr;
 WorldRenderer* scripting::renderer = nullptr;
 
 static void load_script(const std::string& name) {
-    auto file = engine->getPaths()->getResourcesFolder() / "scripts" / name;
+    auto file = engine->getPaths().getResourcesFolder() / "scripts" / name;
     std::string src = files::read_string(file);
     logger.info() << "loading script " << file.u8string();
 
@@ -64,15 +65,22 @@ void scripting::on_frontend_render() {
 }
 
 void scripting::on_frontend_close() {
+    auto L = lua::get_main_state();
     for (auto& pack : engine->getAllContentPacks()) {
         lua::emit_event(
-            lua::get_main_state(),
+            L,
             pack.id + ":.hudclose",
             [&](lua::State* L) {
                 return lua::pushinteger(L, hud->getPlayer()->getId());
             }
         );
     }
+    lua::pushnil(L);
+    lua::setglobal(L, "hud");
+    lua::pushnil(L);
+    lua::setglobal(L, "gfx");
+
+    scripting::renderer = nullptr;
     scripting::hud = nullptr;
 }
 
@@ -92,4 +100,16 @@ void scripting::load_hud_script(
     register_event(env, "on_hud_open", packid + ":.hudopen");
     register_event(env, "on_hud_render", packid + ":.hudrender");
     register_event(env, "on_hud_close", packid + ":.hudclose");
+}
+
+gui::PageLoaderFunc scripting::create_page_loader() {
+    auto L = lua::get_main_state();
+    if (lua::getglobal(L, "__vc_page_loader")) {
+        auto func = lua::create_lambda(L);
+        return [func](const std::string& name) -> std::shared_ptr<gui::UINode> {
+            auto docname = func({name}).asString();
+            return engine->getAssets()->require<UiDocument>(docname).getRoot();
+        };
+    }
+    return nullptr;
 }

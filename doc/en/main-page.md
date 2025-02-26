@@ -1,6 +1,6 @@
 # Documentation
 
-Documentation for stable release 0.25.x.
+Documentation for release 0.26.
 
 ## Sections
 
@@ -12,9 +12,10 @@ Documentation for stable release 0.25.x.
 - [Content-packs](content-packs.md)
 - [Engine usage recommendations](engine-use-recommendations.md)
 - [Item properties](item-properties.md)
+- [Particles](particles.md)
 - [Resources (resources.json)](resources.md)
 - [Rigging](rigging.md)
 - [Scripting](scripting.md)
+- [Text styles](text-styles.md)
 - [World generator engine](world-generator.md)
 - [XML UI building](xml-ui-layouts.md)
-- [Particles](particles.md)

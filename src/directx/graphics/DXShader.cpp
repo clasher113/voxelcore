@@ -29,7 +29,7 @@ Shader::~Shader() {
 
 void Shader::use() {
 	ConstantBuffer::bind();
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 	context->VSSetShader(m_p_vertexShader, nullptr, 0U);
 	context->PSSetShader(m_p_pixelShader, nullptr, 0U);
 	context->IASetInputLayout(m_p_inputLayout);
@@ -78,7 +78,7 @@ std::unique_ptr<Shader> Shader::loadShader(const std::wstring_view& shaderFile, 
 	compileShader(shaderFile, &VS, ShaderType::VERTEX, include);
 	compileShader(shaderFile, &PS, ShaderType::PIXEL, include);
 
-	auto device = DXDevice::getDevice();
+	ID3D11Device* const device = DXDevice::getDevice();
 
 	ID3D11VertexShader* pVS;
 	ID3D11PixelShader* pPS;

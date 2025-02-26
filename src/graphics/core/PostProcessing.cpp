@@ -48,6 +48,9 @@ void PostProcessing::render(const DrawContext& context, Shader* screenShader) {
     const auto& viewport = context.getViewport();
     screenShader->use();
     screenShader->uniform2i("u_screenSize", viewport.size());
+#ifdef USE_DIRECTX
+    screenShader->applyChanges();
+#endif // USE_DIRECTX
     fbo->getTexture()->bind();
     quadMesh->draw();
 }

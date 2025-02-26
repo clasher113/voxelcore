@@ -51,7 +51,7 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 
 	releaseResources();
 
-	auto device = DXDevice::getDevice();
+	ID3D11Device* const device = DXDevice::getDevice();
 
 	m_vertices = vertices;
 	m_stride = sizeof(float) * m_vertexSize;
@@ -91,7 +91,7 @@ void Mesh::reload(const float* vertexBuffer, size_t vertices, const DWORD* index
 }
 
 void Mesh::draw(D3D_PRIMITIVE_TOPOLOGY primitive) const {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 
 	UINT offset = 0;
 

@@ -7,17 +7,12 @@
 #include "voxels/Chunks.hpp"
 #include "lighting/Lightmap.hpp"
 #include "frontend/ContentGfxCache.hpp"
-#include "settings.hpp"
-
 #ifdef USE_DIRECTX
 #include "directx/graphics/DXMesh.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Mesh.hpp"
 #endif // USE_DIRECTX
-
-#include <glm/glm.hpp>
-
-const glm::vec3 BlocksRenderer::SUN_VECTOR (0.411934f, 0.863868f, -0.279161f);
+const glm::vec3 BlocksRenderer::SUN_VECTOR (0.2275f,0.9388f,-0.1005f);
 
 BlocksRenderer::BlocksRenderer(
     size_t capacity,
@@ -137,7 +132,7 @@ void BlocksRenderer::faceAO(
     float s = 0.5f;
     if (lights) {
         float d = glm::dot(glm::normalize(Z), SUN_VECTOR);
-        d = 0.8f + d * 0.2f;
+        d = 0.7f + d * 0.3f;
 
         auto axisX = glm::normalize(X);
         auto axisY = glm::normalize(Y);
@@ -175,7 +170,7 @@ void BlocksRenderer::face(
     float s = 0.5f;
     if (lights) {
         float d = glm::dot(glm::normalize(Z), SUN_VECTOR);
-        d = 0.8f + d * 0.2f;
+        d = 0.7f + d * 0.3f;
         tint *= d;
     }
     vertex(coord + (-X - Y + Z) * s, region.u1, region.v1, tint);
@@ -192,11 +187,17 @@ void BlocksRenderer::blockXSprite(
     const UVRegion& texface2, 
     float spread
 ) {
-    glm::vec4 lights[] {
+    glm::vec4 lights1[] {
         pickSoftLight({x, y + 1, z}, {1, 0, 0}, {0, 1, 0}),
         pickSoftLight({x + 1, y + 1, z}, {1, 0, 0}, {0, 1, 0}),
         pickSoftLight({x + 1, y + 1, z}, {1, 0, 0}, {0, 1, 0}),
         pickSoftLight({x, y + 1, z}, {1, 0, 0}, {0, 1, 0})
+    };
+    glm::vec4 lights2[] {
+        pickSoftLight({x, y + 1, z}, {-1, 0, 0}, {0, 1, 0}),
+        pickSoftLight({x - 1, y + 1, z}, {-1, 0, 0}, {0, 1, 0}),
+        pickSoftLight({x - 1, y + 1, z}, {-1, 0, 0}, {0, 1, 0}),
+        pickSoftLight({x, y + 1, z}, {-1, 0, 0}, {0, 1, 0})
     };
     randomizer.setSeed((x * 52321) ^ (z * 389) ^ y);
     short rand = randomizer.rand32();
@@ -207,15 +208,15 @@ void BlocksRenderer::blockXSprite(
     const float w = size.x / 1.41f;
     const glm::vec4 tint (0.8f);
 
-    face({x + xs, y, z + zs}, w, size.y, 0, {1, 0, 1}, {0, 1, 0}, glm::vec3(),
-        texface1, lights, tint);
-    face({x + xs, y, z + zs}, w, size.y, 0, {-1, 0, -1}, {0, 1, 0}, glm::vec3(), 
-        texface1, lights, tint);
+    face({x + xs, y, z + zs}, w, size.y, 0, {-1, 0, 1}, {0, 1, 0}, glm::vec3(),
+        texface1, lights2, tint);
+    face({x + xs, y, z + zs}, w, size.y, 0, {1, 0, 1}, {0, 1, 0}, glm::vec3(), 
+        texface1, lights1, tint);
 
+    face({x + xs, y, z + zs}, w, size.y, 0, {-1, 0, -1}, {0, 1, 0}, glm::vec3(), 
+        texface2, lights2, tint);
     face({x + xs, y, z + zs}, w, size.y, 0, {1, 0, -1}, {0, 1, 0}, glm::vec3(), 
-        texface2, lights, tint);
-    face({x + xs, y, z + zs}, w, size.y, 0, {-1, 0, 1}, {0, 1, 0}, glm::vec3(), 
-        texface2, lights, tint);
+        texface2, lights1, tint);
 }
 
 // HINT: texture faces order: {east, west, bottom, top, south, north}
@@ -245,9 +246,9 @@ void BlocksRenderer::blockAABB(
     if (block->rotatable) {
         auto& rotations = block->rotations;
         auto& orient = rotations.variants[rotation];
-        X = orient.axisX;
-        Y = orient.axisY;
-        Z = orient.axisZ;
+        X = orient.axes[0];
+        Y = orient.axes[1];
+        Z = orient.axes[2];
         orient.transform(hitbox);
     }
     coord -= glm::vec3(0.5f) - hitbox.center();
@@ -280,14 +281,13 @@ void BlocksRenderer::blockCustomModel(
     glm::vec3 X(1, 0, 0);
     glm::vec3 Y(0, 1, 0);
     glm::vec3 Z(0, 0, 1);
-    CoordSystem orient(X,Y,Z);
     glm::vec3 coord(icoord);
     if (block->rotatable) {
         auto& rotations = block->rotations;
-        orient = rotations.variants[rotation];
-        X = orient.axisX;
-        Y = orient.axisY;
-        Z = orient.axisZ;
+        CoordSystem orient = rotations.variants[rotation];
+        X = orient.axes[0];
+        Y = orient.axes[1];
+        Z = orient.axes[2];
     }
 
     const auto& model = cache.getModel(block->rt.id);
@@ -341,47 +341,47 @@ void BlocksRenderer::blockCube(
     if (block.rotatable) {
         auto& rotations = block.rotations;
         auto& orient = rotations.variants[states.rotation];
-        X = orient.axisX;
-        Y = orient.axisY;
-        Z = orient.axisZ;
+        X = orient.axes[0];
+        Y = orient.axes[1];
+        Z = orient.axes[2];
     }
     
     if (ao) {
-        if (isOpen(coord + Z, group)) {
+        if (isOpen(coord + Z, block)) {
             faceAO(coord, X, Y, Z, texfaces[5], lights);
         }
-        if (isOpen(coord - Z, group)) {
+        if (isOpen(coord - Z, block)) {
             faceAO(coord, -X, Y, -Z, texfaces[4], lights);
         }
-        if (isOpen(coord + Y, group)) {
+        if (isOpen(coord + Y, block)) {
             faceAO(coord, X, -Z, Y, texfaces[3], lights);
         }
-        if (isOpen(coord - Y, group)) {
+        if (isOpen(coord - Y, block)) {
             faceAO(coord, X, Z, -Y, texfaces[2], lights);
         }
-        if (isOpen(coord + X, group)) {
+        if (isOpen(coord + X, block)) {
             faceAO(coord, -Z, Y, X, texfaces[1], lights);
         }
-        if (isOpen(coord - X, group)) {
+        if (isOpen(coord - X, block)) {
             faceAO(coord, Z, Y, -X, texfaces[0], lights);
         }
     } else {
-        if (isOpen(coord + Z, group)) {
+        if (isOpen(coord + Z, block)) {
             face(coord, X, Y, Z, texfaces[5], pickLight(coord + Z), lights);
         }
-        if (isOpen(coord - Z, group)) {
+        if (isOpen(coord - Z, block)) {
             face(coord, -X, Y, -Z, texfaces[4], pickLight(coord - Z), lights);
         }
-        if (isOpen(coord + Y, group)) {
+        if (isOpen(coord + Y, block)) {
             face(coord, X, -Z, Y, texfaces[3], pickLight(coord + Y), lights);
         }
-        if (isOpen(coord - Y, group)) {
+        if (isOpen(coord - Y, block)) {
             face(coord, X, Z, -Y, texfaces[2], pickLight(coord - Y), lights);
         }
-        if (isOpen(coord + X, group)) {
+        if (isOpen(coord + X, block)) {
             face(coord, -Z, Y, X, texfaces[1], pickLight(coord + X), lights);
         }
-        if (isOpen(coord - X, group)) {
+        if (isOpen(coord - X, block)) {
             face(coord, Z, Y, -X, texfaces[0], pickLight(coord - X), lights);
         }
     }
@@ -616,7 +616,7 @@ void BlocksRenderer::build(const Chunk* chunk, const Chunks* chunks) {
     voxelsBuffer->setPosition(
         chunk->x * CHUNK_W - voxelBufferPadding, 0,
         chunk->z * CHUNK_D - voxelBufferPadding);
-    chunks->getVoxels(voxelsBuffer.get(), settings.graphics.backlight.get());
+    chunks->getVoxels(*voxelsBuffer, settings.graphics.backlight.get());
 
     if (voxelsBuffer->pickBlockId(
         chunk->x * CHUNK_W, 0, chunk->z * CHUNK_D

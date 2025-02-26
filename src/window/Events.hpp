@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "delegates.hpp"
 #include "typedefs.hpp"
 #include "input.hpp"
 
@@ -18,15 +19,16 @@ class Events {
     static bool keys[KEYS_BUFFER_SIZE];
     static uint frames[KEYS_BUFFER_SIZE];
     static uint currentFrame;
-    static bool cursor_drag;
+    static bool cursorDrag;
+    static bool cursorLocked;
 public:
     static int scroll;
     static glm::vec2 delta;
     static glm::vec2 cursor;
-    static bool _cursor_locked;
     static std::vector<uint> codepoints;
     static std::vector<keycode> pressedKeys;
     static std::unordered_map<std::string, Binding> bindings;
+    static std::unordered_map<keycode, util::HandlersList<>> keyCallbacks;
 
     static void pollEvents();
 
@@ -50,6 +52,8 @@ public:
     static bool active(const std::string& name);
     static bool jactive(const std::string& name);
 
+    static observer_handler addKeyCallback(keycode key, KeyCallback callback);
+
     static void setKey(int key, bool b);
     static void setButton(int button, bool b);
 
@@ -61,4 +65,6 @@ public:
         BindType bindType
     );
     static void enableBindings();
+
+    static bool isCursorLocked();
 };

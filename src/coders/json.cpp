@@ -7,19 +7,21 @@
 #include <sstream>
 
 #include "util/stringutil.hpp"
-#include "commons.hpp"
+#include "BasicParser.hpp"
 
 using namespace json;
 
-class Parser : BasicParser {
-    dv::value parseList();
-    dv::value parseObject();
-    dv::value parseValue();
-public:
-    Parser(std::string_view filename, std::string_view source);
+namespace {
+    class Parser : BasicParser<char> {
+        dv::value parseList();
+        dv::value parseObject();
+        dv::value parseValue();
+    public:
+        Parser(std::string_view filename, std::string_view source);
 
-    dv::value parse();
-};
+        dv::value parse();
+    };
+}
 
 inline void newline(
     std::stringstream& ss, bool nice, uint indent, const std::string& indentstr

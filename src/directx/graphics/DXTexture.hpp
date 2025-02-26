@@ -31,7 +31,7 @@ public:
 	void reload(const ImageData& image);
 	void setMipMapping(bool flag);
 
-	virtual std::unique_ptr<ImageData> readData();
+	virtual std::unique_ptr<ImageData> readData(bool flipY = true);
 	virtual ID3D11Texture2D* getId() const;
 	ID3D11ShaderResourceView* getResourceView() const;
 
@@ -44,6 +44,7 @@ public:
 	static uint MAX_RESOLUTION;
 private:
 	D3D11_TEXTURE2D_DESC m_description;
+	D3D11_SHADER_RESOURCE_VIEW_DESC m_srvDescription;
 	ID3D11Texture2D* m_p_texture;
 	ID3D11ShaderResourceView* m_p_resourceView;
 };

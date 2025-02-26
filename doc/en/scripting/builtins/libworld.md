@@ -36,14 +36,38 @@ world.get_seed() -> int
 -- Returns generator name.
 world.get_generator() -> str
 
--- Proves that this is the current time during the day 
--- from 0.333(8 am) to 0.833(8 pm).
-world.is_day() -> boolean
+-- Checks the existence of a world by name.
+world.exists(name: str) -> bool
 
--- Checks that it is the current time at night
--- from 0.833(8 pm) to 0.333(8 am).
+-- Checks if the current time is daytime. From 0.333(8am) to 0.833(8pm).
+world.is_day() -> bool
+
+-- Checks if the current time is nighttime. From 0.833(8pm) to 0.333(8am).
 world.is_night() -> bool
 
--- Checks the existence of a world by name.
-world.exists() -> bool
+-- Returns the total number of chunks loaded into memory
+world.count_chunks() -> int
+
+-- Returns the compressed chunk data to send.
+-- If the chunk is not loaded, returns the saved data.
+-- Currently includes:
+-- 1. Voxel data (id and state)
+-- 2. Voxel metadata (fields)
+world.get_chunk_data(x: int, z: int) -> Bytearray or nil
+
+-- Modifies the chunk based on the compressed data.
+-- Returns true if the chunk exists.
+world.set_chunk_data(
+    x: int, z: int,
+    -- compressed chunk data
+    data: Bytearray
+) -> bool
+
+-- Saves chunk data to region.
+-- Changes will be written to file only on world save.
+world.save_chunk_data(
+    x: int, z: int,
+    -- compressed chunk data
+    data: Bytearray
+)
 ```

@@ -111,11 +111,11 @@ bool UINode::isInside(glm::vec2 point) {
             point.x < pos.x + size.x && point.y < pos.y + size.y);
 }
 
-std::shared_ptr<UINode> UINode::getAt(glm::vec2 point, std::shared_ptr<UINode> self) {
+std::shared_ptr<UINode> UINode::getAt(const glm::vec2& point, const std::shared_ptr<UINode>& self) {
     if (!isInteractive() || !enabled) {
         return nullptr;
     }
-    return isInside(point) ? std::move(self) : nullptr;
+    return isInside(point) ? self : nullptr;
 }
 
 bool UINode::isInteractive() const {
@@ -148,6 +148,14 @@ void UINode::setTooltipDelay(float delay) {
 
 float UINode::getTooltipDelay() const {
     return tooltipDelay;
+}
+
+void UINode::setCursor(CursorShape shape) {
+    cursor = shape;
+}
+
+CursorShape UINode::getCursor() const {
+    return cursor;
 }
 
 glm::vec2 UINode::calcPos() const {
@@ -187,7 +195,8 @@ glm::vec2 UINode::getSize() const {
 
 void UINode::setSize(glm::vec2 size) {
     this->size = glm::vec2(
-        glm::max(minSize.x, size.x), glm::max(minSize.y, size.y)
+        glm::max(minSize.x, glm::min(maxSize.x, size.x)),
+        glm::max(minSize.y, glm::min(maxSize.y, size.y))
     );
 }
 
@@ -197,6 +206,15 @@ glm::vec2 UINode::getMinSize() const {
 
 void UINode::setMinSize(glm::vec2 minSize) {
     this->minSize = minSize;
+    setSize(getSize());
+}
+
+glm::vec2 UINode::getMaxSize() const {
+    return maxSize;
+}
+
+void UINode::setMaxSize(glm::vec2 maxSize) {
+    this->maxSize = maxSize;
     setSize(getSize());
 }
 
@@ -281,11 +299,15 @@ const std::string& UINode::getId() const {
 }
 
 void UINode::reposition() {
+    if (sizefunc) {
+        auto newSize = sizefunc();
+        setSize(
+            {newSize.x < 0 ? size.x : newSize.x,
+             newSize.y < 0 ? size.y : newSize.y}
+        );
+    }
     if (positionfunc) {
         setPos(positionfunc());
-    }
-    if (sizefunc) {
-        setSize(sizefunc());
     }
 }
 

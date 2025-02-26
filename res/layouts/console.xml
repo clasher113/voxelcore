@@ -12,7 +12,7 @@
     </container>
     
     <container id="logContainer" pos="0,60"
-               size-func="unpack(vec2.add(gui.get_viewport(), {0,-100}))">
+               size-func="unpack(vec2.add(gui.get_viewport(), {-350,-100}))">
         <textbox 
             id='log' 
             color='0'
@@ -20,8 +20,9 @@
             margin='0'
             editable='false' 
             multiline='true' 
-            size-func="gui.get_viewport()[1],40"
+            size-func="gui.get_viewport()[1]-350,40"
             gravity="bottom-left"
+            markup="md"
         ></textbox>
     </container>
     <container id="editorContainer" pos="0,60" color="#00000080"
@@ -32,10 +33,9 @@
             autoresize='true'
             margin='0'
             padding='5'
-            editable='false'
             multiline='true'
             line-numbers='true'
-            text-color="#FFFFFFA0"
+            syntax='lua'
             size-func="gui.get_viewport()[1]-350,40"
             gravity="top-left"
             text-wrap='false'
@@ -55,6 +55,7 @@
     <textbox id='prompt' 
              consumer='submit' 
              margin='0' 
+             markup="md"
              gravity='bottom-left' 
              size-func="gui.get_viewport()[1],40"
              onup="on_history_up()"

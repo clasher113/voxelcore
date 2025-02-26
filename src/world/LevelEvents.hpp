@@ -6,16 +6,19 @@
 
 class Chunk;
 
-enum lvl_event_type {
-    EVT_CHUNK_HIDDEN,
+enum class LevelEventType {
+    CHUNK_SHOWN,
+    CHUNK_HIDDEN,
+    CHUNK_PRESENT,
+    CHUNK_UNLOAD,
 };
 
-using chunk_event_func = std::function<void(lvl_event_type, Chunk*)>;
+using ChunkEventFunc = std::function<void(LevelEventType, Chunk*)>;
 
 class LevelEvents {
-    std::unordered_map<lvl_event_type, std::vector<chunk_event_func>>
+    std::unordered_map<LevelEventType, std::vector<ChunkEventFunc>>
         chunk_callbacks;
 public:
-    void listen(lvl_event_type type, const chunk_event_func& func);
-    void trigger(lvl_event_type type, Chunk* chunk);
+    void listen(LevelEventType type, const ChunkEventFunc& func);
+    void trigger(LevelEventType type, Chunk* chunk);
 };

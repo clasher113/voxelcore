@@ -14,7 +14,7 @@ class Chunks;
 class Camera;
 class Assets;
 class Player;
-struct Block;
+class Block;
 class Engine;
 class LevelController;
 class WorldRenderer;
@@ -39,7 +39,8 @@ public:
         Engine& engine,
         LevelController& level,
         WorldRenderer& renderer,
-        const Assets& assets
+        const Assets& assets,
+        Player& player
     );
 
     void update(float delta, const Camera& camera);

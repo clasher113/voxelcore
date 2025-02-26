@@ -1,4 +1,5 @@
 #include "lua_util.hpp"
+#include "lua_engine.hpp"
 
 #include <iomanip>
 #include <iostream>
@@ -60,13 +61,7 @@ int lua::pushvalue(State* L, const dv::value& value) {
             break;
         case value_type::bytes: {
             const auto& bytes = value.asBytes();
-            createtable(L, 0, bytes.size());
-            size_t size = bytes.size();
-            for (size_t i = 0; i < size;) {
-                pushinteger(L, bytes[i]);
-                i++;
-                rawseti(L, i);
-            }
+            newuserdata<LuaBytearray>(L, bytes.data(), bytes.size());
             break;
         }
     }
@@ -132,6 +127,13 @@ dv::value lua::tovalue(State* L, int idx) {
                 pop(L);
                 return map;
             }
+        }
+        case LUA_TUSERDATA: {
+            if (auto bytes = touserdata<LuaBytearray>(L, idx)) {
+                const auto& data = bytes->data();
+                return std::make_shared<dv::objects::Bytes>(data.data(), data.size());
+            }
+            [[fallthrough]];
         }
         default:
             throw std::runtime_error(
@@ -219,7 +221,7 @@ void lua::dump_stack(State* L) {
 static std::shared_ptr<std::string> create_lambda_handler(State* L) {
     auto ptr = reinterpret_cast<ptrdiff_t>(topointer(L, -1));
     auto name = util::mangleid(ptr);
-    getglobal(L, LAMBDAS_TABLE);
+    requireglobal(L, LAMBDAS_TABLE);
     pushvalue(L, -2);
     setfield(L, name);
     pop(L, 2);
@@ -227,7 +229,8 @@ static std::shared_ptr<std::string> create_lambda_handler(State* L) {
     return std::shared_ptr<std::string>(
         new std::string(name),
         [=](std::string* name) {
-            getglobal(L, LAMBDAS_TABLE);
+            auto L = lua::get_main_state();
+            requireglobal(L, LAMBDAS_TABLE);
             pushnil(L);
             setfield(L, *name);
             pop(L);
@@ -239,26 +242,52 @@ static std::shared_ptr<std::string> create_lambda_handler(State* L) {
 runnable lua::create_runnable(State* L) {
     auto funcptr = create_lambda_handler(L);
     return [=]() {
-        getglobal(L, LAMBDAS_TABLE);
-        getfield(L, *funcptr);
-        call_nothrow(L, 0);
+        auto L = lua::get_main_state();
+        if (!get_from(L, LAMBDAS_TABLE, *funcptr, false))
+            return;
+        call_nothrow(L, 0, 0);
         pop(L);
+    };
+}
+
+KeyCallback lua::create_simple_handler(State* L) {
+    auto funcptr = create_lambda_handler(L);
+    return [=]() -> bool {
+        if (!get_from(L, LAMBDAS_TABLE, *funcptr, false))
+            return false;
+        int top = gettop(L) - 1;
+        if (call_nothrow(L, 0)) {
+            int nres = gettop(L) - top;
+            if (nres) {
+                bool result = toboolean(L, -1);
+                pop(L, 1 + nres);
+                return result;
+            }
+        }
+        pop(L);
+        return false;
     };
 }
 
 scripting::common_func lua::create_lambda(State* L) {
     auto funcptr = create_lambda_handler(L);
     return [=](const std::vector<dv::value>& args) -> dv::value {
-        getglobal(L, LAMBDAS_TABLE);
-        getfield(L, *funcptr);
+        if (!get_from(L, LAMBDAS_TABLE, *funcptr, false))
+            return nullptr;
+        int top = gettop(L) - 1;
         for (const auto& arg : args) {
             pushvalue(L, arg);
         }
         if (call(L, args.size(), 1)) {
-            auto result = tovalue(L, -1);
-            pop(L);
-            return result;
+            int nres = gettop(L) - top;
+            assert(nres >= 0);
+            if (nres) {
+                auto result = tovalue(L, -1);
+                pop(L, 1 + nres);
+                return result;
+            }
         }
+        pop(L);
         return nullptr;
     };
 }
@@ -266,16 +295,21 @@ scripting::common_func lua::create_lambda(State* L) {
 scripting::common_func lua::create_lambda_nothrow(State* L) {
     auto funcptr = create_lambda_handler(L);
     return [=](const std::vector<dv::value>& args) -> dv::value {
-        getglobal(L, LAMBDAS_TABLE);
-        getfield(L, *funcptr);
+        if (!get_from(L, LAMBDAS_TABLE, *funcptr, false))
+            return nullptr;
+        int top = gettop(L) - 1;
         for (const auto& arg : args) {
             pushvalue(L, arg);
         }
         if (call_nothrow(L, args.size(), 1)) {
-            auto result = tovalue(L, -1);
-            pop(L);
-            return result;
+            int nres = gettop(L) - top;
+            if (nres) {
+                auto result = tovalue(L, -1);
+                pop(L, 1 + nres);
+                return result;
+            }
         }
+        pop(L);
         return nullptr;
     };
 }

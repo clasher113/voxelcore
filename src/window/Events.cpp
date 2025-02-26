@@ -17,11 +17,12 @@ uint Events::currentFrame = 0;
 int Events::scroll = 0;
 glm::vec2 Events::delta = {};
 glm::vec2 Events::cursor = {};
-bool Events::cursor_drag = false;
-bool Events::_cursor_locked = false;
+bool Events::cursorDrag = false;
+bool Events::cursorLocked = false;
 std::vector<uint> Events::codepoints;
 std::vector<keycode> Events::pressedKeys;
 std::unordered_map<std::string, Binding> Events::bindings;
+std::unordered_map<keycode, util::HandlersList<>> Events::keyCallbacks;
 
 bool Events::pressed(keycode keycode) {
     return pressed(static_cast<int>(keycode));
@@ -59,10 +60,10 @@ bool Events::jclicked(int button) {
 }
 
 void Events::toggleCursor() {
-    cursor_drag = false;
-    _cursor_locked = !_cursor_locked;
+    cursorDrag = false;
+    cursorLocked = !cursorLocked;
     Window::setCursorMode(
-        _cursor_locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL
+        cursorLocked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL
     );
 }
 
@@ -155,6 +156,12 @@ bool Events::jactive(const std::string& name) {
 void Events::setKey(int key, bool b) {
     Events::keys[key] = b;
     Events::frames[key] = currentFrame;
+    if (b) {
+        const auto& callbacks = keyCallbacks.find(static_cast<keycode>(key));
+        if (callbacks != keyCallbacks.end()) {
+            callbacks->second.notify();
+        }
+    }
 }
 
 void Events::setButton(int button, bool b) {
@@ -162,14 +169,18 @@ void Events::setButton(int button, bool b) {
 }
 
 void Events::setPosition(float xpos, float ypos) {
-    if (Events::cursor_drag) {
+    if (Events::cursorDrag) {
         Events::delta.x += xpos - Events::cursor.x;
         Events::delta.y += ypos - Events::cursor.y;
     } else {
-        Events::cursor_drag = true;
+        Events::cursorDrag = true;
     }
     Events::cursor.x = xpos;
     Events::cursor.y = ypos;
+}
+
+observer_handler Events::addKeyCallback(keycode key, KeyCallback callback) {
+    return keyCallbacks[key].add(std::move(callback));
 }
 
 #include "coders/json.hpp"
@@ -227,7 +238,6 @@ void Events::loadBindings(
             } else if (bindType == BindType::REBIND) {
                 Events::rebind(key, type, code);
             }
-            
         }
     }
 }
@@ -237,4 +247,8 @@ void Events::enableBindings() {
         auto& binding = entry.second;
         binding.enable = true;
     }
+}
+
+bool Events::isCursorLocked() {
+    return cursorLocked;
 }

@@ -5,17 +5,18 @@
 #include "../../graphics/core/ImageData.hpp"
 
 HRESULT TextureUtil::stageTexture(ID3D11Texture2D* src, ID3D11Texture2D** dst) {
-	auto device = DXDevice::getDevice();
-	auto context = DXDevice::getContext();
+	ID3D11Device* const device = DXDevice::getDevice();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 
 	D3D11_TEXTURE2D_DESC desc{};
 	src->GetDesc(&desc);
 
-	if (desc.ArraySize > 1 || desc.MipLevels > 1) return S_FALSE;
+	//if (desc.ArraySize > 1 || desc.MipLevels > 1) return S_FALSE;
 
 	desc.Usage = D3D11_USAGE_STAGING;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	desc.BindFlags = 0;
+	desc.BindFlags = 0U;
+	desc.MiscFlags = 0U;
 
 	HRESULT hr = device->CreateTexture2D(&desc, nullptr, dst);
 	if (FAILED(hr)) return hr;
@@ -26,7 +27,7 @@ HRESULT TextureUtil::stageTexture(ID3D11Texture2D* src, ID3D11Texture2D** dst) {
 }
 
 HRESULT TextureUtil::readPixels(ID3D11Texture2D* src, void* dst, bool flipY) {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 
 	D3D11_MAPPED_SUBRESOURCE resourceDesc{};
 	D3D11_TEXTURE2D_DESC textureDesc{};

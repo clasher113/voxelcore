@@ -6,6 +6,7 @@
 #include "graphics/core/Font.hpp"
 #include "assets/Assets.hpp"
 #include "util/stringutil.hpp"
+#include "../markdown.hpp"
 
 using namespace gui;
 
@@ -18,6 +19,20 @@ void LabelCache::prepare(Font* font, size_t wrapWidth) {
         resetFlag = true;
         this->wrapWidth = wrapWidth;
     }
+}
+
+size_t LabelCache::getTextLineOffset(size_t line) const {
+    line = std::min(lines.size()-1, line);
+    return lines.at(line).offset;
+}
+
+uint LabelCache::getLineByTextIndex(size_t index) const {
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (lines[i].offset > index) {
+            return i-1;
+        }
+    }
+    return lines.size()-1;
 }
 
 void LabelCache::update(const std::wstring& text, bool multiline, bool wrap) {
@@ -66,6 +81,8 @@ Label::Label(const std::wstring& text, std::string fontName)
     cache.update(this->text, multiline, textWrap);
 }
 
+Label::~Label() = default;
+
 glm::vec2 Label::calcSize() {
     auto font = cache.font;
     uint lineHeight = font->getLineHeight();
@@ -78,11 +95,16 @@ glm::vec2 Label::calcSize() {
     );
 }
 
-void Label::setText(const std::wstring& text) {
+void Label::setText(std::wstring text) {
+    if (markup == "md") {
+        auto [processedText, styles] = markdown::process(text, true);
+        text = std::move(processedText);
+        setStyles(std::move(styles));
+    }
     if (text == this->text && !cache.resetFlag) {
         return;
     }
-    this->text = text;
+    this->text = std::move(text);
     cache.update(this->text, multiline, textWrap);
 
     if (cache.font && autoresize) {
@@ -123,8 +145,7 @@ int Label::getTextYOffset() const {
 }
 
 size_t Label::getTextLineOffset(size_t line) const {
-    line = std::min(cache.lines.size()-1, line);
-    return cache.lines.at(line).offset;
+    return cache.getTextLineOffset(line);
 }
 
 bool Label::isFakeLine(size_t line) const {
@@ -144,21 +165,16 @@ uint Label::getLineByYOffset(int offset) const {
 }
 
 uint Label::getLineByTextIndex(size_t index) const {
-    for (size_t i = 0; i < cache.lines.size(); i++) {
-        if (cache.lines[i].offset > index) {
-            return i-1;
-        }
-    }
-    return cache.lines.size()-1;
+    return cache.getLineByTextIndex(index);
 }
 
 uint Label::getLinesNumber() const {
     return cache.lines.size();
 }
 
-void Label::draw(const DrawContext* pctx, Assets* assets) {
-    auto batch = pctx->getBatch2D();
-    auto font = assets->get<Font>(fontName);
+void Label::draw(const DrawContext& pctx, const Assets& assets) {
+    auto batch = pctx.getBatch2D();
+    auto font = assets.get<Font>(fontName);
     cache.prepare(font, static_cast<size_t>(glm::abs(getSize().x)));
 
     if (supplier) {
@@ -201,10 +217,10 @@ void Label::draw(const DrawContext* pctx, Assets* assets) {
             if (i < cache.lines.size()-1) {
                 view = std::wstring_view(text.c_str()+offset, cache.lines.at(i+1).offset-offset);
             }
-            font->draw(*batch, view, pos.x, pos.y + i * totalLineHeight);
+            font->draw(*batch, view, pos.x, pos.y + i * totalLineHeight, styles.get(), offset);
         }
     } else {
-        font->draw(*batch, text, pos.x, pos.y);
+        font->draw(*batch, text, pos.x, pos.y, styles.get(), 0);
     }
 }
 
@@ -238,4 +254,17 @@ void Label::setTextWrapping(bool flag) {
 
 bool Label::isTextWrapping() const {
     return textWrap;
+}
+
+void Label::setMarkup(std::string_view lang) {
+    markup = lang;
+    setText(text);
+}
+
+const std::string& Label::getMarkup() const {
+    return markup;
+}
+
+void Label::setStyles(std::unique_ptr<FontStylesScheme> styles) {
+    this->styles = std::move(styles);
 }

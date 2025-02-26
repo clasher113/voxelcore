@@ -70,12 +70,12 @@ public:
 };
 
 class Hud : public util::ObjectsKeeper {
-    Engine* engine;
-    Assets* assets;
+    Engine& engine;
+    Assets& assets;
     std::unique_ptr<Camera> uicamera;
-    gui::GUI* gui;
+    gui::GUI& gui;
     LevelFrontend& frontend;
-    Player* player;
+    Player& player;
 
     /// @brief Is any overlay/inventory open
     bool inventoryOpen = false;
@@ -95,16 +95,16 @@ class Hud : public util::ObjectsKeeper {
     /// @brief Inventories interaction agent (grabbed item)
     std::shared_ptr<gui::SlotView> exchangeSlot;
     /// @brief Exchange slot inventory (1 slot only)
-    std::shared_ptr<Inventory> exchangeSlotInv = nullptr;
+    std::shared_ptr<Inventory> exchangeSlotInv;
     /// @brief List of all controlled hud elements
     std::vector<HudElement> elements;
 
     /// @brief Player inventory view
-    std::shared_ptr<gui::InventoryView> inventoryView = nullptr;
+    std::shared_ptr<gui::InventoryView> inventoryView;
     /// @brief Block inventory view
-    std::shared_ptr<gui::InventoryView> blockUI = nullptr;
+    std::shared_ptr<gui::InventoryView> blockUI;
     /// @brief Secondary inventory view
-    std::shared_ptr<gui::InventoryView> secondInvView = nullptr;
+    std::shared_ptr<gui::InventoryView> secondInvView;
     /// @brief Position of the block open
     glm::ivec3 blockPos {};
     /// @brief Id of the block open (used to detect block destruction or replacement)
@@ -113,10 +113,13 @@ class Hud : public util::ObjectsKeeper {
     bool showContentPanel = true;
     /// @brief Provide cheat controllers to the debug panel
     bool allowDebugCheats = true;
+    /// @brief Allow actual pause
+    bool allowPause = true;
+    bool debug = false;
     /// @brief UI element will be dynamicly positioned near to inventory or in screen center
-    std::shared_ptr<gui::UINode> secondUI = nullptr;
+    std::shared_ptr<gui::UINode> secondUI;
 
-    std::shared_ptr<gui::UINode> debugMinimap = nullptr;
+    std::shared_ptr<gui::UINode> debugMinimap;
 
     std::unique_ptr<ImageData> debugImgWorldGen;
     
@@ -128,10 +131,13 @@ class Hud : public util::ObjectsKeeper {
     void updateHotbarControl();
     void cleanup();
 
+    /// @brief Perform exchange slot removal when it's not empty.
+    void dropExchangeSlot();
+
     void showExchangeSlot();
     void updateWorldGenDebugVisualization();
 public:
-    Hud(Engine* engine, LevelFrontend& frontend, Player* player);
+    Hud(Engine& engine, LevelFrontend& frontend, Player& player);
     ~Hud();
 
     void update(bool hudVisible);
@@ -190,6 +196,8 @@ public:
     void onRemove(const HudElement& element);
     void remove(const std::shared_ptr<gui::UINode>& node);
 
+    void setDebug(bool flag);
+
     Player* getPlayer() const;
 
     std::shared_ptr<Inventory> getBlockInventory();
@@ -199,6 +207,8 @@ public:
     void setContentAccess(bool flag);
 
     void setDebugCheats(bool flag);
+
+    void setAllowPause(bool flag);
 
     static bool showGeneratorMinimap;
 

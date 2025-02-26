@@ -12,7 +12,7 @@ Framebuffer::Framebuffer(ID3D11RenderTargetView* fbo, ID3D11RenderTargetView* de
 }
 
 static ID3D11Texture2D* create_texture(UINT width, UINT height, DXGI_FORMAT format, UINT bindFlags) {
-	auto device = DXDevice::getDevice();
+	ID3D11Device* const device = DXDevice::getDevice();
 
 	DXGI_SAMPLE_DESC sampleDesc {
 		/* UINT Count */	1U,
@@ -62,7 +62,7 @@ void Framebuffer::resize(uint width, uint height) {
 	m_width = width;
 	m_height = height;
 
-	auto device = DXDevice::getDevice();
+	ID3D11Device* const device = DXDevice::getDevice();
 
 	releaseResources();
 

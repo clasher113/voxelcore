@@ -1,5 +1,5 @@
 #include "coders/commons.hpp"
-#include "engine.hpp"
+#include "engine/Engine.hpp"
 #include "logic/CommandsInterpreter.hpp"
 #include "api_lua.hpp"
 
@@ -31,9 +31,21 @@ static int l_add_command(lua::State* L) {
 
 static int l_execute(lua::State* L) {
     auto prompt = lua::require_string(L, 1);
-    auto result = engine->getCommandsInterpreter()->execute(prompt);
-    lua::pushvalue(L, result);
-    return 1;
+    try {
+        auto result = engine->getCommandsInterpreter()->execute(prompt);
+        lua::pushvalue(L, result);
+        return 1;
+    } catch (const parsing_error& err) {
+        if (std::string(err.what()).find("unknown command ") == 0) {
+            throw;
+        }
+        throw std::runtime_error(err.errorLog());
+    }
+}
+
+static int l_get(lua::State* L) {
+    auto name = lua::require_string(L, 1);
+    return lua::pushvalue(L, (*engine->getCommandsInterpreter())[name]);
 }
 
 static int l_set(lua::State* L) {
@@ -112,6 +124,7 @@ static int l_get_command_info(lua::State* L) {
 const luaL_Reg consolelib[] = {
     {"add_command", lua::wrap<l_add_command>},
     {"execute", lua::wrap<l_execute>},
+    {"get", lua::wrap<l_get>},
     {"set", lua::wrap<l_set>},
     {"get_commands_list", lua::wrap<l_get_commands_list>},
     {"get_command_info", lua::wrap<l_get_command_info>},

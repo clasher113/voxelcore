@@ -6,8 +6,6 @@
 #include "directx/util/DebugUtil.hpp"
 #include "directx/util/TextureUtil.hpp"
 
-#include <stdexcept>
-
 uint Texture::MAX_RESOLUTION = 16384;
 constexpr UINT MAX_MIP_LEVEL = 3U;
 
@@ -25,14 +23,14 @@ Texture::Texture(ID3D11Texture2D* texture) :
 	m_p_texture(texture),
 	m_description()
 {
-	auto device = DXDevice::getDevice();
+	ID3D11Device* const device = DXDevice::getDevice();
 	CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, nullptr, &m_p_resourceView),
 		L"Failed to create shader resource view");
 
 	m_p_texture->GetDesc(&m_description);
 
 	if (m_description.MiscFlags & D3D11_RESOURCE_MISC_GENERATE_MIPS) {
-		auto context = DXDevice::getContext();
+		ID3D11DeviceContext* const context = DXDevice::getContext();
 		context->GenerateMips(m_p_resourceView);
 	}
 	SET_DEBUG_OBJECT_NAME(m_p_texture, "Texture 2D");
@@ -56,11 +54,11 @@ Texture::Texture(ubyte* data, uint width, uint height, ImageFormat format) :
 		/* UINT MiscFlags */				D3D11_RESOURCE_MISC_GENERATE_MIPS
 	})
 {
-	auto device = DXDevice::getDevice();
+	ID3D11Device* const device = DXDevice::getDevice();
 	CHECK_ERROR2(device->CreateTexture2D(&m_description, nullptr, &m_p_texture),
 		L"Failed to create texture");
 
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc {
+	m_srvDescription = {
 		/* DXGI_FORMAT Format */				m_description.Format,
 		/* D3D11_SRV_DIMENSION ViewDimension */	D3D11_SRV_DIMENSION_TEXTURE2D,
 		/* D3D11_TEX2D_SRV Texture2D */			{
@@ -69,10 +67,10 @@ Texture::Texture(ubyte* data, uint width, uint height, ImageFormat format) :
 		}
 	};
 
-	CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, &srvDesc, &m_p_resourceView),
+	CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, &m_srvDescription, &m_p_resourceView),
 		L"Failed to create shader resource view");
 
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 
 	reload(data);
 
@@ -92,14 +90,14 @@ void Texture::setNearestFilter() {
 }
 
 void Texture::bind(unsigned int shaderType, UINT startSlot) const {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 	if (shaderType & VERTEX)	context->VSSetShaderResources(startSlot, 1u, &m_p_resourceView);
 	if (shaderType & PIXEL)		context->PSSetShaderResources(startSlot, 1u, &m_p_resourceView);
 	if (shaderType & GEOMETRY)	context->GSSetShaderResources(startSlot, 1u, &m_p_resourceView);
 }
 
 void Texture::reload(ubyte* data) {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 	context->UpdateSubresource(m_p_texture, 0u, nullptr, data, m_description.Width * (m_description.Format == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 3), 0u);
 }
 
@@ -110,14 +108,41 @@ void Texture::reload(const ImageData& image) {
 }
 
 void Texture::setMipMapping(bool flag) {
-	// todo: implement
+	std::unique_ptr<ImageData> data = readData(false);
+
+	m_p_texture->Release();
+	m_p_resourceView->Release();
+
+	if (flag){
+		m_description.MiscFlags |= D3D11_RESOURCE_MISC_GENERATE_MIPS;
+		m_description.BindFlags |= D3D11_BIND_RENDER_TARGET;
+		m_srvDescription.Texture2D.MipLevels = GetNumMipLevels(m_description.Width, m_description.Height);
+	}
+	else {
+		m_description.MiscFlags &= ~D3D11_RESOURCE_MISC_GENERATE_MIPS;
+		m_description.BindFlags &= ~D3D11_BIND_RENDER_TARGET;
+		m_srvDescription.Texture2D.MipLevels = 1;
+	}
+
+	ID3D11Device* const device = DXDevice::getDevice();
+	CHECK_ERROR2(device->CreateTexture2D(&m_description, nullptr, &m_p_texture),
+		L"Failed to create texture");
+	CHECK_ERROR2(device->CreateShaderResourceView(m_p_texture, &m_srvDescription, &m_p_resourceView),
+		L"Failed to create shader resource view");
+
+	reload(*data);
+
+	if (flag) {
+		ID3D11DeviceContext* const context = DXDevice::getContext();
+		context->GenerateMips(m_p_resourceView);
+	}
 }
 
-std::unique_ptr<ImageData> Texture::readData() {
+std::unique_ptr<ImageData> Texture::readData(bool flipY) {
 	auto data = std::make_unique<ubyte[]>(m_description.Width * m_description.Height * 4);
 	ID3D11Texture2D* staged = nullptr;
 	TextureUtil::stageTexture(m_p_texture, &staged);
-	TextureUtil::readPixels(staged, data.get());
+	TextureUtil::readPixels(staged, data.get(), flipY);
 	staged->Release();
 	return std::make_unique<ImageData>(
 		ImageFormat::rgba8888, m_description.Width, m_description.Height, data.release()

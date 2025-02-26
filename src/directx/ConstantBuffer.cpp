@@ -16,7 +16,7 @@ ConstantBuffer::ConstantBuffer(const ConstantBufferData& data) :
 	m_p_data(new unsigned char[data.size]),
 	m_p_buffer(nullptr)
 {
-	auto device = DXDevice::getDevice();
+	ID3D11Device* const device = DXDevice::getDevice();
 
 	D3D11_BUFFER_DESC desc {
 		/* UINT ByteWidth */			static_cast<UINT>(m_size + (16 - m_size % 16)),
@@ -99,7 +99,7 @@ void ConstantBuffer::modifyVariable(const std::string_view& name, const void* sr
 }
 
 void ConstantBuffer::applyChanges() {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 
 	D3D11_MAPPED_SUBRESOURCE resource{};
 	CHECK_ERROR2(context->Map(m_p_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &resource),
@@ -110,7 +110,7 @@ void ConstantBuffer::applyChanges() {
 }
 
 void ConstantBuffer::bind(UINT startSlot) {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 
 	if (m_hasChanges) applyChanges();
 	if (m_shaderType & VERTEX)		context->VSSetConstantBuffers(startSlot, 1, &m_p_buffer);

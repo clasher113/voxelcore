@@ -28,11 +28,13 @@ pack.remove-confirm=Удалить весь поставляемый паком/
 # Подсказки
 graphics.gamma.tooltip=Кривая яркости освещения
 graphics.backlight.tooltip=Подсветка, предотвращающая полную темноту
+graphics.dense-render.tooltip=Включает прозрачность блоков, таких как листья.
 
 # Меню
 menu.Apply=Применить
 menu.Audio=Звук
 menu.Back to Main Menu=Вернуться в Меню
+menu.Scripts=Сценарии
 menu.Content Error=Ошибка Контента
 menu.Content=Контент
 menu.Continue=Продолжить
@@ -67,6 +69,7 @@ world.delete-confirm=Удалить мир безвозвратно?
 # Настройки
 settings.Ambient=Фон
 settings.Backlight=Подсветка
+settings.Dense blocks render=Плотный рендер блоков
 settings.Camera Shaking=Тряска Камеры
 settings.Camera Inertia=Инерция Камеры
 settings.Camera FOV Effects=Эффекты поля зрения
@@ -100,6 +103,7 @@ movement.sprint=Ускорение
 movement.crouch=Красться
 movement.cheat=Чит
 hud.inventory=Инвентарь
+hud.chat=Чат
 player.pick=Подобрать Блок
 player.attack=Атаковать
 player.destroy=Сломать

@@ -35,6 +35,7 @@ Examples:
 - `margin` - element margin. Type: 4D vector
   *left, top, right, bottom*
 - `visible` - element visibility. Type: boolean (true/false)
+- `min-size` - minimal element size. Type: 2D vector.
 - `position-func` - position supplier for an element (two numbers), called on every parent container size update or on element adding on a container. May be called before *on_hud_open*
 - `size-func` - element size provider (two numbers), called when the size of the container in which the element is located changes, or when an element is added to the container. Can be called before on_hud_open is called.
 - `onclick` - lua function called when an element is clicked.
@@ -44,6 +45,7 @@ Examples:
 - `gravity` - automatic positioning of the element in the container. (Does not work in automatic containers like panel). Values: *top-left, top-center, top-right, center-left, center-center, center-right, bottom-left, bottom-center, bottom-right*.
 - `z-index` - determines the order of elements, with a larger value it will overlap elements with a smaller one.
 - `interactive` - if false, hovering over the element and all sub-elements will be ignored.
+- `cursor` - the cursor displayed when hovering over the element (arrow/text/pointer/crosshair/ew-resize/ns-resize/...).
 
 # Template attributes
 
@@ -64,6 +66,7 @@ Buttons and panels are also containers.
 Buttons are also panels.
 
 - `max-length` - maximal length of panel stretching before scrolling (if scrollable = true). Type: number
+- `min-length` - minimal length of panel. Type: number
 - `orientation` - panel orientation: horizontal/vertical.
 
 # Common elements
@@ -87,13 +90,18 @@ Inner text is a button text.
 - `autoresize` - automatic change of element size (default - false). Does not affect font size.
 - `multiline` - allows display of multiline text.
 - `text-wrap` - allows automatic text wrapping (works only with multiline: "true").
+- `markup` - text markup language ("md" - Markdown).
 
 ## *image*
 
 - `src` - name of an image stored in textures folder. Extension is not specified. Type: string.
   Example: *gui/error*
 
-  ## *textbox*
+## *canvas*
+
+- _No additional attributes_
+
+## *textbox*
 
 Inner text - initially entered text
 
@@ -112,6 +120,8 @@ Inner text - initially entered text
 - `validator` - lua function that checks text for correctness. Takes a string as input, returns true if the text is correct.
 - `onup` - lua function called when the up arrow is pressed.
 - `ondown` - lua function called when the down arrow is pressed.
+- `syntax` - syntax highlighting ("lua" - Lua).
+- `markup` - text markup language ("md" - Markdown).
 
 ## *trackbar*
 

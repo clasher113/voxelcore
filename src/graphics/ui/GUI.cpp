@@ -5,6 +5,7 @@
 #include "elements/UINode.hpp"
 #include "elements/Label.hpp"
 #include "elements/Menu.hpp"
+#include "elements/Panel.hpp"
 
 #include "assets/Assets.hpp"
 #include "frontend/UiDocument.hpp"
@@ -28,8 +29,10 @@
 
 using namespace gui;
 
-GUI::GUI() {
-    container = std::make_shared<Container>(glm::vec2(1000));
+GUI::GUI()
+    : batch2D(std::make_unique<Batch2D>(1024)),
+      container(std::make_shared<Container>(glm::vec2(1000))) {
+    container->setId("root");
     uicamera = std::make_unique<Camera>(glm::vec3(), Window::height);
     uicamera->perspective = false;
     uicamera->flipped = true;
@@ -50,6 +53,15 @@ GUI::GUI() {
 }
 
 GUI::~GUI() = default;
+
+void GUI::setPageLoader(PageLoaderFunc pageLoader) {
+    this->pagesLoader = std::move(pageLoader);
+    menu->setPageLoader(this->pagesLoader);
+}
+
+PageLoaderFunc GUI::getPagesLoader() {
+    return pagesLoader;
+}
 
 std::shared_ptr<Menu> GUI::getMenu() {
     return menu;
@@ -162,7 +174,7 @@ void GUI::actFocused() {
         focus->keyPressed(key);
     }
 
-    if (!Events::_cursor_locked) {
+    if (!Events::isCursorLocked()) {
         if (Events::clicked(mousecode::BUTTON_1) && 
             (Events::jclicked(mousecode::BUTTON_1) || Events::delta.x || Events::delta.y))
         {
@@ -174,18 +186,12 @@ void GUI::actFocused() {
 }
 
 void GUI::act(float delta, const Viewport& vp) {
-    while (!postRunnables.empty()) {
-        runnable callback = postRunnables.back();
-        postRunnables.pop();
-        callback();
-    }
-
     container->setSize(vp.size());
     container->act(delta);
     auto prevfocus = focus;
 
     updateTooltip(delta);
-    if (!Events::_cursor_locked) {
+    if (!Events::isCursorLocked()) {
         actMouse(delta);
     } else {
         if (hover) {
@@ -202,19 +208,41 @@ void GUI::act(float delta, const Viewport& vp) {
     }
 }
 
-void GUI::draw(const DrawContext* pctx, Assets* assets) {
-    auto& viewport = pctx->getViewport();
+void GUI::postAct() {
+    while (!postRunnables.empty()) {
+        runnable callback = postRunnables.front();
+        postRunnables.pop();
+        callback();
+    }
+}
+
+void GUI::draw(const DrawContext& pctx, const Assets& assets) {
+    auto ctx = pctx.sub(batch2D.get());
+
+    auto& viewport = ctx.getViewport();
     glm::vec2 wsize = viewport.size();
 
+    auto& page = menu->getCurrent();
+    if (page.panel) {
+        menu->setSize(page.panel->getSize());
+        page.panel->refresh();
+        if (auto panel = std::dynamic_pointer_cast<gui::Panel>(page.panel)) {
+            panel->cropToContent();
+        }
+    }
     menu->setPos((wsize - menu->getSize()) / 2.0f);
     uicamera->setFov(wsize.y);
 
-    auto uishader = assets->get<Shader>("ui");
+    auto uishader = assets.get<Shader>("ui");
     uishader->uniformMatrix("u_projview", uicamera->getProjView());
     uishader->use();
 
-    pctx->getBatch2D()->begin();
-    container->draw(pctx, assets);
+    batch2D->begin();
+    container->draw(ctx, assets);
+
+    if (hover) {
+        Window::setCursor(hover->getCursor());
+    }
 }
 
 std::shared_ptr<UINode> GUI::getFocused() const {

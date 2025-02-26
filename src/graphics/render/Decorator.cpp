@@ -10,10 +10,12 @@
 #include "voxels/Block.hpp"
 #include "world/Level.hpp"
 #include "window/Camera.hpp"
+#include "objects/Player.hpp"
 #include "objects/Players.hpp"
+#include "objects/Entities.hpp"
 #include "logic/LevelController.hpp"
 #include "util/stringutil.hpp"
-#include "engine.hpp"
+#include "engine/Engine.hpp"
 #include "files/files.hpp"
 
 namespace fs = std::filesystem;
@@ -29,13 +31,17 @@ inline constexpr int ITERATIONS = 512;
 inline constexpr int BIG_PRIME = 666667;
 
 Decorator::Decorator(
-    Engine& engine, LevelController& controller, WorldRenderer& renderer, const Assets& assets
+    Engine& engine,
+    LevelController& controller,
+    WorldRenderer& renderer,
+    const Assets& assets,
+    Player& player
 )
     : engine(engine),
       level(*controller.getLevel()),
       renderer(renderer),
       assets(assets),
-      player(*controller.getPlayer()) {
+      player(player) {
     controller.getBlocksController()->listenBlockInteraction(
     [this](auto player, const auto& pos, const auto& def, BlockInteraction type) {
         if (type == BlockInteraction::placing && def.particles) {
@@ -43,7 +49,7 @@ Decorator::Decorator(
         }
     });
     for (const auto& [id, player] : *level.players) {
-        if (id == controller.getPlayer()->getId()) {
+        if (id == this->player.getId()) {
             continue;
         }
         playerTexts[id] = renderer.texts->add(std::make_unique<TextNote>(
@@ -80,8 +86,8 @@ void Decorator::update(
     int index = currentIndex;
     currentIndex = (currentIndex + BIG_PRIME) % UPDATE_BLOCKS;
 
-    const auto& chunks = *level.chunks;
-    const auto& indices = *level.content->getIndices();
+    const auto& chunks = *player.chunks;
+    const auto& indices = *level.content.getIndices();
 
     int lx = index % UPDATE_AREA_DIAMETER;
     int lz = (index / UPDATE_AREA_DIAMETER) % UPDATE_AREA_DIAMETER;
@@ -99,12 +105,11 @@ void Decorator::update(
 
 void Decorator::update(float delta, const Camera& camera) {
     glm::ivec3 pos = camera.position;
-    pos -= glm::ivec3(UPDATE_AREA_DIAMETER / 2);
     for (int i = 0; i < ITERATIONS; i++) {
-        update(delta, pos, camera.position);
+        update(delta, pos - glm::ivec3(UPDATE_AREA_DIAMETER / 2), pos);
     }
-    const auto& chunks = *level.chunks;
-    const auto& indices = *level.content->getIndices();
+    const auto& chunks = *player.chunks;
+    const auto& indices = *level.content.getIndices();
     auto iter = blockEmitters.begin();
     while (iter != blockEmitters.end()) {
         auto emitter = renderer.particles->getEmitter(iter->second);
@@ -152,9 +157,14 @@ void Decorator::update(float delta, const Camera& camera) {
         auto note = renderer.texts->get(textsIter->second);
         auto player = level.players->get(textsIter->first);
         if (player == nullptr) {
+            renderer.texts->remove(textsIter->second);
             textsIter = playerTexts.erase(textsIter);
         } else {
-            note->setPosition(player->getPosition() + glm::vec3(0, 1, 0));
+            glm::vec3 position = player->getPosition();
+            if (auto entity = level.entities->get(player->getEntity())) {
+                position = entity->getInterpolatedPosition();
+            }
+            note->setPosition(position + glm::vec3(0, 1, 0));
             ++textsIter;
         }
     }

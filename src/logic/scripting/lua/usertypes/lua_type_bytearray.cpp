@@ -2,6 +2,7 @@
 
 #include <sstream>
 
+#include "util/listutil.hpp"
 #include "../lua_util.hpp"
 
 using namespace lua;
@@ -13,13 +14,24 @@ LuaBytearray::LuaBytearray(size_t capacity) : buffer(capacity) {
 LuaBytearray::LuaBytearray(std::vector<ubyte> buffer) : buffer(std::move(buffer)) {
 }
 
+LuaBytearray::LuaBytearray(const ubyte* data, size_t size) : buffer(data, data + size) {
+}
+
 LuaBytearray::~LuaBytearray() {
 }
 
 static int l_append(lua::State* L) {
     if (auto buffer = touserdata<LuaBytearray>(L, 1)) {
-        auto value = tointeger(L, 2);
-        buffer->data().push_back(static_cast<ubyte>(value));
+        if (lua::isnumber(L, 2)) {
+            auto value = tointeger(L, 2);
+            buffer->data().push_back(static_cast<ubyte>(value));
+        } else if (lua::istable(L, 2)) {
+            lua::read_bytes_from_table(L, 2, buffer->data());
+        } else if (auto extension = lua::touserdata<LuaBytearray>(L, 2)) {
+            util::concat(buffer->data(), extension->data());
+        } else {
+            throw std::runtime_error("integer/table/Bytearray expected");
+        }
     }
     return 0;
 }
@@ -34,8 +46,19 @@ static int l_insert(lua::State* L) {
     if (static_cast<size_t>(index) > data.size()) {
         return 0;
     }
-    auto value = tointeger(L, 3);
-    data.insert(data.begin() + index, static_cast<ubyte>(value));
+    if (lua::isnumber(L, 3)) {
+        auto value = tointeger(L, 3);
+        data.insert(data.begin() + index, static_cast<ubyte>(value));
+    } else if (lua::istable(L, 3)) {
+        std::vector<ubyte> temp;
+        lua::read_bytes_from_table(L, 3, temp);
+        data.insert(data.begin() + index, temp.begin(), temp.end());
+    } else if (auto extension = lua::touserdata<LuaBytearray>(L, 3)) {
+        const std::vector<ubyte>& src = extension->data();
+        data.insert(data.begin() + index, src.begin(), src.end());
+    } else {
+        throw std::runtime_error("integer/table/Bytearray expected");
+    }
     return 0;
 }
 

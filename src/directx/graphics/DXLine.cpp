@@ -47,7 +47,7 @@ void DXLine::setWidth(float width) {
 }
 
 void DXLine::draw(Mesh* mesh) {
-	auto context = DXDevice::getContext();
+	ID3D11DeviceContext* const context = DXDevice::getContext();
 	s_m_p_cbLineWidth->bind(1u);
 	context->GSSetShader(s_m_p_geometryShader, 0, 0);
 	mesh->draw(D3D_PRIMITIVE_TOPOLOGY_LINELIST);

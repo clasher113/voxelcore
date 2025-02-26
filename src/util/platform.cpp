@@ -57,24 +57,39 @@ void platform::sleep(size_t millis) {
     // Reset the timer resolution back to the system default
     timeEndPeriod(periodMin);
 }
-#else
+
+int platform::get_process_id() {
+    return GetCurrentProcessId(); 
+}
+
+#else // _WIN32
+
+#include <unistd.h>
+#include "frontend/locale.hpp"
 
 void platform::configure_encoding() {
 }
 
 std::string platform::detect_locale() {
-    std::string programLocaleName = setlocale(LC_ALL, nullptr);
-    std::string preferredLocaleName =
+    const char* const programLocaleName = setlocale(LC_ALL, nullptr);
+    const char* const preferredLocaleName =
         setlocale(LC_ALL, "");  // locale name format: ll_CC.encoding
-    setlocale(LC_ALL, programLocaleName.c_str());
+    if (programLocaleName && preferredLocaleName) {
+        setlocale(LC_ALL, programLocaleName);
 
-    return preferredLocaleName.substr(0, 5);
+        return std::string(preferredLocaleName, 5);
+    }
+    return langs::FALLBACK_DEFAULT;
 }
 
 void platform::sleep(size_t millis) {
     std::this_thread::sleep_for(std::chrono::milliseconds(millis));
 }
-#endif
+
+int platform::get_process_id() {
+    return getpid();
+}
+#endif // _WIN32
 
 void platform::open_folder(const std::filesystem::path& folder) {
     if (!std::filesystem::is_directory(folder)) {

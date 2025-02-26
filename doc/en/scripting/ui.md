@@ -32,7 +32,7 @@ document["worlds-panel"]:clear()
 
 Properties that apply to all elements:
 
-| Title         | Type   | Read | Write | Description                                 |
+| Name          | Type   | Read | Write | Description                                 |
 | ------------- | ------ | ---- | ----- | ------------------------------------------- |
 | id            | string | yes  | *no*  | element id                                  |
 | pos           | vec2   | yes  | yes   | element position inside a container         |
@@ -48,6 +48,7 @@ Properties that apply to all elements:
 | tooltip       | string | yes  | yes   | tooltip text                                |
 | tooltipDelay  | float  | yes  | yes   | tooltip delay                               |
 | contentOffset | vec2   | yes  | *no*  | element content offset                      |
+| cursor        | string | yes  | yes   | cursor displayed on hover                   |
 
 Common element methods:
 
@@ -55,22 +56,23 @@ Common element methods:
 | ------------------- | ----------------------------------------------------------------------------------- |
 | moveInto(container) | moves the element to the specified container (the element is specified, not the id) |
 | destruct()          | removes element                                                                     |
+| reposition()        | updates the element position based on the `positionfunc`                            |
 
 ## Containers
 
 Common methods for containers (elements: container, panel, button, pagebox):
 
-| Method | Description |
-| ------------------------------- | ------------------------------------------------------------------ |
-| clear() | clears content |
-| add(xml) | adds an element, creating it using xml code. Example: `container:add("<image src='test'/>")` |
-| setInterval(interval, callback) | assigns a function to be executed repeatedly at an interval specified in milliseconds |
+| Method                          | Description                                                                                  |
+| ------------------------------- | -------------------------------------------------------------------------------------------- |
+| clear()                         | clears content                                                                               |
+| add(xml)                        | adds an element, creating it using xml code. Example: `container:add("<image src='test'/>")` |
+| setInterval(interval, callback) | assigns a function to be executed repeatedly at an interval specified in milliseconds        |
 
 ## Textbox
 
 Properties:
 
-| Title       | Type   | Read | Write | Description                                                                          |
+| Name        | Type   | Read | Write | Description                                                                          |
 | ----------- | ------ | ---- | ----- | ------------------------------------------------------------------------------------ |
 | text        | string | yes  | yes   | entered text or placeholder                                                          |
 | placeholder | string | yes  | yes   | placeholder (used if nothing has been entered)                                       |
@@ -82,6 +84,8 @@ Properties:
 | textWrap    | bool   | yes  | yes   | automatic text wrapping (only with multiline: "true")                                |
 | valid       | bool   | yes  | no    | is the entered text correct                                                          |
 | textColor   | vec4   | yes  | yes   | text color                                                                           |
+| syntax      | string | yes  | yes   | syntax highlighting ("lua" - Lua)                                                    |
+| markup      | string | yes  | yes   | text markup language ("md" - Markdown)                                               |
 
 Methods:
 
@@ -95,7 +99,7 @@ Methods:
 
 Properties:
 
-| Title      | Type  | Read | Write | Description           |
+| Name       | Type  | Read | Write | Description           |
 | ---------- | ----- | ---- | ----- | --------------------- |
 | value      | float | yes  | yes   | current value         |
 | min        | float | yes  | yes   | minimum value         |
@@ -108,7 +112,7 @@ Properties:
 
 Properties:
 
-| Title | Type   | Read | Write | Description  |
+| Name  | Type   | Read | Write | Description  |
 | ----- | ------ | ---- | ----- | ------------ |
 | page  | string | yes  | yes   | current page |
 
@@ -123,7 +127,7 @@ Methods:
 
 Properties:
 
-| Title   | Type | Read | Write | Description |
+| Name    | Type | Read | Write | Description |
 | ------- | ---- | ---- | ----- | ----------- |
 | checked | bool | yes  | yes   | mark status |
 
@@ -131,7 +135,7 @@ Properties:
 
 Properties:
 
-| Title | Type   | Read | Write | Description  |
+| Name  | Type   | Read | Write | Description  |
 | ----- | ------ | ---- | ----- | ------------ |
 | text  | string | yes  | yes   | button text  |
 
@@ -139,22 +143,42 @@ Properties:
 
 Properties:
 
-| Title | Type   | Read | Write | Description |
-| ----- | ------ | ---- | ----- | ----------- |
-| text  | string | yes  | yes   | label text  |
+| Name   | Type   | Read | Write | Description                            |
+| ------ | ------ | ---- | ----- | -------------------------------------- |
+| text   | string | yes  | yes   | label text                             |
+| markup | string | yes  | yes   | text markup language ("md" - Markdown) |
 
 ## Image
 
 Properties:
 
-| Title | Type   | Read | Write | Description  |
+| Name  | Type   | Read | Write | Description  |
 | ----- | ------ | ---- | ----- | ------------ |
 | src   | string | yes  | yes   | texture name |
+
+## Canvas
+
+Properties:
+
+| Title | Type   | Read | Write | Description |
+|-------|--------| ---- |-------|-------------|
+| data  | Canvas | yes  | no    | canvas data |
+
+Methods:
+
+| Method                                                   | Description                                             |
+|----------------------------------------------------------|---------------------------------------------------------|
+| data:at(x: int, y: int)                                  | returns an RGBA pixel at the given coordinates          |
+| data:set(x: int, y: int, rgba: int)                      | updates an RGBA pixel at the given coordinates          |
+| data:set(x: int, y: int, r: int, g: int, b: int)         | updates an RGBA pixel at the given coordinates          |
+| data:set(x: int, y: int, r: int, g: int, b: int, a: int) | updates an RGBA pixel at the given coordinates          |
+| data:update()                                            | applies changes to the canvas and uploads it to the GPU |
+
 
 ## Inventory
 
 Properties:
 
-| Title     | Type | Read | Write | Description                                       |
+| Name      | Type | Read | Write | Description                                       |
 | --------- | ---- | ---- | ----- | ------------------------------------------------- |
 | inventory | int  | yes  | yes   | id of the inventory to which the element is bound |

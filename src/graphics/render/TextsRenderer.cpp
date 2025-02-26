@@ -108,6 +108,8 @@ void TextsRenderer::renderNote(
     font.draw(
         batch,
         text,
+        nullptr,
+        0,
         pos - xvec * (width * 0.5f) * preset.scale,
         xvec * preset.scale,
         yvec * preset.scale
@@ -126,12 +128,19 @@ void TextsRenderer::render(
     shader.use();
     shader.uniformMatrix("u_projview", camera.getProjView());
     shader.uniformMatrix("u_apply", glm::mat4(1.0f));
+#ifdef USE_DIRECTX
+    shader.applyChanges();
+#endif // USE_DIRECTX
+
     batch.begin();
     for (const auto& [_, note] : notes) {
         renderNote(*note, context, camera, settings, hudVisible, frontLayer, false);
     }
     batch.flush();
     shader.uniformMatrix("u_projview", glm::mat4(1.0f));
+#ifdef USE_DIRECTX
+    shader.applyChanges();
+#endif // USE_DIRECTX
     for (const auto& [_, note] : notes) {
         renderNote(*note, context, camera, settings, hudVisible, frontLayer, true);
     }

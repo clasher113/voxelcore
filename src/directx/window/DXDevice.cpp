@@ -209,7 +209,7 @@ void DXDevice::createResources() {
 	ZeroMemory(&s_m_rasterizerStateDesc, sizeof(s_m_rasterizerStateDesc));
 
 	s_m_rasterizerStateDesc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
-	s_m_rasterizerStateDesc.CullMode = D3D11_CULL_MODE::D3D11_CULL_FRONT;
+	s_m_rasterizerStateDesc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
 	s_m_rasterizerStateDesc.MultisampleEnable = true;
 	updateRasterizerState();
 
