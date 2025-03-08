@@ -13,4 +13,6 @@ namespace json {
     std::string stringify(
         const dv::value& value, bool nice, const std::string& indent="  "
     );
+
+    inline std::streamsize precision = 15;
 }

@@ -783,6 +783,10 @@ const std::wstring& TextBox::getText() const {
     return input;
 }
 
+std::wstring gui::TextBox::getInput() const {
+    return input;
+}
+
 void TextBox::setText(const std::wstring& value) {
     this->input = value;
     input.erase(std::remove(input.begin(), input.end(), '\r'), input.end());

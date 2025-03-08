@@ -106,7 +106,7 @@ void stringifyList(
     ss << "[";
     for (size_t i = 0; i < list.size(); i++) {
         if (i > 0 || nice) {
-            newline(ss, nice, indent, indentstr);
+            newline(ss, nice && list.multiline, indent, indentstr);
         }
         const auto& value = list[i];
         stringifyValue(value, ss, indent + 1, indentstr, nice);
@@ -115,7 +115,7 @@ void stringifyList(
         }
     }
     if (nice) {
-        newline(ss, true, indent - 1, indentstr);
+        newline(ss, list.multiline, indent - 1, indentstr);
     }
     ss << ']';
 }

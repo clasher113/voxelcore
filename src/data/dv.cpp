@@ -126,6 +126,11 @@ namespace dv {
         return *val.object;
     }
 
+    const objects::List& value::asList() const {
+        check_type(type, value_type::list);
+        return *val.list;
+    }
+
     size_t value::size() const noexcept {
         switch (type) {
             case value_type::list:

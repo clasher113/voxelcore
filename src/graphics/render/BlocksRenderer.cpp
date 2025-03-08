@@ -618,8 +618,8 @@ void BlocksRenderer::build(const Chunk* chunk, const Chunks* chunks) {
     if (voxelsBuffer->pickBlockId(
         chunk->x * CHUNK_W, 0, chunk->z * CHUNK_D
     ) == BLOCK_VOID) {
-        cancelled = true;
-        return;
+            cancelled = true;
+            return;
     }
     const voxel* voxels = chunk->voxels;
 

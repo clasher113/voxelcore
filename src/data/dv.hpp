@@ -177,6 +177,8 @@ namespace dv {
             return *this;
         }
     public:
+        bool multiline = true;
+
         value() noexcept : type(value_type::none) {}
         
         /// @brief Constructor for fundamental types
@@ -206,6 +208,7 @@ namespace dv {
 
         value(value&& v) noexcept {
             this->operator=(std::move(v));
+            this->multiline = v.multiline;
         }
 
         ~value() noexcept {
@@ -413,6 +416,8 @@ namespace dv {
         const objects::Bytes& asBytes() const;   
 
         const objects::Object& asObject() const;
+
+        const objects::List& asList() const;
 
         inline value_type getType() const {
             return type;

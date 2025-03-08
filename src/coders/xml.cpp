@@ -4,6 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <utility>
+#include <algorithm>
 
 #include "util/stringutil.hpp"
 #include "coders/BasicParser.hpp"
@@ -112,6 +113,12 @@ void Node::add(std::unique_ptr<Node> element) {
     elements.push_back(std::move(element));
 }
 
+void xml::Node::remove(const xml::Node* element) {
+    elements.erase(std::remove_if(elements.begin(), elements.end(), [element](const std::unique_ptr<xml::Node>& elem){
+        return element == elem.get();
+    }), elements.end());
+}
+
 void Node::set(const std::string& name, const std::string& text) {
     attrs[name] = Attribute(name, text);
 }
@@ -141,6 +148,10 @@ Attribute Node::attr(const std::string& name, const std::string& def) const {
 bool Node::has(const std::string& name) const {
     auto found = attrs.find(name);
     return found != attrs.end();
+}
+
+void xml::Node::removeAttr(const std::string& name) {
+    attrs.erase(name);
 }
 
 Node& Node::sub(size_t index) {

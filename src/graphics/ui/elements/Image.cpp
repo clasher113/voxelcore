@@ -15,6 +15,10 @@ Image::Image(std::string texture, glm::vec2 size) : UINode(size), texture(std::m
     setInteractive(false);
 }
 
+gui::Image::Image(Texture* texture, glm::vec2 size) : UINode(size), tex(texture) {
+    setInteractive(false);
+}
+
 void Image::draw(const DrawContext& pctx, const Assets& assets) {
     glm::vec2 pos = calcPos();
     auto batch = pctx.getBatch2D();
@@ -22,7 +26,7 @@ void Image::draw(const DrawContext& pctx, const Assets& assets) {
     Texture* texture = nullptr;
     auto separator = this->texture.find(':');
     if (separator == std::string::npos) {
-        texture = assets.get<Texture>(this->texture);
+        texture = tex == nullptr ? assets.get<Texture>(this->texture) : tex;
         batch->texture(texture);
         if (texture && autoresize) {
             setSize(glm::vec2(texture->getWidth(), texture->getHeight()));
@@ -46,7 +50,7 @@ void Image::draw(const DrawContext& pctx, const Assets& assets) {
     }
     batch->rect(
         pos.x, pos.y, size.x, size.y, 
-        0, 0, 0, UVRegion(), false, true, calcColor()
+        0, 0, 0, uv, false, true, calcColor()
     );
 }
 

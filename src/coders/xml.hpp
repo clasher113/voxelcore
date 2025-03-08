@@ -45,6 +45,8 @@ namespace xml {
         /// @brief Add sub-element
         void add(std::unique_ptr<Node> element);
 
+        void remove(const xml::Node* element);
+
         /// @brief Set attribute value. Creates attribute if does not exists
         /// @param name attribute name
         /// @param text attribute value
@@ -78,6 +80,8 @@ namespace xml {
         /// @brief Check if element has attribute
         /// @param name attribute name
         bool has(const std::string& name) const;
+
+        void removeAttr(const std::string& name);
 
         /// @brief Get sub-element by index
         /// @param index sub-element index

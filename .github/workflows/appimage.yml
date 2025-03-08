@@ -2,7 +2,7 @@ name: x86-64 AppImage
 
 on:
   push:
-    branches: [ "main", "release-**"]
+    branches: [ "main", "release-**", "workshop"]
   pull_request:
     branches: [ "main" ]
 

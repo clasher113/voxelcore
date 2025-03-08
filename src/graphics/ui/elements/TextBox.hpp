@@ -126,6 +126,8 @@ namespace gui {
         /// @brief Get TextBox content text or placeholder if empty
         virtual const std::wstring& getText() const;
 
+        virtual std::wstring getInput() const;
+
         /// @brief Set TextBox content text
         virtual void setText(const std::wstring &value);
 

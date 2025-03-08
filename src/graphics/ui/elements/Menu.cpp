@@ -1,4 +1,6 @@
 #include "Menu.hpp"
+#include "../../../logic/scripting/scripting.hpp"
+#include "../../../frontend/workshop/menu_workshop.hpp"
 
 #include <stdexcept>
 #include <utility>
@@ -54,6 +56,7 @@ void Menu::setPage(const std::string &name, bool history) {
 }
 
 void Menu::setPage(Page page, bool history) {
+    workshop::create_workshop_button(*scripting::engine, &page);
     if (current.panel) {
         Container::remove(current.panel);
         if (history && !current.temporal) {
