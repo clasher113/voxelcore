@@ -129,7 +129,8 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 		ContentPack::scanFolder(engine.getPaths().getResourcesFolder().string(), "content", scanned);
 		gui::TextBox& id = createTextBox(panel, currentPack.id, L"example_pack");
 		id.setTextValidator([this, &id, scanned](const std::wstring&) {
-			return checkPackId(id.getInput(), scanned) || util::wstr2str_utf8(id.getInput()) == currentPack.id;
+			auto [code, isOk] = checkPackId(id.getInput(), scanned);
+			return isOk || util::wstr2str_utf8(id.getInput()) == currentPack.id;
 		});
 
 		panel << new gui::Label("Description");

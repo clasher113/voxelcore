@@ -106,25 +106,26 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 
 	menu->addPage("workshop", std::shared_ptr<gui::Panel>(panel));
 	std::vector<std::string> openHistory = readHistory(configFolder);
-	static FilterSettings filter = readFilter(configFolder);
+	std::shared_ptr<FilterSettings> filter(new FilterSettings(readFilter(configFolder)));
 	const std::wstring sortTypes[] = { L"Id (A-Z)", L"Title (A-Z)", L"Last modify", L"Last open" };
-	const std::wstring directories[] = { L"/res/content/", L"/content/" };
-	auto getWorkingDirectoryName = [directories]() {
-		if (filter.workingDirectory >= std::size(directories)) {
-			return util::str2wstr_utf8(filter.worldPath);
+	const std::wstring directories[] = { L"res/content/", L"content/" };
+	auto getWorkingDirectoryName = [filter, directories]() {
+		if (filter->workingDirectory >= std::size(directories)) {
+			return util::str2wstr_utf8(filter->worldPath);
 		}
-		return directories[filter.workingDirectory];
+		return directories[filter->workingDirectory];
 	};
 
-	gui::Button& sortButton = *new gui::Button(L"Sort by: " + sortTypes[filter.sortType], glm::vec4(10.f), gui::onaction());
-	gui::FullCheckBox& sortCheckBox = *new gui::FullCheckBox(L"Reverse sort", glm::vec2(filterPanel.getSize().x, 30.f), filter.reverseSort);
+	gui::Button& sortButton = *new gui::Button(L"Sort by: " + sortTypes[filter->sortType], glm::vec4(10.f), gui::onaction());
+	gui::FullCheckBox& sortCheckBox = *new gui::FullCheckBox(L"Reverse sort", glm::vec2(filterPanel.getSize().x, 30.f), filter->reverseSort);
 	gui::TextBox& searchBox = *new gui::TextBox(L"");
 	searchBox.setHint(L"Search by id/title");
-	searchBox.setText(util::str2wstr_utf8(filter.searchString));
+	searchBox.setText(util::str2wstr_utf8(filter->searchString));
 	gui::Button& directoryButton = *new gui::Button(L"Working directory: " + getWorkingDirectoryName(), glm::vec4(10.f), gui::onaction());
 	gui::Panel& worldsPanel = *new gui::Panel(glm::vec2(filterPanel.getSize().x, 320.f));
 	worldsPanel.setMaxLength(worldsPanel.getSize().y);
 	worldsPanel.setMinLength(worldsPanel.getSize().y);
+	worldsPanel.setColor(glm::vec4(0.f));
 	filterPanel << sortButton << sortCheckBox << searchBox << directoryButton;
 	filterPanel << new gui::Label(L"Worlds with local packs:");
 	filterPanel << new gui::Label(L"(Click to show world packs)");
@@ -164,8 +165,8 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 			label.setAlign(gui::Align::center);
 			packsPanel << label;
 		}
-		std::sort(scanned.begin(), scanned.end(), [openHistory](const ContentPack& a, const ContentPack& b) {
-			switch (filter.sortType) {
+		std::sort(scanned.begin(), scanned.end(), [filter, openHistory](const ContentPack& a, const ContentPack& b) {
+			switch (filter->sortType) {
 				case 0: return lowerCase(a.id) < lowerCase(b.id);
 				case 1: return lowerCase(a.title) < lowerCase(b.title);
 				case 2: return fs::last_write_time(a.folder) > fs::last_write_time(b.folder);
@@ -174,11 +175,11 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 			}
 			return false;
 		});
-		if (filter.reverseSort) {
+		if (filter->reverseSort) {
 			std::reverse(scanned.begin(), scanned.end());
 		}
-		if (!filter.searchString.empty()){
-			std::string searchLower = lowerCase(filter.searchString);
+		if (!filter->searchString.empty()){
+			std::string searchLower = lowerCase(filter->searchString);
 			scanned.erase(std::remove_if(scanned.begin(), scanned.end(), [searchLower](const ContentPack& pack) {
 				return lowerCase(pack.id).find(searchLower) == std::string::npos && lowerCase(pack.title).find(searchLower) == std::string::npos;
 			}), scanned.end());
@@ -187,8 +188,8 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 			gui::Container& container = *new gui::Container(glm::vec2(panel->getSize().x, 80.f));
 			container.setColor(glm::vec4(0.f, 0.f, 0.f, 0.25f));
 			container.setHoverColor(glm::vec4(0.f, 0.f, 0.f, 0.5f));
-			container.listenAction([&engine, pack, openHistory, configFolder](gui::GUI*) {
-				writeFilter(configFolder, filter);
+			container.listenAction([=, &engine](gui::GUI*) {
+				writeFilter(configFolder, *filter);
 				writeHistory(configFolder, openHistory, pack.id);
 				engine.setScreen(std::make_shared<workshop::WorkShopScreen>(engine, pack));
 			});
@@ -217,49 +218,54 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 		}
 	};
 	sortButton.listenAction([=, &sortButton](gui::GUI*) {
-		filter.sortType++;
-		if (filter.sortType >= std::size(sortTypes)) filter.sortType = 0;
-		sortButton.setText(L"Sort by: " + sortTypes[filter.sortType]);
+		filter->sortType++;
+		if (filter->sortType >= std::size(sortTypes)) filter->sortType = 0;
+		sortButton.setText(L"Sort by: " + sortTypes[filter->sortType]);
 		createPackList();
 	});
 	directoryButton.listenAction([=, &engine, &directoryButton, &worldsPanel](gui::GUI*) mutable {
-		filter.workingDirectory++;
-		if (filter.workingDirectory >= std::size(directories)) filter.workingDirectory = 0;
+		filter->workingDirectory++;
+		if (filter->workingDirectory >= std::size(directories)) filter->workingDirectory = 0;
 		directoryButton.setText(L"Working directory: " + getWorkingDirectoryName());
 		createPackList();
 	});
-	sortCheckBox.setConsumer([createPackList, &searchBox](bool checked) {
-		filter.reverseSort = checked;
+	sortCheckBox.setConsumer([=, &searchBox](bool checked) {
+		filter->reverseSort = checked;
 		createPackList();
 	});
-	searchBox.setTextValidator([createPackList](const std::wstring& string) {
-		filter.searchString = util::wstr2str_utf8(string);
+	searchBox.setTextValidator([=](const std::wstring& string) {
+		filter->searchString = util::wstr2str_utf8(string);
 		createPackList();
 		return true;
 	});
 
+	auto createWorldButton = [](Engine& engine, const fs::path& path) {
+		dv::value root = files::read_json(path / fs::u8path("world.json"));
+
+		gui::Container* worldContainer = new gui::Container(glm::vec2(380.f, 66.f));
+		worldContainer->setColor(glm::vec4(0.06f, 0.11f, 0.17f, 0.7f));
+		worldContainer->setHoverColor(glm::vec4(0.08f, 0.17f, 0.2f, 0.6f));
+
+		std::string icon = "world#" + root["name"].asString() + ".icon";
+		if (!AssetsLoader::loadExternalTexture(engine.getAssets(), icon, { path / fs::path("preview.png") }))
+			icon = "gui/no_world_icon";
+
+		*worldContainer << new gui::Image(icon, glm::vec2(96.f, 64.f));
+		gui::Label& worldName = *new gui::Label(root["name"].asString());
+		worldName.setPos(glm::vec2(104.f, 25.f));
+		*worldContainer << worldName;
+		return worldContainer;
+	};
+
 	for (const fs::path& path : worlds) {
 		if (packs.find(path) != packs.end()) {
-			dv::value root = files::read_json(path / fs::u8path("world.json"));
-
-			gui::Container& worldContainer = *new gui::Container(glm::vec2(380.f, 66.f));
-			worldContainer.listenAction([=, &directoryButton](gui::GUI*) {
-				filter.worldPath = path.string();
-				filter.workingDirectory = std::numeric_limits<uint8_t>::max();
+			gui::Container* worldContainer = createWorldButton(engine, path);
+			worldContainer->listenAction([=, &directoryButton](gui::GUI*) {
+				filter->worldPath = path.string();
+				filter->workingDirectory = std::numeric_limits<uint8_t>::max();
 				directoryButton.setText(L"Working directory: " + getWorkingDirectoryName());
 				createPackList();
 			});
-			worldContainer.setColor(glm::vec4(0.06f, 0.11f, 0.17f, 0.7f));
-			worldContainer.setHoverColor(glm::vec4(0.08f, 0.17f, 0.2f, 0.6f));
-
-			std::string icon = "world#" + root["name"].asString() + ".icon";
-			if (!AssetsLoader::loadExternalTexture(engine.getAssets(), icon, { path / fs::path("preview.png") }))
-				icon = "gui/no_world_icon";
-
-			worldContainer << new gui::Image(icon, glm::vec2(96.f, 64.f));
-			gui::Label& worldName = *new gui::Label(root["name"].asString());
-			worldName.setPos(glm::vec2(104.f, 25.f));
-			worldContainer << worldName;
 			worldsPanel << worldContainer;
 		}
 	}
@@ -276,32 +282,90 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 		auto panel = std::make_shared<gui::Panel>(glm::vec2(400, 200));
 		menu->addPage("new-content", panel);
 		menu->setPage("new-content");
-		fs::path path = engine.getPaths().getResourcesFolder() / "content";
 
-		*panel << new gui::Label(L"Name");
+		*panel << new gui::Label(L"Pack Id");
 		gui::TextBox& nameInput = *new gui::TextBox(L"example_pack", glm::vec4(6.0f));
-		nameInput.setTextValidator([getPacks](const std::wstring& text) {
-			return checkPackId(text, getPacks());
+		nameInput.setTooltipDelay(0.f);
+		nameInput.setTextValidator([getPacks, &nameInput](const std::wstring&) {
+			auto [code, isOk] = checkPackId(nameInput.getInput(), getPacks());
+			nameInput.setTooltip(util::str2wstr_utf8(code));
+			return isOk;
 		});
 		*panel << nameInput;
+
+		auto saveToDirectory = [=]() -> std::wstring {
+			if (filter->workingDirectory >= 2) return L"specific world";
+			else return directories[filter->workingDirectory];
+		};
+
+		gui::Panel& worldsPanel = *new gui::Panel(glm::vec2(panel->getSize().x, 320.f));
+		worldsPanel.setMaxLength(320.f);
+		auto updateWorldsPanel = [filter, &worldsPanel]() {
+			float height = 0.f;
+			bool visible = false;
+			if (filter->workingDirectory >= 2) {
+				height = 320.f;
+				visible = true;
+			}
+			worldsPanel.setSize(glm::vec2(worldsPanel.getSize().x, height));
+			worldsPanel.setVisible(visible);
+		};
+		gui::Label& pathLabel = *new gui::Label(getWorkingDirectoryName());
+
+		auto worlds = engine.getPaths().scanForWorlds();
+		for (const fs::path& path : worlds) {
+			gui::Container* worldButton = createWorldButton(engine, path);
+			worldButton->listenAction([=, &pathLabel](gui::GUI*) {
+				filter->workingDirectory = std::numeric_limits<uint8_t>::max();
+				filter->worldPath = path.string();
+				pathLabel.setText(getWorkingDirectoryName());
+			});
+			worldsPanel << worldButton;
+		}
+		updateWorldsPanel();
+
+		gui::Button& saveToButton = *new gui::Button(L"Save to: " + saveToDirectory(), glm::vec4(10.f), gui::onaction());
+		saveToButton.listenAction([=, &saveToButton, &pathLabel](gui::GUI*) {
+			filter->workingDirectory++;
+			if (filter->workingDirectory > 2) filter->workingDirectory = 0;
+			updateWorldsPanel();
+			saveToButton.setText(L"Save to: " + saveToDirectory());
+			pathLabel.setText(getWorkingDirectoryName());
+		});
+		*panel << saveToButton;
+		*panel << worldsPanel;
+		*panel << new gui::Label("Pack will be saved into:");
+		*panel << pathLabel;
 
 		*panel << new gui::Button(L"Create", glm::vec4(10.f), [=, &nameInput, &engine](gui::GUI*) {
 			if (!nameInput.validate()) return;
 			ContentPack pack;
-			pack.folder = path / nameInput.getInput();
+			pack.folder = fs::path(getWorkingDirectoryName());
+			if (filter->workingDirectory >= std::size(directories)) pack.folder /= "content";
+			pack.folder /= nameInput.getInput();
 			pack.id = pack.title = util::wstr2str_utf8(nameInput.getInput());
 			pack.version = "1.0";
-			fs::create_directories(pack.folder / ContentPack::BLOCKS_FOLDER);
-			fs::create_directories(pack.folder / ContentPack::ITEMS_FOLDER);
-			fs::create_directories(pack.folder / TEXTURES_FOLDER);
+			if (fs::exists(pack.folder)){
+				nameInput.setTooltip(L"Folder \"" + nameInput.getInput() + L"\" exists");
+				nameInput.setValid(false);
+				return;
+			}
+			try {
+				fs::create_directories(pack.folder);
+			}
+			catch (const std::exception& e) {
+				nameInput.setTooltip(L"Invalid id");
+				nameInput.setValid(false);
+				return;
+			}
 			saveContentPack(pack);
 			menu->remove(panel);
 
-			writeFilter(configFolder, filter);
+			writeFilter(configFolder, *filter);
 			writeHistory(configFolder, openHistory, pack.id);
 			engine.setScreen(std::make_shared<workshop::WorkShopScreen>(engine, pack));
 		});
-		*panel << new gui::Button(L"Back", glm::vec4(10.f), [menu](gui::GUI*) {
+		*panel << new gui::Button(L"Back", glm::vec4(10.f), [filter, menu](gui::GUI*) {
 			menu->back();
 		});
 	});

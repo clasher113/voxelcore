@@ -239,14 +239,19 @@ void workshop::validateItem(Assets* assets, ItemDef& item) {
 	}
 }
 
-bool workshop::checkPackId(const std::wstring& id, const std::vector<ContentPack>& scanned) {
-	return !(id.length() < 2 || id.length() > 24 || isdigit(id[0]) ||
-		!std::all_of(id.begin(), id.end(), [](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); }) ||
-		std::find(ContentPack::RESERVED_NAMES.begin(), ContentPack::RESERVED_NAMES.end(), util::wstr2str_utf8(id)) != ContentPack::RESERVED_NAMES.end() ||
-		std::find_if(scanned.begin(), scanned.end(), [id](const ContentPack& pack) {
+std::pair<std::string, bool> workshop::checkPackId(const std::wstring& id, const std::vector<ContentPack>& scanned) {
+	if (id.length() < 2) return { "Id too short", false };
+	if (id.length() > 24) return { "Id too long", false };
+	if (iswdigit(id[0])) return { "Id must not start with a digit", false };
+	if (!std::all_of(id.begin(), id.end(), [](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); }))
+		return { "Id has illegal character", false };
+	if (std::find(ContentPack::RESERVED_NAMES.begin(), ContentPack::RESERVED_NAMES.end(), util::wstr2str_utf8(id)) != ContentPack::RESERVED_NAMES.end())
+		return { "Id is reserved", false };
+	if (std::find_if(scanned.begin(), scanned.end(), [id](const ContentPack& pack) {
 		return util::wstr2str_utf8(id) == pack.id; }
 		) != scanned.end()
-	);
+	) return { "Pack with id exist", false };
+	return { "Id available", true };
 }
 
 bool workshop::hasFocusedTextbox(const gui::Container& container) {
