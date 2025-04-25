@@ -73,7 +73,7 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 		gui::Button* button = new gui::Button(L"Icon type: " + std::wstring(iconTypes[static_cast<unsigned int>(item.iconType)]), glm::vec4(10.f), gui::onaction());
 		button->listenAction([this, button, iconTypes, &item, &textureIco, &panel](gui::GUI*) {
 			const char* const icons[] = { CORE_AIR.c_str(), "blocks:notfound", CORE_AIR.c_str() };
-			item.iconType = incrementEnumClass(item.iconType, 1);
+			incrementEnumClass(item.iconType, 1);
 			if (item.iconType > ItemIconType::BLOCK) item.iconType = ItemIconType::NONE;
 			item.icon = icons[static_cast<size_t>(item.iconType)];
 			removePanels(3);

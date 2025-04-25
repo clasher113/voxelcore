@@ -1,8 +1,8 @@
 #ifndef FRONTEND_MENU_BLOCK_MODEL_CONVERTER_HPP
 #define FRONTEND_MENU_BLOCK_MODEL_CONVERTER_HPP
 
-#include "../../maths/aabb.hpp"
-#include "../../maths/UVRegion.hpp"
+#include "maths/aabb.hpp"
+#include "maths/UVRegion.hpp"
 #include "WorkshopUtils.hpp"
 
 #include <filesystem>

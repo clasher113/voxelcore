@@ -191,6 +191,9 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 			container.listenAction([=, &engine](gui::GUI*) {
 				writeFilter(configFolder, *filter);
 				writeHistory(configFolder, openHistory, pack.id);
+				if (filter->workingDirectory >= std::size(directories)){
+					engine.getPaths().setCurrentWorldFolder(filter->worldPath);
+				}
 				engine.setScreen(std::make_shared<workshop::WorkShopScreen>(engine, pack));
 			});
 
@@ -216,6 +219,7 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 
 			packsPanel << container;
 		}
+		packsPanel.scrolled(0);
 	};
 	sortButton.listenAction([=, &sortButton](gui::GUI*) {
 		filter->sortType++;
@@ -345,16 +349,16 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 			pack.folder /= nameInput.getInput();
 			pack.id = pack.title = util::wstr2str_utf8(nameInput.getInput());
 			pack.version = "1.0";
-			if (fs::exists(pack.folder)){
-				nameInput.setTooltip(L"Folder \"" + nameInput.getInput() + L"\" exists");
-				nameInput.setValid(false);
-				return;
-			}
 			try {
+				if (fs::exists(pack.folder)) {
+					nameInput.setTooltip(L"Folder \"" + nameInput.getInput() + L"\" exists");
+					nameInput.setValid(false);
+					return;
+				}
 				fs::create_directories(pack.folder);
 			}
 			catch (const std::exception& e) {
-				nameInput.setTooltip(L"Invalid id");
+				nameInput.setTooltip(L"Invalid file name");
 				nameInput.setValid(false);
 				return;
 			}

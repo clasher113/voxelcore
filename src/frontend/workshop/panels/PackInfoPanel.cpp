@@ -1,15 +1,16 @@
 #include "../WorkshopScreen.hpp"
 
-#include "../../../assets/Assets.hpp"
-#include "../../../coders/png.hpp"
-#include "../../../graphics/core/Texture.hpp"
+#include "assets/Assets.hpp"
+#include "coders/png.hpp"
+#include "graphics/core/Texture.hpp"
 #include "../IncludeCommons.hpp"
 #include "../libs/portable-file-dialogs.h"
 #include "../WorkshopSerializer.hpp"
 
 namespace workshop {
 
-	static void createDependencyList(gui::Panel& dependencyList, gui::Panel& panel, ContentPack& pack, Engine& engine) {
+	static void createDependencyList(gui::Panel& dependencyList, gui::Panel& panel, ContentPack& pack, Engine& engine,
+		std::vector<ContentPack> contentPacks) {
 		dependencyList.clear();
 
 		for (auto& elem : pack.dependencies) {
@@ -18,29 +19,42 @@ namespace workshop {
 			gui::Container& container = *new gui::Container(glm::vec2(dependencyList.getSize().x));
 			container.setScrollable(false);
 
-			std::vector<ContentPack> scanned;
-			ContentPack::scanFolder(engine.getPaths().getResourcesFolder().string(), "content", scanned);
+			PacksManager manager = engine.createPacksManager(engine.getPaths().getCurrentWorldFolder());
+			manager.scan();
+			std::vector<ContentPack> scanned = manager.getAll(manager.getAllNames());
 
 			gui::TextBox& textbox = createTextBox(container, elem.id, L"Dependency ID");
-			const std::unordered_map<DependencyLevel, std::wstring> levels = {
-				{ DependencyLevel::required, L"required" },
-				{ DependencyLevel::optional, L"optional" },
-				{ DependencyLevel::weak, L"weak" }
-			};
-			textbox.setTextValidator([scanned, &textbox, &pack](const std::wstring&) {
+			textbox.setTooltipDelay(0.f);
+			textbox.setTextValidator([scanned, &textbox, &pack, &elem](const std::wstring&) {
 				const std::string input(util::wstr2str_utf8(textbox.getInput()));
-				return std::find_if(scanned.begin(), scanned.end(), [input](const ContentPack& pack) {
+				auto [code, isOk] = checkPackId(textbox.getInput(), scanned);
+				bool packExist = std::find_if(scanned.begin(), scanned.end(), [input](const ContentPack& pack) {
 					return pack.id == input;
-				}) != scanned.end() && input != pack.id;
+				}) != scanned.end();
+				if (elem.level == DependencyLevel::required) {
+					code = packExist ? "Dependency exist" : "Dependency not exist";
+					isOk = packExist;
+				}
+				else {
+					if (!isOk && packExist) code = "Dependency available";
+					else if (isOk) code = "Dependency not available";
+					isOk = isOk || packExist;
+				}
+				if (input == pack.id){
+					isOk = false;
+					code = "Pack recursion";
+				}
+				textbox.setTooltip(util::str2wstr_utf8(code));
+				return isOk;
 			});
 
-			gui::Button& button = *new gui::Button(L"Level: " + levels.at(elem.level), glm::vec4(10.f), gui::onaction());
-			//button->listenAction([&levelRef = pack.dependencies[dependencyIndex].level, levels, button](gui::GUI*) {
-			//	DependencyLevel level = incrementEnumClass(levelRef, 1);
-			//	if (level > DependencyLevel::weak) level = DependencyLevel::required;
-			//	levelRef = level;
-			//	button->setText(L"Level: " + levels.at(level));
-			//});
+			const std::wstring levels[] = { L"required", L"optional", L"weak" };
+			gui::Button& button = *new gui::Button(L"Level: " + levels[static_cast<int>(elem.level)], glm::vec4(10.f), gui::onaction());
+			button.listenAction([&levelRef = pack.dependencies[dependencyIndex].level, levels, &button](gui::GUI*) {
+				incrementEnumClass(levelRef, 1);
+				if (levelRef > DependencyLevel::weak) levelRef = DependencyLevel::required;
+				button.setText(L"Level: " + levels[static_cast<int>(levelRef)]);
+			});
 			gui::Image& image = *new gui::Image(engine.getAssets()->get<Texture>("gui/delete_icon"));
 			gui::Container& imageContainer = *new gui::Container(image.getSize());
 
@@ -51,9 +65,9 @@ namespace workshop {
 			button.setPos(glm::vec2(size.x + interval, 0.f));
 
 			imageContainer.setPos(glm::vec2(size.x * 2.f + interval, 0.f));
-			imageContainer.listenAction([&engine, &dependencyList, &panel, &pack, dependencyIndex](gui::GUI*) {
+			imageContainer.listenAction([=, &engine, &dependencyList, &panel, &pack](gui::GUI*) {
 				pack.dependencies.erase(pack.dependencies.begin() + dependencyIndex);
-				createDependencyList(dependencyList, panel, pack, engine);
+				createDependencyList(dependencyList, panel, pack, engine, contentPacks);
 				panel.refresh();
 			});
 			imageContainer << image;
@@ -125,12 +139,21 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 		panel << new gui::Label("Version");
 		createTextBox(panel, currentPack.version, L"1.0");
 		panel << new gui::Label("ID");
-		std::vector<ContentPack> scanned;
-		ContentPack::scanFolder(engine.getPaths().getResourcesFolder().string(), "content", scanned);
+
+		PacksManager manager = engine.createPacksManager(engine.getPaths().getCurrentWorldFolder());
+		manager.scan();
+		std::vector<ContentPack> scanned = manager.getAll(manager.getAllNames());
+
 		gui::TextBox& id = createTextBox(panel, currentPack.id, L"example_pack");
+		id.setTooltipDelay(0.f);
 		id.setTextValidator([this, &id, scanned](const std::wstring&) {
 			auto [code, isOk] = checkPackId(id.getInput(), scanned);
-			return isOk || util::wstr2str_utf8(id.getInput()) == currentPack.id;
+			if (util::wstr2str_utf8(id.getInput()) == currentPackId){
+				code = "";
+				isOk = true;
+			}
+			id.setTooltip(util::str2wstr_utf8(code));
+			return isOk;
 		});
 
 		panel << new gui::Label("Description");
@@ -141,11 +164,11 @@ void workshop::WorkShopScreen::createPackInfoPanel() {
 		dependencyList.setColor(glm::vec4(0.f));
 		panel << dependencyList;
 
-		createDependencyList(dependencyList, panel, currentPack, engine);
+		createDependencyList(dependencyList, panel, currentPack, engine, scanned);
 
-		panel << new gui::Button(L"Add dependency", glm::vec4(10.f), [this, &dependencyList, &panel](gui::GUI*) {
+		panel << new gui::Button(L"Add dependency", glm::vec4(10.f), [this, &dependencyList, &panel, scanned](gui::GUI*) {
 			currentPack.dependencies.emplace_back();
-			createDependencyList(dependencyList, panel, currentPack, engine);
+			createDependencyList(dependencyList, panel, currentPack, engine, scanned);
 		});
 
 		panel << new gui::Button(L"Save", glm::vec4(10.f), [this, &id](gui::GUI*) {

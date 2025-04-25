@@ -289,34 +289,47 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, co
 
 		if (primitives.empty()) return block;
 		block = new Block("");
-		//for (const auto& primitive : primitives) { // apply new primitives and textures
-		//	const AABB aabb(primitive.aabb.min(), primitive.aabb.max());
-		//	const auto textureIterator = preparedTextures.begin() + (&primitive - &primitives.front()) * 6;
+		for (const auto& primitive : primitives) { // apply new primitives and textures
+			const AABB aabb(primitive.aabb.min(), primitive.aabb.max());
+			const auto textureIterator = preparedTextures.begin() + (&primitive - &primitives.front()) * 6;
 
-		//	if (primitive.rotation == glm::vec3(0.f)) {
-		//		block->modelTextures.insert(block->modelTextures.begin() + block->modelBoxes.size() * 6, textureIterator, textureIterator + 6);
-		//		block->modelBoxes.emplace_back(aabb);
-		//	}
-		//	else {
-		//		auto tetragons = aabb2tetragons(aabb);
+			dv::value primitiveObject = dv::list();
+			std::string primitiveId;
 
-		//		glm::mat4 mat = glm::translate(glm::mat4(1.f), primitive.origin);
-		//		if (primitive.axis.x) mat = glm::rotate(mat, glm::radians(primitive.rotation.x) * -1.f, glm::vec3(1.f, 0.f, 0.f));
-		//		if (primitive.axis.y) mat = glm::rotate(mat, glm::radians(primitive.rotation.y), glm::vec3(0.f, 1.f, 0.f));
-		//		if (primitive.axis.z) mat = glm::rotate(mat, glm::radians(primitive.rotation.z) * -1.f, glm::vec3(0.f, 0.f, 1.f));
-		//		mat = glm::translate(mat, -primitive.origin);
+			if (primitive.rotation == glm::vec3(0.f)) {
+				primitiveId = AABB_STR;
+				putVec3(primitiveObject, aabb.a);
+				putVec3(primitiveObject, aabb.b);
+				for (auto it = textureIterator; it != it + 6; ++it) {
+					primitiveObject.add(blockName + '_' + *it);
+				}
+			}
+			else {
+				primitiveId = TETRAGON_STR;
 
-		//		for (glm::vec3& vec : tetragons) {
-		//			vec = mat * glm::vec4(vec, 1.f);
-		//		}
+				std::vector<glm::vec3> tetragons = aabb2tetragons(aabb.a, aabb.b);
 
-		//		block->modelExtraPoints.insert(block->modelExtraPoints.end(), tetragons.begin(), tetragons.end());
-		//		block->modelTextures.insert(block->modelTextures.end(), textureIterator, textureIterator + 6);
-		//	}
-		//}
-		//for (std::string& textureName : block->modelTextures) {
-		//	textureName = blockName + '_' + textureName;
-		//}
+				glm::mat4 mat = glm::translate(glm::mat4(1.f), primitive.origin);
+				if (primitive.axis.x) mat = glm::rotate(mat, glm::radians(primitive.rotation.x) * -1.f, glm::vec3(1.f, 0.f, 0.f));
+				if (primitive.axis.y) mat = glm::rotate(mat, glm::radians(primitive.rotation.y), glm::vec3(0.f, 1.f, 0.f));
+				if (primitive.axis.z) mat = glm::rotate(mat, glm::radians(primitive.rotation.z) * -1.f, glm::vec3(0.f, 0.f, 1.f));
+				mat = glm::translate(mat, -primitive.origin);
+
+				for (glm::vec3& vec : tetragons) {
+					vec = mat * glm::vec4(vec, 1.f);
+				}
+
+				for (size_t i = 0; i < tetragons.size() / 4; i++) {
+					putVec3(primitiveObject, tetragons[i * 4]);
+					putVec3(primitiveObject, tetragons[i * 4 + 1] - tetragons[i * 4]);
+					putVec3(primitiveObject, tetragons[i * 4 + 3] - tetragons[i * 4]);
+					primitiveObject.add(blockName + '_' + *(textureIterator + i));
+				}
+			}
+			if (!block->customModelRaw.has(primitiveId))
+				block->customModelRaw[primitiveId] = dv::list();
+			block->customModelRaw[primitiveId].add(primitiveObject);
+		}
 
 		{ // delete old textures
 			std::string searchString(blockName + '_');

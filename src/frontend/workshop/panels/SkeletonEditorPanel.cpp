@@ -7,6 +7,8 @@
 
 using namespace workshop;
 
+static InputMode inputMode = InputMode::SLIDER;
+
 static void updateIndices(std::vector<rigging::Bone*>& nodes, rigging::Bone* node) {
 	nodes.emplace_back(node);
 	for (auto& subnode : node->getSubnodes()) {
@@ -91,21 +93,21 @@ void WorkShopScreen::createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton
 		inputPanel.setColor(glm::vec4(0.f));
 		panel << inputPanel;
 
-		auto createInput = [&inputPanel, &currentBone](unsigned int inputType) {
+		auto createInput = [&inputPanel, &currentBone](InputMode inputMode) {
 			removeRemovable(inputPanel);
-			inputPanel << markRemovable(createVectorPanel(currentBone.offset, glm::vec3(-10.f), glm::vec3(10.f), inputPanel.getSize().x, inputType, runnable()));
+			inputPanel << markRemovable(createVectorPanel(currentBone.offset, glm::vec3(-10.f), glm::vec3(10.f), inputPanel.getSize().x, inputMode, runnable()));
 		};
 
-		static unsigned int inputType = INPUT_TYPE_SLIDER;
 		std::wstring inputModes[] = { L"Slider", L"InputBox" };
-		gui::Button* button = new gui::Button(L"Input mode: " + inputModes[inputType], glm::vec4(10.f), gui::onaction());
-		button->listenAction([button, &m = inputType, inputModes, createInput](gui::GUI*) {
-			if (++m >= 2) m = 0;
-			button->setText(L"Input mode: " + inputModes[m]);
-			createInput(m);
+		gui::Button* button = new gui::Button(L"Input mode: " + inputModes[static_cast<int>(inputMode)], glm::vec4(10.f), gui::onaction());
+		button->listenAction([button, inputModes, createInput](gui::GUI*) {
+			incrementEnumClass(inputMode, 1);
+			if (inputMode > InputMode::TEXTBOX) inputMode = InputMode::SLIDER;
+			button->setText(L"Input mode: " + inputModes[static_cast<int>(inputMode)]);
+			createInput(inputMode);
 		});
 		panel << button;
-		createInput(inputType);
+		createInput(inputMode);
 
 		auto modelName = [&currentBone]() {
 			return currentBone.model.name.empty() ? NOT_SET : currentBone.model.name;

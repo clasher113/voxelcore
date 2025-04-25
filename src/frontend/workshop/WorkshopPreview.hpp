@@ -13,6 +13,7 @@
 #include "window/Camera.hpp"
 #include "graphics/render/ModelBatch.hpp"
 #include "voxels/Chunks.hpp"
+#include "WorkshopUtils.hpp"
 
 #include <glm/fwd.hpp>
 
@@ -48,6 +49,7 @@ namespace workshop {
 		void update(float delta, float sensitivity);
 		void updateMesh();
 		void updateCache();
+		void resetView();
 
 		bool rayCast(float cursorX, float cursorY, size_t& returnIndex);
 		void rotate(float x, float y);
@@ -61,8 +63,8 @@ namespace workshop {
 		void setBlock(Block* block);
 		void setSkeleton(const rigging::SkeletonConfig* skeleton);
 		void setModel(model::Model* model);
-		void setCurrentAABB(const AABB& aabb, PrimitiveType type);
-		void setCurrentTetragon(const glm::vec3* tetragon);
+		void setCurrentAABB(const glm::vec3& a, const glm::vec3& b, PrimitiveType type);
+		void setCurrentTetragon(const glm::vec3* const tetragon);
 
 		void setUiDocument(const std::shared_ptr<xml::Document> document, std::shared_ptr<int> enviroment, bool forseUpdate = false);
 
@@ -87,7 +89,7 @@ namespace workshop {
 		float viewDistance = 2.f;
 		glm::i8vec3 blockSize{ 1, 1, 1 };
 		glm::vec2 previewRotation{ 225.f, 45.f };
-		glm::vec3 currentTetragon[4]{}, lookAtTetragon[4]{};
+		std::array<glm::vec3, 4> currentTetragon{}, lookAtTetragon{};
 		glm::vec3 cameraOffset{0.f, 0.f, 0.f}, cameraPosition{ 0.f, 0.f, 0.f };
 		PrimitiveType primitiveType;
 

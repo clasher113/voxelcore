@@ -104,46 +104,44 @@ bool workshop::operator==(const AABB& left, const AABB& right) {
 	return left.a == right.a && left.b == right.b;
 }
 
-std::vector<glm::vec3> workshop::aabb2tetragons(const AABB& aabb) {
-	std::vector<glm::vec3> result;
+std::vector<glm::vec3> workshop::aabb2tetragons(const glm::vec3& a, const glm::vec3& b) {
+	return {
+		// east (left)
+		{ b.x, a.y, b.z },
+		{ b.x, a.y, a.z },
+		{ b.x, b.y, a.z },
+		{ b.x, b.y, b.z },
 
-	// east (left)
-	result.emplace_back(aabb.b.x, aabb.a.y, aabb.b.z);
-	result.emplace_back(aabb.b.x, aabb.a.y, aabb.a.z);
-	result.emplace_back(aabb.b.x, aabb.b.y, aabb.a.z);
-	result.emplace_back(aabb.b.x, aabb.b.y, aabb.b.z);
+		// west (right)
+		{ a.x, a.y, a.z },
+		{ a.x, a.y, b.z },
+		{ a.x, b.y, b.z },
+		{ a.x, b.y, a.z },
 
-	// west (right)
-	result.emplace_back(aabb.a.x, aabb.a.y, aabb.a.z);
-	result.emplace_back(aabb.a.x, aabb.a.y, aabb.b.z);
-	result.emplace_back(aabb.a.x, aabb.b.y, aabb.b.z);
-	result.emplace_back(aabb.a.x, aabb.b.y, aabb.a.z);
+		// down (bottom)
+		{ a.x, a.y, a.z },
+		{ b.x, a.y, a.z },
+		{ b.x, a.y, b.z },
+		{ a.x, a.y, b.z },
 
-	// down (bottom)
-	result.emplace_back(aabb.a.x, aabb.a.y, aabb.a.z);
-	result.emplace_back(aabb.b.x, aabb.a.y, aabb.a.z);
-	result.emplace_back(aabb.b.x, aabb.a.y, aabb.b.z);
-	result.emplace_back(aabb.a.x, aabb.a.y, aabb.b.z);
+		// up (top)
+		{ a.x, b.y, b.z },
+		{ b.x, b.y, b.z },
+		{ b.x, b.y, a.z },
+		{ a.x, b.y, a.z },
 
-	// up (top)
-	result.emplace_back(aabb.a.x, aabb.b.y, aabb.b.z);
-	result.emplace_back(aabb.b.x, aabb.b.y, aabb.b.z);
-	result.emplace_back(aabb.b.x, aabb.b.y, aabb.a.z);
-	result.emplace_back(aabb.a.x, aabb.b.y, aabb.a.z);
+		// south (back)
+		{ a.x, a.y, b.z },
+		{ b.x, a.y, b.z },
+		{ b.x, b.y, b.z },
+		{ a.x, b.y, b.z },
 
-	// south (back)
-	result.emplace_back(aabb.a.x, aabb.a.y, aabb.b.z);
-	result.emplace_back(aabb.b.x, aabb.a.y, aabb.b.z);
-	result.emplace_back(aabb.b.x, aabb.b.y, aabb.b.z);
-	result.emplace_back(aabb.a.x, aabb.b.y, aabb.b.z);
-
-	// north (front)
-	result.emplace_back(aabb.b.x, aabb.a.y, aabb.a.z);
-	result.emplace_back(aabb.a.x, aabb.a.y, aabb.a.z);
-	result.emplace_back(aabb.a.x, aabb.b.y, aabb.a.z);
-	result.emplace_back(aabb.b.x, aabb.b.y, aabb.a.z);
-
-	return result;
+		// north (front)
+		{ b.x, a.y, a.z },
+		{ a.x, a.y, a.z },
+		{ a.x, b.y, a.z },
+		{ b.x, b.y, a.z },
+	};
 }
 
 void workshop::formatTextureImage(gui::Image& image, Texture* const texture, float height, const UVRegion& region) {
@@ -163,6 +161,7 @@ void workshop::setSelectable(const gui::Panel& panel) {
 	for (const auto& elem : panel.getNodes()) {
 		if (T* node = dynamic_cast<T*>(elem.get())) {
 			node->listenAction([node, &panel](gui::GUI* gui) {
+				if (node->getParent() == nullptr) return;
 				for (const auto& elem : panel.getNodes()) {
 					if (typeid(*elem.get()) == typeid(T)) {
 						elem->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
@@ -173,6 +172,61 @@ void workshop::setSelectable(const gui::Panel& panel) {
 			});
 		}
 	}
+}
+
+std::array<glm::vec3, 4> workshop::exportTetragon(const dv::value& list) {
+	glm::vec3 temp[3];
+	for (size_t i = 0; i < 3; i++) {
+		for (size_t j = 0; j < 3; j++) {
+			temp[i][j] = list[i * 3 + j].asNumber();
+		}
+	}
+	return {
+		temp[0],
+		temp[0] + temp[1],
+		temp[0] + temp[1] + temp[2],
+		temp[0] + temp[2]
+	};
+}
+
+AABB workshop::exportAABB(const dv::value& list) {
+	glm::vec3 temp[2];
+	for (size_t i = 0; i < 2; i++) {
+		for (size_t j = 0; j < 3; j++) {
+			temp[i][j] = list[i * 3 + j].asNumber();
+		}
+	}
+	return AABB(temp[0], temp[1]);
+}
+
+std::vector<dv::value> workshop::getAllWithType(const dv::value& object, dv::value_type type) {
+	std::vector<dv::value> result;
+	if (object.getType() == type) {
+		result.emplace_back(object);
+	} else if (object.getType() == dv::value_type::list) {
+		for (const dv::value& elem : object.asList()) {
+			for (const dv::value subElement : getAllWithType(elem, type)) {
+				result.emplace_back(subElement);
+			}
+		}
+	} else if (object.getType() == dv::value_type::object) {
+		for (const auto& [key, value] : object.asObject()) {
+			for (const dv::value subElement : getAllWithType(value, type)) {
+				result.emplace_back(subElement);
+			}
+		}
+	}
+
+	return result;
+}
+
+void workshop::putVec3(dv::value& list, const glm::vec3& vector) {
+	list.add(vector.x); list.add(vector.y); list.add(vector.z);
+}
+
+void workshop::putAABB(dv::value& list, AABB aabb) {
+	aabb.b -= aabb.a;
+	putVec3(list, aabb.a); putVec3(list, aabb.b);
 }
 
 void workshop::placeNodesHorizontally(gui::Container& container) {
@@ -222,11 +276,13 @@ void workshop::validateBlock(Assets* assets, Block& block) {
 	auto checkTextures = [&block, blocksAtlas](std::string* begin, std::string* end) {
 		for (std::string* it = begin; it != end; it++) {
 			if (blocksAtlas->has(*it)) continue;
-			logger.info() << "the texture \"" << *it << "\" in block \"" << block.name << "\" was removed since the texture does not exist";
+			if (*it != "")
+				logger.info() << "the texture \"" << *it << "\" in block \"" << block.name 
+				<< "\" was removed since the texture does not exist";
 			*it = TEXTURE_NOTFOUND;
 		}
 	};
-	//checkTextures(std::begin(block.textureFaces), std::end(block.textureFaces));
+	checkTextures(block.textureFaces.data(), block.textureFaces.data() + block.textureFaces.size());
 	//checkTextures(block.modelTextures.data(), block.modelTextures.data() + block.modelTextures.size());
 }
 
@@ -307,8 +363,8 @@ std::string workshop::getUILayoutName(Assets* assets, const std::string& layoutN
 	return NOT_SET;
 }
 
-std::string workshop::getPrimitiveName(PrimitiveType type) {
-	const char* const names[] = { "AABB", "Tetragon", "Hitbox" };
-	if (static_cast<size_t>(type) >= std::size(names)) return std::string();
+std::wstring workshop::getPrimitiveName(PrimitiveType type) {
+	const wchar_t* const names[] = { L"AABB", L"Tetragon", L"Hitbox" };
+	if (static_cast<size_t>(type) >= std::size(names)) return std::wstring();
 	return names[static_cast<size_t>(type)];
 }

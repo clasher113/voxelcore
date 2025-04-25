@@ -24,6 +24,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 
 		createFullCheckBox(panel, L"Light passing", block.lightPassing, L"Does the block passing lights into itself");
 		createFullCheckBox(panel, L"Sky light passing", block.skyLightPassing, L"Does the block passing top-down sky lights into itself");
+		createFullCheckBox(panel, L"Translucent", block.translucent, L"Block has semi-transparent texture");
 		createFullCheckBox(panel, L"Obstacle", block.obstacle, L"Is the block a physical obstacle");
 		createFullCheckBox(panel, L"Selectable", block.selectable, L"Can the block be selected");
 		createFullCheckBox(panel, L"Replaceable", block.replaceable, L"Can the block be replaced with other. \n Examples of replaceable blocks: air, flower, water");
@@ -106,7 +107,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 
 		gui::Button* button = new gui::Button(L"Model: " + util::str2wstr_utf8(to_string(block.model)), glm::vec4(10.f), gui::onaction());
 		button->listenAction([&block, button, processModelChange](gui::GUI*) {
-			block.model = incrementEnumClass(block.model, 1);
+			incrementEnumClass(block.model, 1);
 			if (block.model > BlockModel::custom) block.model = BlockModel::none;
 			button->setText(L"Model: " + util::str2wstr_utf8(to_string(block.model)));
 			processModelChange(block);
@@ -142,7 +143,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		createEmissionPanel(panel, block.emission);
 
 		panel << new gui::Label("Block size (0 - 5)");
-		panel << createVectorPanel(block.size, glm::i8vec3(0), glm::i8vec3(5), panel.getSize().x, 1, [processModelChange, &block]() {
+		panel << createVectorPanel(block.size, glm::i8vec3(0), glm::i8vec3(5), panel.getSize().x, InputMode::TEXTBOX, [processModelChange, &block]() {
 			processModelChange(block);
 		});
 

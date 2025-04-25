@@ -16,15 +16,6 @@
 #include <algorithm>
 #include <map>
 
-static void putVec3(dv::value& list, const glm::vec3& vector){
-	list.add(vector.x); list.add(vector.y); list.add(vector.z);
-}
-
-static void putAABB(dv::value& list, AABB aabb){
-	aabb.b -= aabb.a;
-	putVec3(list, aabb.a); putVec3(list, aabb.b);
-}
-
 static std::string to_string(const glm::vec3& vector, char delimiter = ','){
 	return std::to_string(vector.x) + delimiter + std::to_string(vector.y) + delimiter + std::to_string(vector.z);
 }
@@ -44,17 +35,17 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 	dv::value root = dv::object();
 
 	if (block.model != BlockModel::custom) {
-		//if (!std::equal(block.textureFaces->begin(), block.textureFaces->end(), master.textureFaces->begin(), master.textureFaces->end())) {
-		//	if (std::all_of(std::cbegin(block.textureFaces), std::cend(block.textureFaces), [&r = block.textureFaces[0]](const std::string& value) {return value == r; })) {
-		//		root["texture"] = block.textureFaces[0];
-		//	}
-		//	else {
-		//		dv::value& texarr = root.list("texture-faces");
-		//		for (size_t i = 0; i < 6; i++) {
-		//			texarr.add(block.textureFaces[i]);
-		//		}
-		//	}
-		//}
+		if (!std::equal(block.textureFaces.begin(), block.textureFaces.end(), master.textureFaces.begin(), master.textureFaces.end())) {
+			if (std::all_of(std::cbegin(block.textureFaces), std::cend(block.textureFaces), [&r = block.textureFaces[0]](const std::string& value) {return value == r; })) {
+				root["texture"] = block.textureFaces[0];
+			}
+			else {
+				dv::value& texarr = root.list("texture-faces");
+				for (size_t i = 0; i < 6; i++) {
+					texarr.add(block.textureFaces[i]);
+				}
+			}
+		}
 	}
 #define NOT_EQUAL(MEMBER) master.MEMBER != block.MEMBER
 	
@@ -106,16 +97,12 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 			}
 		}
 		else if (!block.hitboxes.empty()) {
-			//if (!std::equal(block.hitboxes.begin(), block.hitboxes.end(), block.modelBoxes.begin(), block.modelBoxes.end(), [](const AABB& hitbox, const AABB& modelBox) {
-			//	return hitbox == modelBox;
-			//})) {
-			//	dv::value& hitboxesArr = root.list("hitboxes");
-			//	for (const auto& hitbox : block.hitboxes) {
-			//		dv::value& hitboxArr = hitboxesArr.list();
-			//		hitboxArr.multiline = false;
-			//		putAABB(hitboxArr, hitbox);
-			//	}
-			//}
+			dv::value& hitboxesArr = root.list("hitboxes");
+			for (const auto& hitbox : block.hitboxes) {
+				dv::value& hitboxArr = hitboxesArr.list();
+				hitboxArr.multiline = false;
+				putAABB(hitboxArr, hitbox);
+			}
 		}
 	}
 
@@ -123,41 +110,15 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 		return std::all_of(std::cbegin(arr) + offset, std::cbegin(arr) + offset + numElements, [&r = arr[offset]](const std::string& value) {return value == r; });
 	};
 	if (block.model == BlockModel::custom) {
-		dv::value& model = root.object("model-primitives");
-		size_t textureOffset = 0;
-		//const size_t parentTexSize = parent ? parent->modelTextures.size() : 0;
-		//if (!block.modelBoxes.empty()) {
-		//	const size_t parentPrimitiveSize = parent ? parent->modelBoxes.size() : 0;
-		//	if (parentPrimitiveSize != block.modelBoxes.size()) {
-		//		dv::value& aabbs = model.list("aabbs");
-		//		for (size_t i = parentPrimitiveSize; i < block.modelBoxes.size(); i++) {
-		//			dv::value& aabb = aabbs.list();
-		//			aabb.multiline = false;
-		//			putAABB(aabb, block.modelBoxes[i]);
-		//			const size_t textures = (isElementsEqual(block.modelTextures, textureOffset, 6) ? 1 : 6);
-		//			for (size_t j = 0; j < textures; j++) {
-		//				aabb.add(block.modelTextures[textureOffset + j - parentTexSize]);
-		//			}
-		//			textureOffset += 6;
-		//		}
-		//	}
-		//}
-		//if (!block.modelExtraPoints.empty()) {
-		//	const size_t parentPrimitiveSize = parent ? parent->modelBoxes.size() : 0;
-		//	if (parentPrimitiveSize != block.modelExtraPoints.size()) {
-		//		dv::value& tetragons = model.list("tetragons");
-		//		for (size_t i = parentPrimitiveSize; i < block.modelExtraPoints.size(); i += 4) {
-		//			dv::value& tetragon = tetragons.list();
-		//			tetragon.multiline = false;
-		//			putVec3(tetragon, block.modelExtraPoints[i]);
-		//			putVec3(tetragon, block.modelExtraPoints[i + 1] - block.modelExtraPoints[i]);
-		//			putVec3(tetragon, block.modelExtraPoints[i + 3] - block.modelExtraPoints[i]);
-		//			tetragon.add(block.modelTextures[textureOffset - parentTexSize]);
-		//			textureOffset++;
-		//		}
-		//	}
-		//}
-		if (model.size() == 0) root.erase("model-primitives");
+		const std::string primitivesNames[] = { AABB_STR, TETRAGON_STR };
+		dv::value& primitives = root["model-primitives"] = block.customModelRaw;
+		for (const std::string& primitiveId : primitivesNames){
+			if (primitives.has(primitiveId)) {
+				for (auto& primitive : primitives[primitiveId]) {
+					primitive.multiline = false;
+				};
+			}
+		}
 	}
 
 	return root;
@@ -266,7 +227,7 @@ static void putBone(dv::value& map, const rigging::Bone& bone){
 	if (bone.getOffset() != glm::vec3(0.f)) {
 		dv::value& list = map.list("offset");
 		list.multiline = false;
-		putVec3(list, bone.getOffset());
+		workshop::putVec3(list, bone.getOffset());
 	}
 	if (!bone.getSubnodes().empty()) {
 		dv::value& list = map.list("nodes");
@@ -295,8 +256,11 @@ void workshop::saveContentPack(const ContentPack& pack) {
 
 	if (!pack.dependencies.empty()) {
 		dv::value& dependencies = root.list("dependencies");
-		for (const auto& elem : pack.dependencies) {
-			if (!elem.id.empty()) dependencies.add(elem.id);
+		for (const auto& dependency : pack.dependencies) {
+			if (!dependency.id.empty()) {
+				const std::string prefixes[] = { "", "?", "~" };
+				dependencies.add(prefixes[static_cast<int>(dependency.level)] + dependency.id);
+			}
 		}
 		if (dependencies.size() == 0) root.erase("dependencies");
 	}

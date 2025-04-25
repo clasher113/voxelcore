@@ -1,7 +1,7 @@
 #include "../WorkshopScreen.hpp"
 
-#include "../../../coders/xml.hpp"
-#include "../../../items/ItemDef.hpp"
+#include "coders/xml.hpp"
+#include "items/ItemDef.hpp"
 #include "../IncludeCommons.hpp"
 #include "../WorkshopSerializer.hpp"
 #include "objects/EntityDef.hpp"
@@ -46,16 +46,48 @@ void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, Conten
 		}
 		else {
 			nameInput = new gui::TextBox(L"example_" + defName);
+			nameInput->setTooltipDelay(0.f);
 			nameInput->setTextValidator([this, nameInput, type](const std::wstring& text) {
 				std::wstring winput(nameInput->getInput());
 				std::string input(util::wstr2str_utf8(winput));
-				bool found = false;
-				if (type == ContentType::BLOCK || type == ContentType::ITEM || type == ContentType::ENTITY)
-					found = (blocksList.find(input) == blocksList.end() && itemsList.find(input) == itemsList.end() && entityList.find(input) == entityList.end());
-				else if (type == ContentType::UI_LAYOUT) found = !fs::is_regular_file(currentPack.folder / getDefFolder(type) / (input + ".xml"));
-				else if (type == ContentType::SKELETON) found = skeletons.find(input) == skeletons.end();
-				return found && !winput.empty() &&
-					std::all_of(winput.begin(), winput.end(), [](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); });
+				std::wstring tooltip;
+				bool isOk = true;
+				try {
+					fs::exists(input);
+				}
+				catch (const std::exception&) {
+					nameInput->setTooltip(L"Invalid file name");
+					return false;
+				}
+				{
+					std::wstring prefix(L"Id already in use: ");
+					if (type == ContentType::BLOCK || type == ContentType::ITEM || type == ContentType::ENTITY) {
+						auto blockIt = blocksList.find(input);
+						auto itemIt = itemsList.find(input);
+						auto entityIt = entityList.find(input);
+						isOk = !(blockIt != blocksList.end() || itemIt != itemsList.end() || entityIt != entityList.end());
+						if (blockIt != blocksList.end()) prefix.append(util::str2wstr_utf8("block." + blockIt->first));
+						if (itemIt != itemsList.end()) prefix.append(util::str2wstr_utf8("item." + itemIt->first));
+						if (entityIt != entityList.end()) prefix.append(util::str2wstr_utf8("entity." + entityIt->first));
+					}
+					else if (type == ContentType::UI_LAYOUT) {
+						if (!(isOk = !fs::is_regular_file(currentPack.folder / getDefFolder(type) / (input + ".xml"))))
+							prefix.append(winput);
+					}
+					else if (type == ContentType::SKELETON) {
+						if (!(isOk = skeletons.find(input) == skeletons.end()))
+							prefix.append(winput);
+					}
+					if (!isOk) tooltip = prefix;
+				}
+				if (!(isOk = !winput.empty()))
+					tooltip = L"Input must not be empty";
+				else if (!(isOk = std::all_of(winput.begin(), winput.end(), 
+					[](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); }))){
+					tooltip = L"Id has illegal character";
+				}
+				nameInput->setTooltip(tooltip);
+				return isOk;
 			});
 			panel << nameInput;
 		}

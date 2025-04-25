@@ -122,8 +122,9 @@ bool WorkShopScreen::initialize() {
 	auto& packs = engine.getContentPacks();
 	packs.clear();
 
-	std::vector<ContentPack> scanned;
-	ContentPack::scanFolder(engine.getPaths().getResourcesFolder().string(), "res/content", scanned);
+	PacksManager manager = engine.createPacksManager(engine.getPaths().getCurrentWorldFolder());
+	manager.scan();
+	std::vector<ContentPack> scanned = manager.getAll(manager.getAllNames());
 
 	if (currentPackId != "base") {
 		auto it = std::find_if(scanned.begin(), scanned.end(), [](const ContentPack& pack) {
@@ -196,6 +197,7 @@ bool WorkShopScreen::initialize() {
 
 void WorkShopScreen::exit() {
 	Engine* const e = &engine;
+	e->getPaths().setCurrentWorldFolder("");
 	e->getSettings().display.framerate.set(framerate);
 	e->setScreen(std::make_shared<MenuScreen>(*e));
 	create_workshop_button(*e, &e->getGUI()->getMenu()->getCurrent());
@@ -270,6 +272,8 @@ void WorkShopScreen::createContentErrorMessage(ContentPack& pack, const std::str
 }
 
 void WorkShopScreen::removePanel(unsigned int column) {
+	auto it = panels.find(column);
+	if (it == panels.end()) return;
 	gui->remove(panels[column]);
 	panels.erase(column);
 }
@@ -461,13 +465,16 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 	createPanel([this]() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(300));
 
-		/*panel += new gui::Button(L"Fix aabb's", glm::vec4(10.f), [this](gui::GUI*) {
+		panel << new gui::Button(L"Fix aabb's", glm::vec4(10.f), [this](gui::GUI*) {
 			std::unordered_map<Block*, size_t> brokenAABBs;
 			for (size_t i = 0; i < indices->blocks.count(); i++) {
 				size_t aabbsNum = 0;
 				Block* block = indices->blocks.getIterable().at(i);
-				for (auto& aabb : block->modelBoxes) {
-					if (aabb.a != aabb.min() && aabb.b != aabb.max()) aabbsNum++;
+				if (block->customModelRaw.has(AABB_STR)) {
+					for (const dv::value& elem : block->customModelRaw[AABB_STR].asList()) {
+						AABB aabb = exportAABB(elem);
+						if (aabb.a != aabb.min() && aabb.b != aabb.max()) aabbsNum++;
+					}
 				}
 				if (aabbsNum > 0) brokenAABBs.emplace(block, aabbsNum);
 			}
@@ -475,29 +482,37 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 				gui::Panel& panel = *new gui::Panel(glm::vec2(300));
 
 				if (brokenAABBs.empty()) {
-					panel += new gui::Label(L"Wrong aabb's not found");
+					panel << new gui::Label(L"Wrong aabb's not found");
 				}
 				else {
-					panel += new gui::Button(L"Fix all", glm::vec4(10.f), [this, brokenAABBs](gui::GUI*) {
+					panel << new gui::Button(L"Fix all", glm::vec4(10.f), [this, brokenAABBs](gui::GUI*) {
 						for (const auto& pair : brokenAABBs) {
-							for (auto& aabb : pair.first->modelBoxes) {
-								AABB temp(aabb.min(), aabb.max());
-								aabb = temp;
+							for (dv::value& aabb : pair.first->customModelRaw[AABB_STR]) {
+								AABB broken(exportAABB(aabb));
+								broken.b += broken.a;
+								glm::vec3 fixed[2]{ broken.min(), broken.max() };
+								fixed[1] -= fixed[0];
+								for (size_t i = 0; i < 2; i++) {
+									for (size_t j = 0; j < 3; j++) {
+										aabb[i * 3 + j] = fixed[i][j];
+									}
+								}
 							}
 						}
+						preview->updateCache();
 						removePanel(2);
 					});
 					for (const auto& pair : brokenAABBs) {
-						panel += new gui::Label("Block: " + getDefName(pair.first->name));
-						panel += new gui::Label("Wrong aabb's: " + std::to_string(pair.second));
+						panel << new gui::Label("Block: " + getDefName(pair.first->name));
+						panel << new gui::Label("Wrong aabb's: " + std::to_string(pair.second));
 					}
 				}
 
 				return std::ref(panel);
 			}, 2);
-		});*/
+		});
 
-		/*panel += new gui::Button(L"Find unused textures", glm::vec4(10.f), [this](gui::GUI*) {
+		panel << new gui::Button(L"Find unused textures", glm::vec4(10.f), [this](gui::GUI*) {
 			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
 			const fs::path itemsTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::ITEMS_FOLDER);
 
@@ -509,14 +524,17 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 				bool inUse = false;
 				for (size_t i = 0; i < indices->blocks.count() && !inUse; i++) {
 					const Block* const block = indices->blocks.get(i);
+					std::vector<dv::value> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
 					if (block->name.find(currentPackId) == std::string::npos) continue;
 					if (std::find(std::begin(block->textureFaces), std::end(block->textureFaces), fileName) != std::end(block->textureFaces)) inUse = true;
-					if (std::find(block->modelTextures.begin(), block->modelTextures.end(), fileName) != block->modelTextures.end()) inUse = true;
+					if (std::find_if(strings.begin(), strings.end(), [fileName](const dv::value& value){
+						return value.asString() == fileName;
+					}) != strings.end()) inUse = true;
 				}
 				for (size_t i = 0; i < indices->items.count() && !inUse; i++) {
 					const ItemDef* const item = indices->items.get(i);
 					if (item->name.find(currentPackId) == std::string::npos) continue;
-					if (item->iconType == item_icon_type::sprite && getTexName(item->icon) == fileName) inUse = true;
+					if (item->iconType == ItemIconType::SPRITE && getTexName(item->icon) == fileName) inUse = true;
 				}
 				if (!inUse) unusedTextures.emplace(ContentType::BLOCK, path);
 			}
@@ -525,7 +543,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 				bool inUse = false;
 				for (size_t i = 0; i < indices->items.count() && !inUse; i++) {
 					const ItemDef* const item = indices->items.get(i);
-					if (item->iconType == item_icon_type::sprite && getTexName(item->icon) == fileName) inUse = true;
+					if (item->iconType == ItemIconType::SPRITE && getTexName(item->icon) == fileName) inUse = true;
 				}
 				if (!inUse) unusedTextures.emplace(ContentType::ITEM, path);
 			}
@@ -533,11 +551,11 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 				gui::Panel& panel = *new gui::Panel(glm::vec2(300));
 
 				if (unusedTextures.empty()) {
-					panel += new gui::Label("Unused textures not found");
+					panel << new gui::Label("Unused textures not found");
 				}
 				else {
-					panel += new gui::Label("Found " + std::to_string(unusedTextures.size()) + " unused textures");
-					panel += new gui::Button(L"Delete all", glm::vec4(10.f), [this, unusedTextures](gui::GUI*) {
+					panel << new gui::Label("Found " + std::to_string(unusedTextures.size()) + " unused texture(s)");
+					panel << new gui::Button(L"Delete all", glm::vec4(10.f), [this, unusedTextures](gui::GUI*) {
 						std::vector<fs::path> v;
 						std::transform(unusedTextures.begin(), unusedTextures.end(), std::back_inserter(v), [](const auto& pair) {return pair.second; });
 						createFileDeletingConfirmationPanel(v, 3, [this]() {
@@ -553,15 +571,15 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 						button.listenAction([this, file, pair](gui::GUI*) {
 							createTextureInfoPanel(getDefFolder(pair.first) + ':' + file, pair.first, 3);
 						});
-						panel += button;
+						panel << button;
 					}
 				}
 
 				return std::ref(panel);
 			}, 2);
-		});*/
+		});
 
-		/*panel += new gui::Button(L"Find texture duplicates", glm::vec4(10.f), [this](gui::GUI*) {
+		panel << new gui::Button(L"Find texture duplicates", glm::vec4(10.f), [this](gui::GUI*) {
 			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
 			const Texture* const blocksTexture = blocksAtlas->getTexture();
 			ubyte* imageData = blocksAtlas->getImage()->getData();
@@ -599,24 +617,24 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 				std::vector<fs::path> files;
 
 				if (duplicates.empty()) {
-					panel += new gui::Label("Duplicated textures not found");
+					panel << new gui::Label("Duplicated textures not found");
 				}
 				else {
 					gui::Panel& filesList = *new gui::Panel(panel.getSize());
 					filesList.setMaxLength(500);
 
 					for (const auto& pair : duplicates) {
-						filesList += new gui::Label(pair.first.stem().string());
+						filesList << new gui::Label(pair.first.stem().string());
 						for (const auto& duplicate : pair.second) {
 							std::string file = duplicate.stem().string();
 							files.emplace_back(duplicate);
-							filesList += *new gui::IconButton(glm::vec2(panel.getSize().x, 50.f), file, blocksAtlas, file);
+							filesList << new gui::IconButton(glm::vec2(panel.getSize().x, 50.f), file, blocksAtlas, file);
 						}
 					}
 					optimizeContainer(filesList);
-					panel += new gui::Label("Found " + std::to_string(files.size()) + " duplicated textures");
-					panel += filesList;
-					panel += new gui::Button(L"Delete duplicates", glm::vec4(10.f), [this, duplicates, files](gui::GUI*) {
+					panel << new gui::Label("Found " + std::to_string(files.size()) + " duplicated textures");
+					panel << filesList;
+					panel << new gui::Button(L"Delete duplicates", glm::vec4(10.f), [this, duplicates, files](gui::GUI*) {
 						for (const auto& pair : duplicates) {
 							const std::string uniqueTexName = pair.first.stem().string();
 							for (const auto& duplicate : pair.second) {
@@ -624,8 +642,9 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 								for (size_t i = 0; i < indices->blocks.count(); i++) {
 									Block* const block = indices->blocks.getIterable().at(i);
 									if (block->name.find(currentPackId) == std::string::npos) continue;
-									for (std::string& blockTexture : block->modelTextures) {
-										if (blockTexture == duplicateTexName) blockTexture = uniqueTexName;
+									std::vector<dv::value> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
+									for (dv::value& blockTexture : strings) {
+										if (blockTexture.asString() == duplicateTexName) blockTexture = uniqueTexName;
 									}
 									for (std::string& blockTexture : block->textureFaces) {
 										if (blockTexture == duplicateTexName) blockTexture = uniqueTexName;
@@ -642,7 +661,7 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 
 				return std::ref(panel);
 			}, 2);
-		});*/
+		});
 
 		return std::ref(panel);
 	}, 1);
@@ -807,6 +826,9 @@ void workshop::WorkShopScreen::createPreview(unsigned int column, const std::fun
 			imageio::write(filename.string(), data.get());
 			logger.info() << "saved screenshot as " << filename.u8string();
 		});
+		panel << new gui::Button(L"Reset view", glm::vec4(10.f), [this](gui::GUI*) {
+			preview->resetView();
+		});
 
 		panel << new gui::Label("");
 		panel << new gui::Label("Camera control");
@@ -835,8 +857,8 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type,
 					if (Events::jclicked(mousecode::BUTTON_1)) {
 						createCustomModelEditor(block, index, preview->lookAtPrimitive);
 					}
-					lookAtInfo->setText(L"\nPointing at: " + util::str2wstr_utf8(getPrimitiveName(preview->lookAtPrimitive)) + 
-						L"\nPrimitive index: " + std::to_wstring(index) + L"\nPress LMB to choose");
+					lookAtInfo->setText(L"\nPointing at: " + getPrimitiveName(preview->lookAtPrimitive) + 
+						L"\nPrimitive index: " + std::to_wstring(index) + L"\nClick LMB to choose");
 				}
 			}
 			preview->drawBlock();

@@ -6,6 +6,10 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <array>
+
+#include "data/dv.hpp"
+#include "maths/aabb.hpp"
 
 class Assets;
 class Atlas;
@@ -15,7 +19,6 @@ class Engine;
 struct ItemDef;
 struct ContentPack;
 struct UVRegion;
-struct AABB;
 namespace gui {
 	class Image;
 	class Panel;
@@ -23,15 +26,19 @@ namespace gui {
 	class UINode;
 }
 
+template<glm::length_t L, typename T>
+using vec_t = glm::vec<L, T, glm::defaultp>;
+using ptr_vec3 = vec_t<3, double*>;
+
 inline const std::string NOT_SET = "[not set]";
 inline const std::string BLOCKS_PREVIEW_ATLAS = "block-previews";
 inline const std::string REMOVABLE_MARK = "removable";
+inline const std::string AABB_STR("aabbs");
+inline const std::string TETRAGON_STR("tetragons");
 inline const std::filesystem::path HISTORY_FILE("history.bin");
 inline const std::filesystem::path SETTINGS_FILE("settings.bin");
 inline const std::filesystem::path FILTER_FILE("filter.bin");
 inline constexpr float PANEL_POSITION_AUTO = std::numeric_limits<float>::min();
-inline constexpr unsigned int INPUT_TYPE_SLIDER = 0;
-inline constexpr unsigned int INPUT_TYPE_TEXTBOX = 1;
 
 namespace workshop {
 	enum class PrimitiveType : unsigned int {
@@ -52,6 +59,11 @@ namespace workshop {
 		HAS_ElEMENT_TEXT = 0x10000ULL, HAS_CONSUMER = 0x20000ULL, HAS_SUPPLIER = 0x40000ULL, HAS_HOVER_COLOR = 0x80000ULL,
 	};
 
+	enum class InputMode {
+		SLIDER = 0,
+		TEXTBOX
+	};
+
 	struct UIElementInfo {
 		unsigned long long args;
 		std::vector<std::pair<std::string, std::string>> attrTemplate;
@@ -67,7 +79,7 @@ namespace workshop {
 	extern std::string getDefName(const std::string& fullName);
 	extern std::string getScriptName(const ContentPack& pack, const std::string& scriptName);
 	extern std::string getUILayoutName(Assets* assets, const std::string& layoutName);
-	extern std::string getPrimitiveName(PrimitiveType type);
+	extern std::wstring getPrimitiveName(PrimitiveType type);
 
 	extern std::string getDefFolder(ContentType type);
 	extern std::string getDefFileFormat(ContentType type);
@@ -78,7 +90,7 @@ namespace workshop {
 	extern gui::Container& operator<<(gui::Container& left, gui::UINode* right);
 	extern bool operator==(const AABB& left, const AABB& right);
 
-	extern std::vector<glm::vec3> aabb2tetragons(const AABB& aabb);
+	extern std::vector<glm::vec3> aabb2tetragons(const glm::vec3& a, const glm::vec3& b);
 
 	extern void formatTextureImage(gui::Image& image, Texture* const texture, float height, const UVRegion& region);
 	template<typename T>
@@ -99,9 +111,16 @@ namespace workshop {
 	extern void openPath(const std::filesystem::path& path);
 	extern std::string lowerCase(const std::string& string);
 
+	extern std::array<glm::vec3, 4> exportTetragon(const dv::value& list);
+	extern AABB exportAABB(const dv::value& list);
+	extern std::vector<dv::value> getAllWithType(const dv::value& object, dv::value_type type);
+	extern void putVec3(dv::value& list, const glm::vec3& vector);
+	extern void putAABB(dv::value& list, AABB aabb);
+
 	template<typename T>
-	extern T incrementEnumClass(T enumClass, int factor) {
-		return static_cast<T>(static_cast<int>(enumClass) + factor);
+	extern T incrementEnumClass(T& enumClass, int factor) {
+		enumClass = static_cast<T>(static_cast<int>(enumClass) + factor);
+		return enumClass;
 	}
 }
 #endif // !FRONTEND_MENU_WORKSHOP_UTILS_HPP

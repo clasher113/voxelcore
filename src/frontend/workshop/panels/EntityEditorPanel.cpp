@@ -67,7 +67,7 @@ void WorkShopScreen::createEntityEditorPanel(EntityDef& entity) {
 
 		button = new gui::Button(L"Body type: " + util::str2wstr_utf8(to_string(entity.bodyType)), glm::vec4(10.f), gui::onaction());
 		button->listenAction([button, &entity](gui::GUI*) {
-			entity.bodyType = incrementEnumClass(entity.bodyType, 1);
+			incrementEnumClass(entity.bodyType, 1);
 			if (entity.bodyType > BodyType::DYNAMIC) entity.bodyType = BodyType::STATIC;
 			button->setText(L"Body type: " + util::str2wstr_utf8(to_string(entity.bodyType)));
 		});
@@ -91,7 +91,7 @@ void WorkShopScreen::createEntityEditorPanel(EntityDef& entity) {
 		panel << button;
 		
 		panel << new gui::Label("Hitbox (0 - 100)");
-		panel << createVectorPanel(entity.hitbox, glm::vec3(0.f), glm::vec3(100.f), panel.getSize().x, 1, runnable());
+		panel << createVectorPanel(entity.hitbox, glm::vec3(0.f), glm::vec3(100.f), panel.getSize().x, InputMode::TEXTBOX, runnable());
 
 		panel << new gui::Button(L"Save", glm::vec4(10.f), [this, &entity, actualName, currentParent, &backupData](gui::GUI*) {
 			backupData.string = stringify(toJson(entity, actualName, currentParent, backupData.newParent), false);
@@ -134,8 +134,8 @@ static void createList(gui::Panel& panel, gui::Panel& parentPanel, EntityDef& en
 		if (mode == MODE_COMPONENTS) createTextBox(container, entity.components[i]);
 		else if (mode == MODE_AABB_SENSORS) {
 			AABB& aabb = entity.boxSensors[i].second;
-			container << createVectorPanel(aabb.a, glm::vec3(-100.f), glm::vec3(100.f), size.x + 4.f, 1, runnable());
-			container << createVectorPanel(aabb.b, glm::vec3(-100.f), glm::vec3(100.f), size.x + 4.f, 1, runnable());
+			container << createVectorPanel(aabb.a, glm::vec3(-100.f), glm::vec3(100.f), size.x + 4.f, InputMode::TEXTBOX, runnable());
+			container << createVectorPanel(aabb.b, glm::vec3(-100.f), glm::vec3(100.f), size.x + 4.f, InputMode::TEXTBOX, runnable());
 		}
 		else if (mode == MODE_RADIAL_SENSORS) container << createNumTextBox(entity.radialSensors[i].second, L"Radius", 0.f, 100.f);
 		imageContainer.listenAction([i, &panel, &parentPanel, mode, assets, &entity](gui::GUI*) {

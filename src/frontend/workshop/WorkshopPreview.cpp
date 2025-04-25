@@ -23,6 +23,7 @@
 #include "maths/rays.hpp"
 #include "objects/EntityDef.hpp"
 #include "objects/rigging.hpp"
+#include "graphics/render/ModelsGenerator.hpp"
 
 #include <cstring>
 #include <glm/gtx/intersect.hpp>
@@ -110,14 +111,30 @@ void Preview::updateMesh() {
 	if (currentBlock == nullptr) return;
 	const bool rotatable = currentBlock->rotatable, translucent = currentBlock->translucent;
 	currentBlock->rotatable = currentBlock->translucent = false;
-	mesh = blockRenderer.render(chunk.get(), &chunks);
+	try {
+		mesh = blockRenderer.render(chunk.get(), &chunks);
+	}
+	catch (const std::exception&) {
+		mesh.mesh.reset(new Mesh(nullptr, 0, CHUNK_VATTRS));
+	}
 	currentBlock->rotatable = rotatable;
 	currentBlock->translucent = translucent;
 }
 
 void Preview::updateCache() {
+	assets.store(
+	std::make_unique<model::Model>(
+		ModelsGenerator::loadCustomBlockModel(
+		currentBlock->customModelRaw, assets, !currentBlock->shadeless)), currentBlock->modelName);
 	cache.refresh();
 	updateMesh();
+}
+
+void workshop::Preview::resetView() {
+	viewDistance = 2.f;
+	previewRotation = glm::vec2(225.f, 45.f);
+	cameraPosition = glm::vec3(0.f);
+	setBlockSize(blockSize);
 }
 
 void Preview::setBlock(Block* block) {
@@ -151,14 +168,14 @@ void Preview::setModel(model::Model* model) {
 	}
 }
 
-void Preview::setCurrentAABB(const AABB& aabb, PrimitiveType type) {
+void Preview::setCurrentAABB(const glm::vec3& a, const glm::vec3& b, PrimitiveType type) {
 	primitiveType = type;
-	AABB& aabb_ = (type == PrimitiveType::AABB ? currentAABB : currentHitbox);
-	aabb_.a = aabb.a + (aabb.b - aabb.a) / 2.f - 0.5f;
-	aabb_.b = aabb.b - aabb.a;
+	AABB& aabb = (type == PrimitiveType::AABB ? currentAABB : currentHitbox);
+	aabb.a = a + b / 2.f - 0.5f;
+	aabb.b = b;
 }
 
-void Preview::setCurrentTetragon(const glm::vec3* tetragon) {
+void Preview::setCurrentTetragon(const glm::vec3* const tetragon) {
 	primitiveType = PrimitiveType::TETRAGON;
 	for (size_t i = 0; i < 4; i++) {
 		currentTetragon[i] = tetragon[i] - 0.5f;
@@ -209,7 +226,7 @@ void Preview::setResolution(uint width, uint height) {
 
 void Preview::setBlockSize(const glm::i8vec3& size) {
 	blockSize = size;
-	cameraOffset = (glm::vec3(size) + glm::vec3(0.f)) * 0.5f - 0.5f;
+	cameraOffset = (glm::vec3(blockSize) + glm::vec3(0.f)) * 0.5f - 0.5f;
 }
 
 Texture* Preview::getTexture() {
@@ -239,31 +256,38 @@ bool Preview::rayCast(float cursorX, float cursorY, size_t& returnIndex) {
 
 		scalar_t distanceMin = std::numeric_limits<scalar_t>::max();
 		glm::ivec3 normal;
-		//for (const auto& box : currentBlock->modelBoxes) {
-		//	scalar_t distance = 0.f;
-		//	if (ray.intersectAABB(glm::dvec3(0.0), box, 100.f, normal, distance) > RayRelation::None && distance < distanceMin) {
-		//		lookAtPrimitive = PrimitiveType::AABB;
-		//		lookAtAABB.a = box.a + (box.b - box.a) / 2.f - 0.5f;
-		//		lookAtAABB.b = box.b - box.a;
-		//		returnIndex = &box - &currentBlock->modelBoxes.front();
-		//		distanceMin = distance;
-		//	}
-		//}
-		//for (size_t i = 0; i < currentBlock->modelExtraPoints.size(); i += 4) {
-		//	const glm::vec3* const elem = &currentBlock->modelExtraPoints[i];
-		//	glm::vec2 distance(std::numeric_limits<float>::max());
-		//	glm::vec2 pos;
-		//	if ((glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[1], elem[2], pos, distance.x) ||
-		//		glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), elem[0], elem[2], elem[3], pos, distance.y)) &&
-		//		std::min(distance.x, distance.y) < distanceMin) {
-		//		lookAtPrimitive = PrimitiveType::TETRAGON;
-		//		for (size_t j = 0; j < 4; j++) {
-		//			lookAtTetragon[j] = elem[j] - 0.5f;
-		//		}
-		//		returnIndex = i / 4;
-		//		distanceMin = std::min(distance.x, distance.y);
-		//	}
-		//}
+		if (currentBlock->customModelRaw.has(AABB_STR)) {
+			const dv::value& aabbList = currentBlock->customModelRaw[AABB_STR];
+			for (const auto& box : aabbList) {
+				scalar_t distance = 0.f;
+				AABB aabb(exportAABB(box));
+				if (ray.intersectAABB(glm::dvec3(0.0), AABB(aabb.a, aabb.b + aabb.a), 100.f, normal, distance) > RayRelation::None && distance < distanceMin) {
+					lookAtPrimitive = PrimitiveType::AABB;
+					lookAtAABB.a = aabb.a + aabb.b / 2.f - 0.5f;
+					lookAtAABB.b = aabb.b;
+					returnIndex = &box - &aabbList[0];
+					distanceMin = distance;
+				}
+			}
+		}
+		if (currentBlock->customModelRaw.has(TETRAGON_STR)) {
+			const dv::value& tetragonList = currentBlock->customModelRaw[TETRAGON_STR];
+			for (const auto& elem : tetragonList) {
+				auto tetragon = exportTetragon(elem);
+				glm::vec2 distance(std::numeric_limits<float>::max());
+				glm::vec2 pos;
+				if ((glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), tetragon[0], tetragon[1], tetragon[2], pos, distance.x) ||
+					glm::intersectRayTriangle(glm::vec3(ray.origin), glm::vec3(ray.dir), tetragon[0], tetragon[2], tetragon[3], pos, distance.y)) &&
+					std::min(distance.x, distance.y) < distanceMin) {
+					lookAtPrimitive = PrimitiveType::TETRAGON;
+					for (size_t i = 0; i < 4; i++) {
+						lookAtTetragon[i] = tetragon[i] - 0.5f;
+					}
+					returnIndex = &elem - &tetragonList[0];
+					distanceMin = std::min(distance.x, distance.y);
+				}
+			}
+		}
 	}
 	return lookAtPrimitive == PrimitiveType::AABB || lookAtPrimitive == PrimitiveType::TETRAGON;
 }
@@ -283,7 +307,7 @@ void Preview::drawBlock() {
 	const Assets* const assets = &this->assets;
 	Texture* const texture = assets->get<Atlas>("blocks")->getTexture();
 
-	auto drawTetragon = [lb = &lineBatch](const glm::vec3* const tetragon, const glm::vec4& color) {
+	auto drawTetragon = [lb = &lineBatch](const std::array<glm::vec3, 4>& tetragon, const glm::vec4& color) {
 		for (size_t i = 0; i < 4; i++) {
 			const size_t next = (i + 1 < 4 ? i + 1 : 0);
 			lb->line(tetragon[i], tetragon[next], color);

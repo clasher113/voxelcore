@@ -1,16 +1,16 @@
 #include "BasicElements.hpp"
 
-#include "../../../graphics/core/Atlas.hpp"
+#include "graphics/core/Atlas.hpp"
 #include "../IncludeCommons.hpp"
-#include "../WorkshopUtils.hpp"
 
 gui::TextBox& workshop::createTextBox(gui::Container& container, std::string& string, const std::wstring& placeholder) {
 	gui::TextBox& textBox = *new gui::TextBox(placeholder);
 	textBox.setText(util::str2wstr_utf8(string));
-	textBox.setTextConsumer([&string, &textBox](std::wstring text) {
-		string = util::wstr2str_utf8(textBox.getInput());
-	});
-	textBox.setTextSupplier([&string]() {
+	//textBox.setTextConsumer([&string, &textBox](std::wstring text) {
+	//	string = util::wstr2str_utf8(textBox.getInput());
+	//});
+	textBox.setTextSupplier([&string, &textBox]() {
+		if (textBox.validate()) string = util::str2str_utf8(textBox.getInput());
 		return util::str2wstr_utf8(string);
 	});
 	container << textBox;
@@ -31,9 +31,9 @@ gui::FullCheckBox& workshop::createFullCheckBox(gui::Container& container, const
 }
 
 template<glm::length_t L, typename T>
-gui::Container& workshop::createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, vec_t<L, T> max, float width, unsigned int inputType, const std::function<void()>& callback) {
+gui::Container& workshop::createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, vec_t<L, T> max, float width, InputMode inputMode, const std::function<void()>& callback) {
 	const std::wstring coords[] = { L"X", L"Y", L"Z" };
-	if (inputType == 0) {
+	if (inputMode == InputMode::SLIDER) {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(width));
 		panel.setColor(glm::vec4(0.f));
 		auto coordsString = [coords](const vec_t<L, T>& vec) {
@@ -67,9 +67,9 @@ gui::Container& workshop::createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, v
 	return container;
 }
 
-template gui::Container& workshop::createVectorPanel(vec_t<3, float>& vec, vec_t<3, float> min, vec_t<3, float> max, float width, unsigned int inputType,
+template gui::Container& workshop::createVectorPanel(vec_t<3, float>& vec, vec_t<3, float> min, vec_t<3, float> max, float width, InputMode inputMode,
 	const std::function<void()>& callback);
-template gui::Container& workshop::createVectorPanel(vec_t<3, glm::i8>& vec, vec_t<3, glm::i8> min, vec_t<3, glm::i8> max, float width, unsigned int inputType,
+template gui::Container& workshop::createVectorPanel(vec_t<3, glm::i8>& vec, vec_t<3, glm::i8> min, vec_t<3, glm::i8> max, float width, InputMode inputMode,
 	const std::function<void()>& callback);
 
 void workshop::createEmissionPanel(gui::Container& container, uint8_t* emission) {
@@ -78,7 +78,7 @@ void workshop::createEmissionPanel(gui::Container& container, uint8_t* emission)
 	gui::Container& resultContainer = *new gui::Container(glm::vec2(container.getSize().x, 20));
 	resultContainer.setColor(glm::vec4(emission[0] / 15.f, emission[1] / 15.f, emission[2] / 15.f, 1.f));
 	gui::Container& vectorPanel = createVectorPanel(*reinterpret_cast<glm::u8vec3*>(emission), glm::u8vec3(0), glm::u8vec3(15),
-		container.getSize().x, 1, [&resultContainer, emission]() {
+		container.getSize().x, InputMode::TEXTBOX, [&resultContainer, emission]() {
 		resultContainer.setColor(glm::vec4(emission[0] / 15.f, emission[1] / 15.f, emission[2] / 15.f, 1.f));
 	});
 	size_t index = 0;
@@ -90,33 +90,53 @@ void workshop::createEmissionPanel(gui::Container& container, uint8_t* emission)
 }
 
 template gui::TextBox& workshop::createNumTextBox(unsigned int&, const std::wstring&, unsigned int, unsigned int,
-const std::function<void(unsigned int)>&);
+	const std::function<void(unsigned int)>&);
 template gui::TextBox& workshop::createNumTextBox(unsigned char&, const std::wstring&, unsigned char, unsigned char,
 	const std::function<void(unsigned char)>&);
 template gui::TextBox& workshop::createNumTextBox(float&, const std::wstring&, float, float, const std::function<void(float)>&);
+template gui::TextBox& workshop::createNumTextBox(double&, const std::wstring&, double, double, const std::function<void(double)>&);
 
 template<typename T>
 gui::TextBox& workshop::createNumTextBox(T& value, const std::wstring& placeholder, T min, T max, const std::function<void(T)>& callback) {
 	gui::TextBox& textBox = *new gui::TextBox(placeholder);
+	textBox.setTooltipDelay(0.f);
 	textBox.setText(std::to_wstring(value));
-	textBox.setTextConsumer([&value, &textBox, min, max, callback](std::wstring text) {
+	textBox.setTextValidator([&textBox, min, max](const std::wstring&) {
+		std::wstring tooltip;
+		const std::wstring& input = textBox.getInput();
+		if (!input.empty()) {
+			try {
+				double result = min;
+				if (std::is_floating_point<T>::value)
+					result = stod(input);
+				else result = stoll(input);
+				if (result < min) tooltip = L"Number too low. Required minimum - " + std::to_wstring(min);
+				else if (result > max) tooltip = L"Number too big. Possible maximum - " + std::to_wstring(max);
+			}
+			catch (const std::exception& e) {
+				textBox.setTooltip(L"Number is invalid: " + util::str2wstr_utf8(e.what()));
+				return false;
+			}
+		}
+		textBox.setTooltip(tooltip);
+		return tooltip.empty();
+	});
+	textBox.setTextConsumer([&value, &textBox, min, max, callback](const std::wstring&) {
 		const std::wstring& input = textBox.getInput();
 		if (input.empty()) {
 			value = min;
 			if (callback) callback(value);
 			return;
 		}
-		try {
-			T result = static_cast<T>(stof(input));
-			if (result >= min && result <= max) {
-				value = result;
-				if (callback) callback(value);
-			}
+		if (textBox.validate()){
+			if (std::is_floating_point<T>::value) 
+				value = static_cast<T>(stod(input));
+			else value = static_cast<T>(stoll(input));
+			if (callback) callback(value);
 		}
-		catch (const std::exception&) {}
 	});
-	textBox.setTextSupplier([&value, min]() {
-		if (value != min) return util::to_wstring(value, (std::is_floating_point<T>::value ? 3 : 0));
+	textBox.setTextSupplier([&value, &textBox, min]() {
+		if (textBox.validate() && value != min) return util::to_wstring(value, (std::is_floating_point<T>::value ? 3 : 0));
 		return std::wstring(L"");
 	});
 	return textBox;
