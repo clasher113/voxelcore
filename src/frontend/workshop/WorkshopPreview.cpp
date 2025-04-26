@@ -1,6 +1,5 @@
 #include "WorkshopPreview.hpp"
 
-#include "assets/AssetsLoader.hpp"
 #include "content/Content.hpp"
 #include "engine/Engine.hpp"
 #include "graphics/core/Atlas.hpp"
@@ -12,18 +11,16 @@
 #include "items/ItemDef.hpp"
 #include "voxels/Block.hpp"
 #include "voxels/Chunk.hpp"
-#include "voxels/GlobalChunks.hpp"
 #include "window/Events.hpp"
 #include "window/Window.hpp"
-#include "world/Level.hpp"
-#include "world/World.hpp"
 #include "frontend/ContentGfxCache.hpp"
-#include "files/WorldFiles.hpp"
 #include "WorkshopUtils.hpp"
 #include "maths/rays.hpp"
 #include "objects/EntityDef.hpp"
 #include "objects/rigging.hpp"
 #include "graphics/render/ModelsGenerator.hpp"
+#include "graphics/core/Mesh.hpp"
+#include "graphics/ui/elements/InventoryView.hpp"
 
 #include <cstring>
 #include <glm/gtx/intersect.hpp>
@@ -34,8 +31,6 @@ Preview::Preview(Engine& engine, ContentGfxCache& cache) : engine(engine), cache
 assets(*engine.getAssets()),
 blockRenderer(32768, *engine.getContent(), cache, engine.getSettings()),
 chunk(new Chunk(0, 0)),
-world(new World(WorldInfo(), std::make_shared<WorldFiles>(""), *engine.getContent(), engine.getContentPacks())),
-level(new Level(std::unique_ptr<World>(world), *engine.getContent(), engine.getSettings())),
 camera(glm::vec3(0.f), glm::radians(60.f)),
 framebuffer(0, 0, true),
 inventory(std::make_shared<Inventory>(0, 0)),
@@ -54,7 +49,6 @@ lookAtPrimitive(PrimitiveType::COUNT)
 }
 
 Preview::~Preview() {
-	delete world;
 }
 
 void Preview::update(float delta, float sensitivity) {
@@ -112,10 +106,10 @@ void Preview::updateMesh() {
 	const bool rotatable = currentBlock->rotatable, translucent = currentBlock->translucent;
 	currentBlock->rotatable = currentBlock->translucent = false;
 	try {
-		mesh = blockRenderer.render(chunk.get(), &chunks);
+		mesh.reset(blockRenderer.render(chunk.get(), &chunks).mesh.release());
 	}
 	catch (const std::exception&) {
-		mesh.mesh.reset(new Mesh(nullptr, 0, CHUNK_VATTRS));
+		mesh.reset(new Mesh(nullptr, 0, CHUNK_VATTRS));
 	}
 	currentBlock->rotatable = rotatable;
 	currentBlock->translucent = translucent;
@@ -185,7 +179,7 @@ void Preview::setCurrentTetragon(const glm::vec3* const tetragon) {
 void Preview::setUiDocument(const std::shared_ptr<xml::Document> document, std::shared_ptr<int> enviroment, bool forceUpdate) {
 	if (document == currentDocument && !forceUpdate) return;
 	currentDocument = document;
-	AssetsLoader loader(&assets, engine.getResPaths());
+
 	gui::UiXmlReader reader(enviroment);
 	const xml::Node* root = document->getRoot();
 	currentUI = reader.readXML("", *root);
@@ -329,7 +323,7 @@ void Preview::drawBlock() {
 
 	main->use();
 	texture->bind();
-	mesh.mesh->draw();
+	mesh->draw();
 	endRenderer(ctx, false, false);
 }
 

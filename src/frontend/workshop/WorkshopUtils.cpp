@@ -106,17 +106,17 @@ bool workshop::operator==(const AABB& left, const AABB& right) {
 
 std::vector<glm::vec3> workshop::aabb2tetragons(const glm::vec3& a, const glm::vec3& b) {
 	return {
-		// east (left)
-		{ b.x, a.y, b.z },
-		{ b.x, a.y, a.z },
-		{ b.x, b.y, a.z },
-		{ b.x, b.y, b.z },
-
 		// west (right)
 		{ a.x, a.y, a.z },
 		{ a.x, a.y, b.z },
 		{ a.x, b.y, b.z },
 		{ a.x, b.y, a.z },
+
+		// east (left)
+		{ b.x, a.y, b.z },
+		{ b.x, a.y, a.z },
+		{ b.x, b.y, a.z },
+		{ b.x, b.y, b.z },
 
 		// down (bottom)
 		{ a.x, a.y, a.z },
@@ -130,17 +130,17 @@ std::vector<glm::vec3> workshop::aabb2tetragons(const glm::vec3& a, const glm::v
 		{ b.x, b.y, a.z },
 		{ a.x, b.y, a.z },
 
-		// south (back)
-		{ a.x, a.y, b.z },
-		{ b.x, a.y, b.z },
-		{ b.x, b.y, b.z },
-		{ a.x, b.y, b.z },
-
 		// north (front)
 		{ b.x, a.y, a.z },
 		{ a.x, a.y, a.z },
 		{ a.x, b.y, a.z },
 		{ b.x, b.y, a.z },
+
+		// south (back)
+		{ a.x, a.y, b.z },
+		{ b.x, a.y, b.z },
+		{ b.x, b.y, b.z },
+		{ a.x, b.y, b.z },
 	};
 }
 
@@ -199,19 +199,19 @@ AABB workshop::exportAABB(const dv::value& list) {
 	return AABB(temp[0], temp[1]);
 }
 
-std::vector<dv::value> workshop::getAllWithType(const dv::value& object, dv::value_type type) {
-	std::vector<dv::value> result;
+std::vector<dv::value*> workshop::getAllWithType(dv::value& object, dv::value_type type) {
+	std::vector<dv::value*> result;
 	if (object.getType() == type) {
-		result.emplace_back(object);
+		result.emplace_back(&object);
 	} else if (object.getType() == dv::value_type::list) {
-		for (const dv::value& elem : object.asList()) {
-			for (const dv::value subElement : getAllWithType(elem, type)) {
+		for (dv::value& elem : object) {
+			for (dv::value* subElement : getAllWithType(elem, type)) {
 				result.emplace_back(subElement);
 			}
 		}
 	} else if (object.getType() == dv::value_type::object) {
-		for (const auto& [key, value] : object.asObject()) {
-			for (const dv::value subElement : getAllWithType(value, type)) {
+		for (auto& [key, value] : const_cast<dv::objects::Object&>(object.asObject())) {
+			for (dv::value* subElement : getAllWithType(value, type)) {
 				result.emplace_back(subElement);
 			}
 		}
@@ -272,18 +272,30 @@ void workshop::removeRemovable(gui::Container& container) {
 }
 
 void workshop::validateBlock(Assets* assets, Block& block) {
+	if (block.customModelRaw.getType() != dv::value_type::object) {
+		block.customModelRaw = dv::object();
+	}
+	block.modelName = block.name + ".model";
 	Atlas* blocksAtlas = assets->get<Atlas>("blocks");
-	auto checkTextures = [&block, blocksAtlas](std::string* begin, std::string* end) {
-		for (std::string* it = begin; it != end; it++) {
-			if (blocksAtlas->has(*it)) continue;
-			if (*it != "")
-				logger.info() << "the texture \"" << *it << "\" in block \"" << block.name 
-				<< "\" was removed since the texture does not exist";
-			*it = TEXTURE_NOTFOUND;
+	std::vector<dv::value*> textures = getAllWithType(block.customModelRaw, dv::value_type::string);
+	auto hasTexture = [&block, blocksAtlas](const std::string& textureName) {
+		if (!blocksAtlas->has(textureName)) {
+			if (textureName != "") {
+				logger.info() << "the texture \"" << textureName << "\" in block \"" << block.name
+					<< "\" was removed since the texture does not exist";
+			}
+			return false;
 		}
+		return true;
 	};
-	checkTextures(block.textureFaces.data(), block.textureFaces.data() + block.textureFaces.size());
-	//checkTextures(block.modelTextures.data(), block.modelTextures.data() + block.modelTextures.size());
+	for (std::string& textureName : block.textureFaces){
+		if (hasTexture(textureName)) continue;
+		textureName = TEXTURE_NOTFOUND;
+	}
+	for (dv::value* textureName : textures){
+		if (hasTexture(textureName->asString())) continue;
+		*textureName = TEXTURE_NOTFOUND;
+	}
 }
 
 void workshop::validateItem(Assets* assets, ItemDef& item) {

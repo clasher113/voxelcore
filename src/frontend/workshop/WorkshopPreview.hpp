@@ -5,25 +5,22 @@
 #include "graphics/core/Batch3D.hpp"
 #include "graphics/core/Framebuffer.hpp"
 #include "graphics/core/LineBatch.hpp"
-#include "graphics/core/Mesh.hpp"
 #include "graphics/render/BlocksRenderer.hpp"
-#include "graphics/ui/elements/InventoryView.hpp"
 #include "items/Inventory.hpp"
 #include "maths/aabb.hpp"
 #include "window/Camera.hpp"
 #include "graphics/render/ModelBatch.hpp"
 #include "voxels/Chunks.hpp"
-#include "WorkshopUtils.hpp"
 
 #include <glm/fwd.hpp>
 
 class Engine;
 class ContentGfxCache;
 class Chunk;
-class Level;
-class World;
-struct EntityDef;
 class Shader;
+class Mesh;
+class DrawContext;
+struct EntityDef;
 namespace gui {
 	class UINode;
 }
@@ -100,8 +97,6 @@ namespace workshop {
 		BlocksRenderer blockRenderer;
 		ModelBatch modelBatch;
 		std::shared_ptr<Chunk> chunk;
-		World* world;
-		Level* level;
 		Chunks chunks;
 		Camera camera;
 		Framebuffer framebuffer;
@@ -116,7 +111,7 @@ namespace workshop {
 		LineBatch lineBatch;
 		Batch2D batch2d;
 		Batch3D batch3d;
-		ChunkMesh mesh;
+		std::unique_ptr<Mesh> mesh;
 
 		AABB currentAABB, currentHitbox, lookAtAABB;
 

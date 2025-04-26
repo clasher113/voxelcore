@@ -308,7 +308,9 @@ void WorkShopScreen::createPanel(const std::function<gui::Panel& ()>& lambda, un
 	gui->add(panel);
 }
 
-void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model) {
+void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model,
+	const std::function<void()>& callback)
+{
 	const char* const faces[] = { "East:", "West:", "Bottom:", "Top:", "South:", "North:" };
 
 	size_t buttonsNum = 0;
@@ -328,15 +330,16 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 	for (size_t i = 0; i < buttonsNum; i++) {
 		gui::IconButton* button = new gui::IconButton(glm::vec2(panel.getSize().x, iconSize), textures[i], blocksAtlas, textures[i],
 			(buttonsNum == 6 ? faces[i] : ""));
-		button->listenAction([this, button, model, textures, iconSize, i](gui::GUI*) {
+		button->listenAction([=](gui::GUI*) {
 			createTextureList(35.f, 5, { ContentType::BLOCK }, button->calcPos().x + button->getSize().x, true,
-			[this, button, model, textures, iconSize, i](const std::string& texName) {
+			[=](const std::string& texName) {
 				textures[i] = getTexName(texName);
 				removePanel(5);
 				button->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
 				button->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
 				button->setIcon(getAtlas(assets, texName), getTexName(texName));
 				button->setText(getTexName(texName));
+				if (callback) callback();
 				preview->updateCache();
 			});
 		});
@@ -523,12 +526,12 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 				const std::string fileName = path.stem().string();
 				bool inUse = false;
 				for (size_t i = 0; i < indices->blocks.count() && !inUse; i++) {
-					const Block* const block = indices->blocks.get(i);
-					std::vector<dv::value> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
+					Block* const block = const_cast<Block*>(indices->blocks.get(i));
+					std::vector<dv::value*> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
 					if (block->name.find(currentPackId) == std::string::npos) continue;
 					if (std::find(std::begin(block->textureFaces), std::end(block->textureFaces), fileName) != std::end(block->textureFaces)) inUse = true;
-					if (std::find_if(strings.begin(), strings.end(), [fileName](const dv::value& value){
-						return value.asString() == fileName;
+					if (std::find_if(strings.begin(), strings.end(), [fileName](const dv::value* value){
+						return value->asString() == fileName;
 					}) != strings.end()) inUse = true;
 				}
 				for (size_t i = 0; i < indices->items.count() && !inUse; i++) {
@@ -642,9 +645,9 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 								for (size_t i = 0; i < indices->blocks.count(); i++) {
 									Block* const block = indices->blocks.getIterable().at(i);
 									if (block->name.find(currentPackId) == std::string::npos) continue;
-									std::vector<dv::value> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
-									for (dv::value& blockTexture : strings) {
-										if (blockTexture.asString() == duplicateTexName) blockTexture = uniqueTexName;
+									std::vector<dv::value*> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
+									for (dv::value* blockTexture : strings) {
+										if (blockTexture->asString() == duplicateTexName) *blockTexture = uniqueTexName;
 									}
 									for (std::string& blockTexture : block->textureFaces) {
 										if (blockTexture == duplicateTexName) blockTexture = uniqueTexName;

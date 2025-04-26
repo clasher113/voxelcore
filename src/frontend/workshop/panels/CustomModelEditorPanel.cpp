@@ -103,6 +103,9 @@ void WorkShopScreen::createCustomModelEditor(Block& block, size_t index, Primiti
 		const unsigned int primitiveTypeNum = static_cast<unsigned int>(type);
 		const std::wstring currentPrimitiveName(getPrimitiveName(type));
 		const std::string currentPrimitiveId = type == PrimitiveType::AABB ? AABB_STR : TETRAGON_STR;
+		if (!block.customModelRaw.has(currentPrimitiveId))
+			block.customModelRaw[currentPrimitiveId] = dv::list();
+		dv::value& currentPrimitiveList = block.customModelRaw[currentPrimitiveId];
 
 		if (block.model == BlockModel::custom) {
 			panel << new gui::Button(L"Mode: " + editorModes[primitiveTypeNum], glm::vec4(10.f), [this, &block, type](gui::GUI*) {
@@ -119,7 +122,7 @@ void WorkShopScreen::createCustomModelEditor(Block& block, size_t index, Primiti
 		const size_t primitivesCount = getPrimitivesCount(block, type);
 		panel << new gui::Label(currentPrimitiveName + L": " + std::to_wstring(primitivesCount == 0 ? 0 : index + 1) + L"/" + std::to_wstring(primitivesCount));
 
-		panel << new gui::Button(L"Add new", glm::vec4(10.f), [this, &block, type, currentPrimitiveId](gui::GUI*) {
+		panel << new gui::Button(L"Add new", glm::vec4(10.f), [=, &block, &currentPrimitiveList](gui::GUI*) {
 			if (type == PrimitiveType::HITBOX) {
 				block.hitboxes.emplace_back();
 			} else {
@@ -127,9 +130,7 @@ void WorkShopScreen::createCustomModelEditor(Block& block, size_t index, Primiti
 					dv::list({ 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND }) : 
 					dv::list({ 0.f, 0.f, 0.5f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, TEXTURE_NOTFOUND });
 
-				if (!block.customModelRaw.has(currentPrimitiveId))
-					block.customModelRaw[currentPrimitiveId] = dv::list();
-				block.customModelRaw[currentPrimitiveId].add(template_);
+				currentPrimitiveList.add(template_);
 			}
 
 			createCustomModelEditor(block, getPrimitivesCount(block, type) - 1, type);
@@ -138,7 +139,6 @@ void WorkShopScreen::createCustomModelEditor(Block& block, size_t index, Primiti
 
 		if (getPrimitivesCount(block, type) == 0) return std::ref(panel);
 
-		dv::value& currentPrimitiveList = block.customModelRaw[currentPrimitiveId];
 		fetchData(block, type);
 
 		panel << new gui::Button(L"Copy current", glm::vec4(10.f), [=, &block, &currentPrimitiveList](gui::GUI*) {
@@ -197,11 +197,17 @@ void WorkShopScreen::createCustomModelEditor(Block& block, size_t index, Primiti
 			createInput = [=, &inputPanel, &panel, &block, &aabb]() {
 				removeRemovable(inputPanel);
 				inputPanel << markRemovable(createVectorPanel(aabb.a, glm::vec3(settings.customModelRange.x),
-					glm::max(glm::vec3(settings.customModelRange.y), glm::vec3(block.size)), panel.getSize().x, inputMode,
-					[this, &aabb, type]() { preview->setCurrentAABB(aabb.a, aabb.b, type); }));
+					glm::max(glm::vec3(settings.customModelRange.y), glm::vec3(block.size)), panel.getSize().x, inputMode, [=, &aabb]() {
+						preview->updateMesh();
+						preview->setCurrentAABB(aabb.a, aabb.b, type); 
+					}
+				));
 				inputPanel << markRemovable(createVectorPanel(aabb.b, glm::vec3(settings.customModelRange.x),
-					glm::max(glm::vec3(settings.customModelRange.y), glm::vec3(block.size)), panel.getSize().x, inputMode,
-					[this, &aabb, type]() { preview->setCurrentAABB(aabb.a, aabb.b, type); }));
+					glm::max(glm::vec3(settings.customModelRange.y), glm::vec3(block.size)), panel.getSize().x, inputMode, [=, &aabb]() {
+						preview->updateMesh();
+						preview->setCurrentAABB(aabb.a, aabb.b, type); 
+					}
+				));
 			};
 		}
 		else if (type == PrimitiveType::TETRAGON) {
@@ -252,7 +258,10 @@ void WorkShopScreen::createCustomModelEditor(Block& block, size_t index, Primiti
 		panel << createInputModeButton(createInput);
 		if (type != PrimitiveType::HITBOX) {
 			gui::Panel& texturePanel = *new gui::Panel(glm::vec2(panel.getSize().x, 35.f));
-			createTexturesPanel(texturePanel, 35.f, textures_ptr, (type == PrimitiveType::AABB ? BlockModel::aabb : BlockModel::custom));
+			createTexturesPanel(texturePanel, 35.f, textures_ptr, (type == PrimitiveType::AABB ? BlockModel::aabb : BlockModel::custom), [=, &block](){
+					applyData(block, type);
+				}
+			);
 			panel << texturePanel;
 		}
 		if (type == PrimitiveType::AABB) {
@@ -266,7 +275,6 @@ void WorkShopScreen::createCustomModelEditor(Block& block, size_t index, Primiti
 				applyData(block, PrimitiveType::TETRAGON);
 				preview->updateCache();
 				createCustomModelEditor(block, getPrimitivesCount(block, PrimitiveType::TETRAGON) - 1, PrimitiveType::TETRAGON);
-				// todo fix textures
 			});
 		}
 

@@ -12,6 +12,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 	createPanel([this, &block]() {
 		validateBlock(assets, block);
 		preview->setBlock(&block);
+		preview->updateCache();
 
 		const std::string actualName(getDefName(block.name));
 

@@ -1,8 +1,7 @@
 #ifndef FRONTEND_MENU_WORKSHOP_SCREEN_HPP
 #define FRONTEND_MENU_WORKSHOP_SCREEN_HPP
 
-#include "../screens/Screen.hpp"
-
+#include "frontend/screens/Screen.hpp"
 #include "content/ContentPack.hpp"
 #include "WorkshopUtils.hpp"
 
@@ -62,7 +61,7 @@ namespace workshop {
 		void removePanels(unsigned int column);
 		void createPanel(const std::function<gui::Panel& ()>& lambda, unsigned int column, float posX = PANEL_POSITION_AUTO);
 
-		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model);
+		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model, const std::function<void()>& callback = 0);
 		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, ItemIconType iconType);
 
 		void createAddingUIElementPanel(float posX, const std::function<void(const std::string&)>& callback, unsigned int filter);

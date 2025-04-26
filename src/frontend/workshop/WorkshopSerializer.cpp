@@ -89,8 +89,7 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 	})) {
 		if (block.hitboxes.size() == 1) {
 			const AABB& hitbox = block.hitboxes.front();
-			AABB aabb;
-			if (block.model == BlockModel::custom || !(aabb == hitbox)) {
+			if (block.model == BlockModel::custom || !(AABB() == hitbox)) {
 				dv::value& boxarr = root.list("hitbox");
 				boxarr.multiline = false;
 				putAABB(boxarr, hitbox);

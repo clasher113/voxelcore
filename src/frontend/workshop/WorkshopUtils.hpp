@@ -113,7 +113,7 @@ namespace workshop {
 
 	extern std::array<glm::vec3, 4> exportTetragon(const dv::value& list);
 	extern AABB exportAABB(const dv::value& list);
-	extern std::vector<dv::value> getAllWithType(const dv::value& object, dv::value_type type);
+	extern std::vector<dv::value*> getAllWithType(dv::value& object, dv::value_type type);
 	extern void putVec3(dv::value& list, const glm::vec3& vector);
 	extern void putAABB(dv::value& list, AABB aabb);
 

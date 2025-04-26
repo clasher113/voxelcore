@@ -1,15 +1,15 @@
 #include "BlockModelConverter.hpp"
 #include "WorkshopScreen.hpp"
 
-#include "../../coders/imageio.hpp"
-#include "../../coders/json.hpp"
-#include "../../content/Content.hpp"
-#include "../../core_defs.hpp"
-#include "../../debug/Logger.hpp"
-#include "../../files/files.hpp"
-#include "../../graphics/core/Atlas.hpp"
-#include "../../graphics/core/Texture.hpp"
-#include "../../voxels/Block.hpp"
+#include "coders/imageio.hpp"
+#include "coders/json.hpp"
+#include "content/Content.hpp"
+#include "core_defs.hpp"
+#include "debug/Logger.hpp"
+#include "files/files.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/Texture.hpp"
+#include "voxels/Block.hpp"
 #include "IncludeCommons.hpp"
 #include "WorkshopPreview.hpp"
 #include "WorkshopSerializer.hpp"
@@ -94,12 +94,10 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 						//	converting->modelTextures.clear();
 						//	converting->modelExtraPoints.clear();
 						//}
-						//converting->modelBoxes = converted->modelBoxes;
-						//converting->modelTextures = converted->modelTextures;
-						//converting->modelExtraPoints = converted->modelExtraPoints;
+						converting->customModelRaw = converted->customModelRaw;
 						converting->model = BlockModel::custom;
-						preview->updateCache();
 						preview->setBlock(converting);
+						preview->updateCache();
 
 						createContentList(ContentType::BLOCK);
 						createBlockEditor(*converting);
@@ -206,7 +204,7 @@ workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& 
 					if (faceMap.has("rotation")) {
 						currentTexture.rotation = faceMap["rotation"].asInteger();
 					}
-					if (primitiveData.rotation == glm::vec3(0.f) && faceName == facesNames[3])
+					if (/*primitiveData.rotation == glm::vec3(0.f) &&*/ (faceName == facesNames[3] || faceName == facesNames[2]))
 						currentTexture.rotation += 180;
 					if (faceMap.has("texture")) {
 						currentTexture.name = faceMap["texture"].asString().substr(1);
@@ -289,24 +287,28 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, co
 
 		if (primitives.empty()) return block;
 		block = new Block("");
+		block->customModelRaw = dv::object();
+
 		for (const auto& primitive : primitives) { // apply new primitives and textures
 			const AABB aabb(primitive.aabb.min(), primitive.aabb.max());
 			const auto textureIterator = preparedTextures.begin() + (&primitive - &primitives.front()) * 6;
-
-			dv::value primitiveObject = dv::list();
-			std::string primitiveId;
+			auto putObject = [block](const std::string& primitiveId, dv::value object) {
+				if (!block->customModelRaw.has(primitiveId)) {
+					block->customModelRaw[primitiveId] = dv::list();
+				}
+				block->customModelRaw[primitiveId].add(object);
+			};
 
 			if (primitive.rotation == glm::vec3(0.f)) {
-				primitiveId = AABB_STR;
+				dv::value primitiveObject = dv::list();
 				putVec3(primitiveObject, aabb.a);
-				putVec3(primitiveObject, aabb.b);
-				for (auto it = textureIterator; it != it + 6; ++it) {
-					primitiveObject.add(blockName + '_' + *it);
+				putVec3(primitiveObject, aabb.b - aabb.a);
+				for (size_t i = 0; i < 6; i++) {
+					primitiveObject.add(blockName + '_' + *(textureIterator + i));
 				}
+				putObject(AABB_STR, primitiveObject);
 			}
 			else {
-				primitiveId = TETRAGON_STR;
-
 				std::vector<glm::vec3> tetragons = aabb2tetragons(aabb.a, aabb.b);
 
 				glm::mat4 mat = glm::translate(glm::mat4(1.f), primitive.origin);
@@ -320,15 +322,14 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, co
 				}
 
 				for (size_t i = 0; i < tetragons.size() / 4; i++) {
+					dv::value primitiveObject = dv::list();
 					putVec3(primitiveObject, tetragons[i * 4]);
 					putVec3(primitiveObject, tetragons[i * 4 + 1] - tetragons[i * 4]);
 					putVec3(primitiveObject, tetragons[i * 4 + 3] - tetragons[i * 4]);
 					primitiveObject.add(blockName + '_' + *(textureIterator + i));
+					putObject(TETRAGON_STR, primitiveObject);
 				}
 			}
-			if (!block->customModelRaw.has(primitiveId))
-				block->customModelRaw[primitiveId] = dv::list();
-			block->customModelRaw[primitiveId].add(primitiveObject);
 		}
 
 		{ // delete old textures
@@ -357,7 +358,7 @@ Block* workshop::BlockModelConverter::convert(const ContentPack& currentPack, co
 					if (localSize[i] < 0) {
 						localSize[i] *= -1;
 						localPosition[i] -= localSize[i];
-						flip[i] = true;
+						flip[i] = !flip[i];
 					}
 				}
 				localSize = glm::max(localSize, glm::ivec2(1));
