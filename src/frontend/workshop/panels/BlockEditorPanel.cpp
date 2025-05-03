@@ -59,7 +59,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		});
 		panel << parentBlock;
 
-		panel << new gui::Label(L"Picking item");
+		panel << new gui::Label("Picking item");
 		auto item = [this](const std::string& pickingItem) {
 			return (content->items.find(pickingItem) == nullptr ? content->items.find("core:empty") : content->items.find(pickingItem));
 		};
@@ -73,32 +73,43 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 			if (item->iconType == ItemIconType::BLOCK) return item->icon;
 			return getTexName(item->icon);
 		};
-		gui::IconButton& pickingItem = *new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), block.pickingItem, atlas(block.pickingItem),
+		gui::IconButton* iconButton = new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), block.pickingItem, atlas(block.pickingItem),
 			texName(item(block.pickingItem)));
-		pickingItem.listenAction([this, &pickingItem, &panel, texName, item, atlas, &block](gui::GUI*) {
-			createContentList(ContentType::ITEM, true, 5, panel.calcPos().x + panel.getSize().x, [this, &pickingItem, texName, item, atlas, &block](std::string name) {
+		iconButton->listenAction([=, &panel, &block](gui::GUI*) {
+			createContentList(ContentType::ITEM, true, 5, panel.calcPos().x + panel.getSize().x, [=, &block](const std::string& name) {
 				block.pickingItem = name;
-				pickingItem.setIcon(atlas(block.pickingItem), texName(item(block.pickingItem)));
-				pickingItem.setText(name);
+				iconButton->setIcon(atlas(block.pickingItem), texName(item(block.pickingItem)));
+				iconButton->setText(name);
 				removePanels(5);
 			});
 		});
-		panel << pickingItem;
+		panel << iconButton;
+
+		panel << new gui::Label("Surface replacement");
+		iconButton = new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), block.surfaceReplacement, previewAtlas,
+		   block.surfaceReplacement);
+		iconButton->setTooltip(L"Block will be used instead of this if generated on surface");
+		iconButton->listenAction([=, &panel, &block](gui::GUI*) {
+			createContentList(ContentType::BLOCK, true, 5, panel.calcPos().x + panel.getSize().x, [=, &block](const std::string& name) {
+				block.surfaceReplacement = name;
+				iconButton->setIcon(previewAtlas, block.surfaceReplacement);
+				iconButton->setText(block.surfaceReplacement);
+				removePanels(5);
+			});
+		});
+		panel << iconButton;
 
 		gui::Panel& texturePanel = *new gui::Panel(glm::vec2(panel.getSize().x, 35.f), glm::vec4(0.f));
 		texturePanel.setColor(glm::vec4(0.f));
 		panel << texturePanel;
 
-		auto processModelChange = [this, &texturePanel, &panel](Block& block) {
+		auto openAdditionalPanel = [=, &texturePanel, &panel](Block& block) {
 			removeRemovable(texturePanel);
 			if (block.model == BlockModel::custom) {
-				createCustomModelEditor(block, 0, PrimitiveType::AABB);
-				texturePanel << markRemovable(new gui::Button(L"Import model", glm::vec4(10), [this, &panel, &block](gui::GUI*) {
-					createBlockConverterPanel(block, panel.getPos().x + panel.getSize().x);
-				}));
+				createAdditionalBlockEditorPanel(block, 0, PrimitiveType::AABB);
 			}
 			else {
-				createCustomModelEditor(block, 0, PrimitiveType::HITBOX);
+				createAdditionalBlockEditorPanel(block, 0, PrimitiveType::HITBOX);
 				createTexturesPanel(texturePanel, 35.f, block.textureFaces.data(), block.model);
 			}
 			texturePanel.cropToContent();
@@ -107,15 +118,15 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		};
 
 		gui::Button* button = new gui::Button(L"Model: " + util::str2wstr_utf8(to_string(block.model)), glm::vec4(10.f), gui::onaction());
-		button->listenAction([&block, button, processModelChange](gui::GUI*) {
+		button->listenAction([&block, button, openAdditionalPanel](gui::GUI*) {
 			incrementEnumClass(block.model, 1);
 			if (block.model > BlockModel::custom) block.model = BlockModel::none;
 			button->setText(L"Model: " + util::str2wstr_utf8(to_string(block.model)));
-			processModelChange(block);
+			openAdditionalPanel(block);
 		});
 		panel << button;
 
-		processModelChange(block);
+		openAdditionalPanel(block);
 
 		auto getRotationName = [](const Block& block) {
 			if (!block.rotatable) return "none";
@@ -129,13 +140,21 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 			if (rot == "none") {
 				block.rotations = BlockRotProfile::PANE;
 			}
-			else if (rot == "pane") {
+			else if (rot == BlockRotProfile::PANE_NAME) {
 				block.rotations = BlockRotProfile::PIPE;
 			}
-			else if (rot == "pipe") {
+			else if (rot == BlockRotProfile::PIPE_NAME) {
 				block.rotatable = false;
 			}
 			button->setText(L"Rotation: " + util::str2wstr_utf8(getRotationName(block)));
+		});
+		panel << button;
+
+		button = new gui::Button(L"Culling mode: " + util::str2wstr_utf8(to_string(block.culling)), glm::vec4(10.f), gui::onaction());
+		button->listenAction([&block, button](gui::GUI*) {
+			incrementEnumClass(block.culling, 1);
+			if (block.culling > CullingMode::DISABLED) block.culling = CullingMode::DEFAULT;
+			button->setText(L"Culling mode: " + util::str2wstr_utf8(to_string(block.culling)));
 		});
 		panel << button;
 
@@ -143,9 +162,9 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		panel << createNumTextBox<ubyte>(block.drawGroup, L"0", 0, 255);
 		createEmissionPanel(panel, block.emission);
 
-		panel << new gui::Label("Block size (0 - 5)");
-		panel << createVectorPanel(block.size, glm::i8vec3(0), glm::i8vec3(5), panel.getSize().x, InputMode::TEXTBOX, [processModelChange, &block]() {
-			processModelChange(block);
+		panel << new gui::Label("Block size (1 - 5)");
+		panel << createVectorPanel(block.size, glm::i8vec3(1), glm::i8vec3(5), panel.getSize().x, InputMode::TEXTBOX, [=, &block]() {
+			preview->setBlockSize(block.size);
 		});
 
 		panel << new gui::Label("Script file");

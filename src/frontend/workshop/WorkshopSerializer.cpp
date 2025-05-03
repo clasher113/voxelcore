@@ -69,6 +69,8 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 	if (NOT_EQUAL(scriptName)) root["script-name"] = block.scriptName;
 	if (NOT_EQUAL(material)) root["material"] = block.material;
 	if (NOT_EQUAL(uiLayout)) root["ui-layout"] = block.uiLayout;
+	if (NOT_EQUAL(culling)) root["culling"] = to_string(block.culling);
+	if (NOT_EQUAL(surfaceReplacement)) root["surface-replacement"] = block.surfaceReplacement;
 	
 	if (!std::equal(std::begin(master.emission), std::end(master.emission), std::begin(block.emission))) {
 		dv::value& emissionarr = root.list("emission");
@@ -118,6 +120,10 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 				};
 			}
 		}
+	}
+
+	for (const auto& [key, property] : block.properties.asObject()){
+		root[key] = property;
 	}
 
 	return root;

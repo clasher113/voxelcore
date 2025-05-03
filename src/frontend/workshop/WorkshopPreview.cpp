@@ -312,12 +312,14 @@ void Preview::drawBlock() {
 	drawDirectionArrow();
 	drawGridLines();
 
+	float color = sin(engine.getTime().getTime() * 4) / 2.f + 0.5f;
+	glm::vec4 outlineColor(color, color, color, 1.f);
 	if (drawBlockSize) lineBatch.box(cameraOffset, glm::vec3(blockSize), glm::vec4(1.f));
 	if (lookAtPrimitive == PrimitiveType::AABB) lineBatch.box(lookAtAABB.a, lookAtAABB.b, glm::vec4(1.f));
 	else if (lookAtPrimitive == PrimitiveType::TETRAGON) drawTetragon(lookAtTetragon, glm::vec4(1.f));
 	if (drawBlockHitbox && primitiveType == PrimitiveType::HITBOX) lineBatch.box(currentHitbox.a, currentHitbox.b, glm::vec4(1.f, 1.f, 0.f, 1.f));
-	if (drawCurrentAABB && primitiveType == PrimitiveType::AABB) lineBatch.box(currentAABB.a, currentAABB.b, glm::vec4(1.f, 0.f, 1.f, 1.f));
-	if (drawCurrentTetragon && primitiveType == PrimitiveType::TETRAGON) drawTetragon(currentTetragon, glm::vec4(1.f, 0.f, 1.f, 1.f));
+	if (drawCurrentAABB && primitiveType == PrimitiveType::AABB) lineBatch.box(currentAABB.a, currentAABB.b, outlineColor);
+	if (drawCurrentTetragon && primitiveType == PrimitiveType::TETRAGON) drawTetragon(currentTetragon, outlineColor);
 
 	lineBatch.flush();
 
@@ -423,6 +425,10 @@ Shader* Preview::setupBlocksShader(const glm::vec3& offset) {
 Shader* Preview::drawGridLines() {
 	const Assets* const assets = &this->assets;
 	Shader* const shader = assets->get<Shader>("lines");
+	lineBatch.lineWidth(5.f);
+	shader->use();
+	shader->uniformMatrix("u_projview", camera.getProjView());
+
 	if (!drawGrid) return shader;
 
 	for (float i = -3.f; i < 3; i++) {
@@ -432,9 +438,6 @@ Shader* Preview::drawGridLines() {
 		lineBatch.line(glm::vec3(-3.f, -0.5f, i + 0.5f), glm::vec3(3.f, -0.5f, i + 0.5f), glm::vec4(1.f, 0.f, 0.f, 1.f));
 	}
 
-	lineBatch.lineWidth(5.f);
-	shader->use();
-	shader->uniformMatrix("u_projview", camera.getProjView());
 	lineBatch.flush();
 
 	return shader;

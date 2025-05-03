@@ -30,6 +30,7 @@
 #include "objects/rigging.hpp"
 #include "graphics/commons/Model.hpp"
 #include "assets/AssetsLoader.hpp"
+#include "util/platform.hpp"
 
 #define NOMINMAX
 #include "libs/portable-file-dialogs.h"
@@ -79,8 +80,12 @@ void WorkShopScreen::update(float delta) {
 		return;
 	}
 
-	for (const auto& elem : panels) {
-		elem.second->UINode::setSize(glm::vec2(elem.second->getSize().x, Window::height - 4.f));
+	const int newHeight = Window::height - 4.f;
+	for (const auto& [_, panel] : panels) {
+		if (panel->getSize().y != newHeight) {
+			panel->setSize(glm::vec2(panel->getSize().x, newHeight));
+			panel->scrolled(0);
+		}
 	}
 	if (preview) {
 		for (const auto& elem : panels) {
@@ -190,6 +195,13 @@ bool WorkShopScreen::initialize() {
 	}
 	catch (const assetload::error& err) {}
 
+	for (size_t i = 0; i < indices->blocks.count(); i++) {
+		Block& block = *const_cast<Block*>(indices->blocks.get(i));
+		for (const std::string& defaultProp : DEFAULT_BLOCK_PROPERTIES){
+			if (block.properties.has(defaultProp)) block.properties.erase(defaultProp);
+		}
+	}
+
 	backupDefs();
 
 	return 1;
@@ -230,6 +242,7 @@ void WorkShopScreen::createNavigationPanel() {
 	panel << button;
 
 	createPackInfoPanel();
+	setSelected(*panel.getNodes().front());
 
 	gui::Container* container = new gui::Container(panel.getSize());
 	container->listenInterval(0.01f, [&panel, button, container]() {
@@ -247,7 +260,7 @@ void WorkShopScreen::createNavigationPanel() {
 	setSelectable<gui::Button>(panel);
 
 	panel << new gui::Button(L"Open Pack Folder", glm::vec4(10.f), [this](gui::GUI*) {
-		openPath(currentPack.folder);
+		platform::open_folder(currentPack.folder);
 	});
 }
 
@@ -263,7 +276,7 @@ void WorkShopScreen::createContentErrorMessage(ContentPack& pack, const std::str
 	*panel << label;
 
 	*panel << new gui::Button(L"Open pack folder", glm::vec4(10.f), [pack](gui::GUI*) {
-		openPath(pack.folder);
+		platform::open_folder(pack.folder);
 	});
 	*panel << new gui::Button(L"Back", glm::vec4(10.f), [this, panel](gui::GUI*) { gui->remove(panel); exit(); });
 
@@ -272,16 +285,20 @@ void WorkShopScreen::createContentErrorMessage(ContentPack& pack, const std::str
 }
 
 void WorkShopScreen::removePanel(unsigned int column) {
-	auto it = panels.find(column);
-	if (it == panels.end()) return;
-	gui->remove(panels[column]);
-	panels.erase(column);
+	gui->postRunnable([this, column]() {
+		auto it = panels.find(column);
+		if (it == panels.end()) return;
+		gui->remove(panels[column]);
+		panels.erase(column);
+	});
 }
 
 void WorkShopScreen::removePanels(unsigned int column) {
 	for (auto it = panels.begin(); it != panels.end();) {
 		if (it->first >= column) {
-			gui->remove(it->second);
+			gui->postRunnable([this, panel = it->second]() {
+				gui->remove(panel);
+			});
 			panels.erase(it++);
 		}
 		else ++it;
@@ -406,7 +423,7 @@ void WorkShopScreen::createScriptInfoPanel(const fs::path& file) {
 		panel << new gui::Label("File: " + fileName + extention);
 
 		panel << new gui::Button(L"Open script", glm::vec4(10.f), [file](gui::GUI*) {
-			openPath(file);
+			platform::open_folder(file);
 		});
 
 		return std::ref(panel);
@@ -803,62 +820,59 @@ void WorkShopScreen::createMaterialEditor(BlockMaterial& material) {
 	}, 2);
 }
 
-void workshop::WorkShopScreen::createPreview(unsigned int column, const std::function<void(gui::Panel&, gui::Image&)>& setupFunc) {
-	createPanel([this, setupFunc]() {
-		gui::Panel& panel = *new gui::Panel(glm::vec2(300));
-		gui::Image& image = *new gui::Image(preview->getTexture(), glm::vec2(panel.getSize().x));
-		panel << image;
-		panel.listenInterval(0.01f, [this, &panel, &image]() {
-			if (panel.isHover() && image.isInside(Events::cursor)) {
-				if (Events::jclicked(mousecode::BUTTON_1)) preview->lmb = true;
-				if (Events::jclicked(mousecode::BUTTON_2)) preview->rmb = true;
-				if (Events::scroll) preview->scale(-Events::scroll / 10.f);
-			}
-			panel.setSize(glm::vec2(Window::width - panel.calcPos().x - 2.f, Window::height));
-			image.setSize(glm::vec2(panel.getSize().x, Window::height / 2.f));
-			preview->setResolution(static_cast<uint>(image.getSize().x), static_cast<uint>(image.getSize().y));
-			image.setTexture(preview->getTexture());
-		});
-		createFullCheckBox(panel, L"Draw grid", preview->drawGrid);
-		createFullCheckBox(panel, L"Show front direction", preview->drawDirection);
-		setupFunc(panel, image);
-		panel << new gui::Button(L"Take screenshot", glm::vec4(10.f), [this](gui::GUI*) {
-			auto data = preview->getTexture()->readData();
-			data->flipY();
-			fs::path filename = engine.getPaths().getNewScreenshotFile("png");
-			imageio::write(filename.string(), data.get());
-			logger.info() << "saved screenshot as " << filename.u8string();
-		});
-		panel << new gui::Button(L"Reset view", glm::vec4(10.f), [this](gui::GUI*) {
-			preview->resetView();
-		});
+gui::Panel& workshop::WorkShopScreen::createPreview(const std::function<void(gui::Panel&, gui::Image&)>& setupFunc) {
+	gui::Panel& panel = *new gui::Panel(glm::vec2());
+	gui::Image& image = *new gui::Image(preview->getTexture(), glm::vec2(panel.getSize().x));
+	panel.listenInterval(0.01f, [this, &panel, &image]() {
+		if (panel.isHover() && image.isInside(Events::cursor)) {
+			if (Events::jclicked(mousecode::BUTTON_1)) preview->lmb = true;
+			if (Events::jclicked(mousecode::BUTTON_2)) preview->rmb = true;
+			if (Events::scroll) preview->scale(-Events::scroll / 10.f);
+		}
+		panel.setSize(glm::vec2(Window::width - panel.calcPos().x - 2.f, Window::height));
+		image.setSize(glm::vec2(panel.getSize().x, Window::height / 2.f));
+		preview->setResolution(static_cast<uint>(image.getSize().x), static_cast<uint>(image.getSize().y));
+		image.setTexture(preview->getTexture());
+	});
+	panel << image;
 
-		panel << new gui::Label("");
-		panel << new gui::Label("Camera control");
-		panel << new gui::Label("Position: Left Control + W, S, A, D or RMB + mouse");
-		panel << new gui::Label("Rotate: W, S, A, D or LMB + mouse");
-		panel << new gui::Label("Zoom: Left Shift/Space or Scroll Wheel");
+	createFullCheckBox(panel, L"Draw grid", preview->drawGrid);
+	createFullCheckBox(panel, L"Show front direction", preview->drawDirection);
+	setupFunc(panel, image);
+	panel << new gui::Button(L"Take screenshot", glm::vec4(10.f), [this](gui::GUI*) {
+		auto data = preview->getTexture()->readData();
+		data->flipY();
+		fs::path filename = engine.getPaths().getNewScreenshotFile("png");
+		imageio::write(filename.string(), data.get());
+		logger.info() << "saved screenshot as " << filename.u8string();
+	});
+	panel << new gui::Button(L"Reset view", glm::vec4(10.f), [this](gui::GUI*) {
+		preview->resetView();
+	});
 
-		return std::ref(panel);
-	}, column);
+	panel << new gui::Label("");
+	panel << new gui::Label("Camera control");
+	panel << new gui::Label("Position: Left Control + W, S, A, D or RMB + mouse");
+	panel << new gui::Label("Rotate: W, S, A, D or LMB + mouse");
+	panel << new gui::Label("Zoom: Left Shift/Space or Scroll Wheel");
+
+	return panel;
 }
 
-void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type, Block& block) {
-	gui::Panel* panelPtr = nullptr;
+gui::Panel& workshop::WorkShopScreen::createBlockPreview(gui::Panel& parentPanel, Block& block, PrimitiveType type) {
 	gui::Label* lookAtInfo = new gui::Label("");
 	lookAtInfo->setMultiline(true);
 	lookAtInfo->setSize(lookAtInfo->getSize() * 4.f);
 	lookAtInfo->setLineInterval(1.2f);
-	createPreview(column, [this, type, pp = &panelPtr, lookAtInfo, &block](gui::Panel& panel, gui::Image& image) {
-		*pp = &panel;
-		panel.listenInterval(0.01f, [this, type, lookAtInfo, &panel, &image, &block]() {
-			size_t index;
+	gui::Panel& panel = createPreview([=, &parentPanel, &block](gui::Panel& panel, gui::Image& image) {
+		panel.listenInterval(0.01f, [=, &parentPanel, &panel, &image, &block]() {
 			preview->lookAtPrimitive = PrimitiveType::COUNT;
 			if (type != PrimitiveType::HITBOX) lookAtInfo->setText(L"\nYou can select a primitive with the mouse\n\n");
 			if (panel.isHover() && image.isInside(Events::cursor)) {
+				size_t index;
 				if (type != PrimitiveType::HITBOX && preview->rayCast(Events::cursor.x - image.calcPos().x, Events::cursor.y - image.calcPos().y, index)) {
 					if (Events::jclicked(mousecode::BUTTON_1)) {
-						createCustomModelEditor(block, index, preview->lookAtPrimitive);
+						createPrimitiveEditor(parentPanel, block, index, preview->lookAtPrimitive);
 					}
 					lookAtInfo->setText(L"\nPointing at: " + getPrimitiveName(preview->lookAtPrimitive) + 
 						L"\nPrimitive index: " + std::to_wstring(index) + L"\nClick LMB to choose");
@@ -874,23 +888,30 @@ void WorkShopScreen::createBlockPreview(unsigned int column, PrimitiveType type,
 		else if (type == PrimitiveType::TETRAGON)
 			createFullCheckBox(panel, L"Highlight current Tetragon", preview->drawCurrentTetragon);
 	});
-	*panelPtr << lookAtInfo;
+	panel << lookAtInfo;
+	return panel;
 }
 
 void workshop::WorkShopScreen::createSkeletonPreview(unsigned int column) {
-	createPreview(column, [this](gui::Panel& panel, gui::Image& image) {
-		panel.listenInterval(0.01f, [this]() {
-			preview->drawSkeleton();
+	createPanel([this]() {
+		gui::Panel& panel = createPreview([this](gui::Panel& panel, gui::Image& image) {
+			panel.listenInterval(0.01f, [this]() {
+				preview->drawSkeleton();
+			});
 		});
-	});
+		return std::ref(panel);
+	}, column);
 }
 
 void workshop::WorkShopScreen::createModelPreview(unsigned int column) {
-	createPreview(column, [this](gui::Panel& panel, gui::Image& image) {
+	createPanel([this]() {
+		gui::Panel& panel =  createPreview([this](gui::Panel& panel, gui::Image& image) {
 		panel.listenInterval(0.01f, [this]() {
 			preview->drawModel();
+			});
 		});
-	});
+		return std::ref(panel);
+	}, column);
 }
 
 void WorkShopScreen::createUIPreview() {

@@ -14,6 +14,7 @@
 #include "WorkshopPreview.hpp"
 #include "WorkshopSerializer.hpp"
 #include "WorkshopUtils.hpp"
+#include "window/Events.hpp"
 
 #define NOMINMAX
 #include "libs/portable-file-dialogs.h"
@@ -28,6 +29,14 @@ static void rotateImage(std::unique_ptr<ImageData>& image, size_t angleDegrees);
 void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float posX) {
 	createPanel([this, &block]() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(300.f));
+
+		panel.listenInterval(0.01f, [this, &panel]() {
+			if (Events::jclicked(mousecode::BUTTON_1)) {
+				if (!panel.isInside(glm::vec2(Events::cursor))) {
+					removePanel(4);
+				}
+			}
+		});
 
 		std::shared_ptr<BlockModelConverter> converter = nullptr;
 
@@ -101,7 +110,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 
 						createContentList(ContentType::BLOCK);
 						createBlockEditor(*converting);
-						createCustomModelEditor(*converting, 0, PrimitiveType::AABB);
+						createAdditionalBlockEditorPanel(*converting, 0, PrimitiveType::AABB);
 						delete converted;
 					}
 				}));
@@ -114,7 +123,7 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 		panel << button;
 
 		return std::ref(panel);
-	}, 5, posX);
+	}, 4, posX);
 }
 
 workshop::BlockModelConverter::BlockModelConverter(const std::filesystem::path& filePath, Atlas* blocksAtlas) :

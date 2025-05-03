@@ -39,6 +39,7 @@ inline const std::filesystem::path HISTORY_FILE("history.bin");
 inline const std::filesystem::path SETTINGS_FILE("settings.bin");
 inline const std::filesystem::path FILTER_FILE("filter.bin");
 inline constexpr float PANEL_POSITION_AUTO = std::numeric_limits<float>::min();
+extern const std::vector<std::string> DEFAULT_BLOCK_PROPERTIES;
 
 namespace workshop {
 	enum class PrimitiveType : unsigned int {
@@ -94,7 +95,9 @@ namespace workshop {
 
 	extern void formatTextureImage(gui::Image& image, Texture* const texture, float height, const UVRegion& region);
 	template<typename T>
-	extern void setSelectable(const gui::Panel& panel);
+	extern void setSelectable(const gui::Container& panel);
+	extern void setSelected(gui::UINode& node);
+	extern void deselect(gui::UINode& node);
 	extern void placeNodesHorizontally(gui::Container& container);
 	extern void optimizeContainer(gui::Container& container);
 	extern gui::UINode* markRemovable(gui::UINode* node);
@@ -108,7 +111,6 @@ namespace workshop {
 	extern bool hasFocusedTextbox(const gui::Container& container);
 
 	extern std::vector<std::filesystem::path> getFiles(const std::filesystem::path& folder, bool recursive);
-	extern void openPath(const std::filesystem::path& path);
 	extern std::string lowerCase(const std::string& string);
 
 	extern std::array<glm::vec3, 4> exportTetragon(const dv::value& list);

@@ -1,22 +1,17 @@
 #include "WorkshopUtils.hpp"
 
-#include "../../assets/Assets.hpp"
-#include "../../constants.hpp"
-#include "../../content/ContentPack.hpp"
-#include "../../core_defs.hpp"
-#include "../../debug/Logger.hpp"
-#include "../../graphics/core/Atlas.hpp"
-#include "../../graphics/core/Texture.hpp"
-#include "../../items/ItemDef.hpp"
-#include "../../maths/UVRegion.hpp"
-#include "../../voxels/Block.hpp"
+#include "assets/Assets.hpp"
+#include "constants.hpp"
+#include "content/ContentPack.hpp"
+#include "core_defs.hpp"
+#include "debug/Logger.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/core/Texture.hpp"
+#include "items/ItemDef.hpp"
+#include "maths/UVRegion.hpp"
+#include "voxels/Block.hpp"
 #include "../UiDocument.hpp"
 #include "IncludeCommons.hpp"
-
-#ifdef _WIN32
-#define NOMINMAX
-#include "Windows.h"
-#endif // _WIN32
 
 static debug::Logger logger("workshop-validator");
 
@@ -36,6 +31,17 @@ namespace workshop {
 		{ "bindbox", { BINDBOX /*| PANEL*/, { { "binding", "movement.left" } } } }
 	};
 }
+
+const std::vector<std::string> DEFAULT_BLOCK_PROPERTIES{
+    "parent", "caption", "texture", "texture-faces", "model", "model-name",
+    "model-primitives", "material", "rotation", "hitboxes", "hitbox", "emission",
+    "size", "obstacle", "replaceable", "light-passing", "sky-light-passing",
+    "shadeless", "ambient-occlusion", "breakable", "selectable", "grounded",
+    "hidden", "draw-group", "picking-item", "surface-replacement", "script-name",
+    "ui-layout", "inventory-size", "tick-interval", "overlay-texture",
+    "translucent", "fields", "particles", "icon-type", "icon", "placing-block", 
+    "stack-size", "name", "script-file", "culling", /*"data-struct"*/
+};
 
 std::string workshop::getTexName(const std::string& fullName, const std::string& delimiter) {
 	const size_t pos = fullName.find(delimiter);
@@ -153,25 +159,33 @@ void workshop::formatTextureImage(gui::Image& image, Texture* const texture, flo
 	image.setUVRegion(region);
 }
 
-template void workshop::setSelectable<gui::IconButton>(const gui::Panel&);
-template void workshop::setSelectable<gui::Button>(const gui::Panel&);
+template void workshop::setSelectable<gui::IconButton>(const gui::Container&);
+template void workshop::setSelectable<gui::Button>(const gui::Container&);
 
 template<typename T>
-void workshop::setSelectable(const gui::Panel& panel) {
+void workshop::setSelectable(const gui::Container& panel) {
 	for (const auto& elem : panel.getNodes()) {
 		if (T* node = dynamic_cast<T*>(elem.get())) {
 			node->listenAction([node, &panel](gui::GUI* gui) {
 				if (node->getParent() == nullptr) return;
 				for (const auto& elem : panel.getNodes()) {
 					if (typeid(*elem.get()) == typeid(T)) {
-						elem->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
-						elem->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
+						deselect(*elem);
 					}
 				}
-				node->setColor(node->getHoverColor());
+				setSelected(*node);
 			});
 		}
 	}
+}
+
+void workshop::setSelected(gui::UINode& node){
+	node.setColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
+}
+
+void workshop::deselect(gui::UINode& node) {
+	node.setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
+	node.setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
 }
 
 std::array<glm::vec3, 4> workshop::exportTetragon(const dv::value& list) {
@@ -348,14 +362,6 @@ std::vector<std::filesystem::path> workshop::getFiles(const std::filesystem::pat
 		}
 	}
 	return files;
-}
-
-void workshop::openPath(const std::filesystem::path& path) {
-#ifdef _WIN32
-	ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
-#elif __linux__
-	system(("nautilus " + path.string()).c_str());
-#endif // WIN32
 }
 
 std::string workshop::lowerCase(const std::string& string) {

@@ -85,7 +85,7 @@ namespace workshop {
 		void createUtilsPanel();
 
 		void createBlockEditor(Block& block);
-		void createCustomModelEditor(Block& block, size_t index, PrimitiveType type);
+		void createAdditionalBlockEditorPanel(Block& block, size_t index, PrimitiveType type);
 		void createItemEditor(ItemDef& item);
 		void createEntityEditorPanel(EntityDef& entity);
 		void createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton, std::vector<size_t> skeletonPath);
@@ -94,11 +94,13 @@ namespace workshop {
 		void createMaterialEditor(BlockMaterial& material);
 		void createBlockConverterPanel(Block& block, float posX);
 
+		void createPrimitiveEditor(gui::Panel& panel, Block& block, size_t index, PrimitiveType type);
+		gui::Panel& createBlockPreview(gui::Panel& parentPanel, Block& block, PrimitiveType type);
+
 		void createDefActionPanel(ContentAction action, ContentType type, const std::string& name = std::string(), bool reInitialize = true);
 		void createImportPanel(ContentType type = ContentType::BLOCK, std::string mode = "copy");
 		void createFileDeletingConfirmationPanel(const std::vector<std::filesystem::path>& files, unsigned int column, const std::function<void(void)>& callback);
-		void createPreview(unsigned int column, const std::function<void(gui::Panel&, gui::Image&)>& setupFunc);
-		void createBlockPreview(unsigned int column, PrimitiveType primitiveType, Block& block);
+		gui::Panel& createPreview(const std::function<void(gui::Panel&, gui::Image&)>& setupFunc);
 		void createSkeletonPreview(unsigned int column);
 		void createModelPreview(unsigned int column);
 		void createUIPreview();

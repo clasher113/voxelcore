@@ -16,6 +16,16 @@
 #include "graphics/ui/gui_xml.hpp"
 #include "assets/AssetsLoader.hpp"
 
+const static std::wstring disclaimerText(L"Отказ от ответственности:\n\
+Автор мода не несет никакой ответственности за потерю файлов или их повреждение в результате неосторожного использования, \
+бага или недоработки мода.\n\
+Используя этот мод вы соглашаетесь на все возможные риски связанные с потерей файлов или их повреждению\n\
+Мод может изменить визуальную структуру файлов\n\
+В моде могут быть доступны не задокументированные функции движка, находящиеся в разработке, использование которых \
+может привести к непредсказуемому результату. Всегда проверяйте документацию на используемый функционал\n\
+Всегда делайте бекапы контента, который будете редактировать\
+");
+
 struct FilterSettings {
 	uint8_t reverseSort = false;
 	uint8_t sortType = 0;
@@ -70,12 +80,53 @@ static void writeFilter(const fs::path& configFolder, FilterSettings filter){
 	files::write_binary_json(configFolder / FILTER_FILE, root);
 }
 
+static bool createDisclaimer(gui::Menu* menu, const fs::path& firstStartFile){
+	if (fs::exists(firstStartFile)){
+		return true;
+	}
+	using namespace workshop;
+	auto panel = std::make_shared<gui::Panel>(glm::vec2(800, 600));
+	menu->addPage("workshop-disclaimer", panel);
+	menu->setPage("workshop-disclaimer");
+	gui::Label& label = *new gui::Label(disclaimerText);
+	label.setAutoResize(true);
+	label.setMultiline(true);
+	gui::FullCheckBox& checkbox = *new gui::FullCheckBox(L"Я принимаю все риски и хочу продолжить", glm::vec2(panel->getSize().x, 25));
+	gui::Button* button = new gui::Button(L"Продолжить", glm::vec4(10.f), [=](gui::GUI*){
+		menu->back();
+		menu->setPage("workshop");
+		menu->removePage("workshop-disclaimer");
+		files::write_bytes(firstStartFile, nullptr, 0);
+	});
+	button->setEnabled(false);
+	checkbox.setConsumer([button](bool checked) {
+		button->setEnabled(checked);
+	});
+
+	*panel << label;
+	*panel << checkbox;
+	gui::Container& buttonsContainer = *new gui::Container(glm::vec2(panel->getSize().x, button->getSize().y));
+	buttonsContainer.setColor(glm::vec4(0.f));
+	buttonsContainer << button;
+	buttonsContainer << new gui::Button(L"Назад", glm::vec4(10.f), [menu](gui::GUI*) {
+		menu->back();
+	});
+	placeNodesHorizontally(buttonsContainer);
+	*panel << buttonsContainer;
+	return false;
+}
+
 void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 	if (page->name != "main") return;
 
 	auto menu = engine.getGUI()->getMenu();
-	gui::Button& button = *new gui::Button(L"Workshop", glm::vec4(10.f), [menu](gui::GUI*) {
-		menu->setPage("workshop");
+	const fs::path configFolder(workshop::getConfigFolder(engine));
+	if (!fs::is_directory(configFolder)) fs::create_directories(configFolder);
+
+	gui::Button& button = *new gui::Button(L"Workshop", glm::vec4(10.f), [menu, configFolder](gui::GUI*) {
+		if (createDisclaimer(menu.get(), configFolder / "first_start")){
+			menu->setPage("workshop");
+		}
 	});
 
 	std::shared_ptr<gui::Panel> panel = std::dynamic_pointer_cast<gui::Panel>(page->panel);
@@ -97,14 +148,9 @@ void workshop::create_workshop_button(Engine& engine, const gui::Page* page) {
 	gui::Panel& packsPanel = *new gui::Panel(glm::vec2(385, 580));
 	packsPanel.setMinLength(packsPanel.getSize().y);
 	packsPanel.setMaxLength(packsPanel.getSize().y);
-	packsPanel.setId("packs");
-	filterPanel.setId("filter");
 	*panel << filterPanel << packsPanel;
 
-	const fs::path configFolder(workshop::getConfigFolder(engine));
-	if (!fs::is_directory(configFolder)) fs::create_directories(configFolder);
-
-	menu->addPage("workshop", std::shared_ptr<gui::Panel>(panel));
+	menu->addPage("workshop", panel);
 	std::vector<std::string> openHistory = readHistory(configFolder);
 	std::shared_ptr<FilterSettings> filter(new FilterSettings(readFilter(configFolder)));
 	const std::wstring sortTypes[] = { L"Id (A-Z)", L"Title (A-Z)", L"Last modify", L"Last open" };
