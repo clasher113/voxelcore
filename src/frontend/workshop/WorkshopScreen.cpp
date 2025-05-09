@@ -175,6 +175,7 @@ bool WorkShopScreen::initialize() {
 	preview.reset(new Preview(engine, *cache));
 	// force load all models and textures
 	AssetsLoader loader(assets, engine.getResPaths());
+	loader.add(AssetType::TEXTURE, "textures/gui/circle", "gui/circle");
 	for (const auto& pack : packs){
 		for (const auto& file : getFiles(pack.folder/MODELS_FOLDER, false)){
 			if (assets->get<model::Model>(file.stem().string())) continue;
@@ -201,6 +202,7 @@ bool WorkShopScreen::initialize() {
 			if (block.properties.has(defaultProp)) block.properties.erase(defaultProp);
 		}
 	}
+	definedProps = engine.getResPaths()->readCombinedObject("config/user-props.toml");
 
 	backupDefs();
 
@@ -454,19 +456,19 @@ void workshop::WorkShopScreen::createSettingsPanel() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(300));
 
 		panel << new gui::Label(L"Custom model input range");
-		panel << createNumTextBox(settings.customModelRange.x, L"Min", -FLT_MAX, FLT_MAX);
-		panel << createNumTextBox(settings.customModelRange.y, L"Max", -FLT_MAX, FLT_MAX);
+		panel << createNumTextBox(settings.customModelRange.x, L"Min", 3, -FLT_MAX, FLT_MAX);
+		panel << createNumTextBox(settings.customModelRange.y, L"Max", 3, -FLT_MAX, FLT_MAX);
 
 		panel << new gui::Label(L"Content list width");
-		panel << createNumTextBox(settings.contentListWidth, L"", 100.f, 1000.f);
+		panel << createNumTextBox(settings.contentListWidth, L"", 0, 100.f, 1000.f);
 		panel << new gui::Label(L"Block editor width");
-		panel << createNumTextBox(settings.blockEditorWidth, L"", 100.f, 1000.f);
+		panel << createNumTextBox(settings.blockEditorWidth, L"", 0, 100.f, 1000.f);
 		panel << new gui::Label(L"Custom model editor width");
-		panel << createNumTextBox(settings.customModelEditorWidth, L"", 100.f, 1000.f);
+		panel << createNumTextBox(settings.customModelEditorWidth, L"", 0, 100.f, 1000.f);
 		panel << new gui::Label(L"Item editor width");
-		panel << createNumTextBox(settings.itemEditorWidth, L"", 100.f, 1000.f);
+		panel << createNumTextBox(settings.itemEditorWidth, L"", 0, 100.f, 1000.f);
 		panel << new gui::Label(L"Texture list width");
-		panel << createNumTextBox(settings.textureListWidth, L"", 100.f, 1000.f);
+		panel << createNumTextBox(settings.textureListWidth, L"", 0, 100.f, 1000.f);
 
 		gui::Label& label = *new gui::Label(L"Preview window sensitivity: " + util::to_wstring(settings.previewSensitivity, 2));
 		panel << label;

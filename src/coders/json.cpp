@@ -52,6 +52,19 @@ void stringifyList(
     bool nice
 );
 
+static std::string num2str(double num) {
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(10) << num;
+    std::string s;
+    ss >> s;
+    size_t pos = s.find_last_not_of('0') + 1;
+    pos = std::max(pos, s.find('.') + 2);
+    if (pos != std::string::npos && pos < s.length()) {
+        s.erase(pos);
+    }
+    return s;
+};
+
 void stringifyValue(
     const dv::value& value,
     std::stringstream& ss,
@@ -78,7 +91,8 @@ void stringifyValue(
             ss << util::escape(value.asString(), !nice);
             break;
         case value_type::number:
-            ss << std::setprecision(15) << value.asNumber();
+            ss << num2str(value.asNumber());
+            //ss << std::setprecision(json::precision) << value.asNumber();
             break;
         case value_type::integer:
             ss << value.asInteger();

@@ -159,7 +159,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		panel << button;
 
 		panel << new gui::Label("Draw group (0 - 255)");
-		panel << createNumTextBox<ubyte>(block.drawGroup, L"0", 0, 255);
+		panel << createNumTextBox<ubyte>(block.drawGroup, L"0", 0, 0, 255);
 		createEmissionPanel(panel, block.emission);
 
 		panel << new gui::Label("Block size (1 - 5)");
@@ -202,10 +202,10 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		panel << button;
 
 		panel << new gui::Label("Inventory size");
-		panel << createNumTextBox<uint>(block.inventorySize, L"0 - no inventory", 0, std::numeric_limits<decltype(block.inventorySize)>::max());
+		panel << createNumTextBox<uint>(block.inventorySize, L"0 - no inventory", 0, 0, std::numeric_limits<decltype(block.inventorySize)>::max());
 
 		panel << new gui::Label("Tick interval (1 - 20)");
-		panel << createNumTextBox<uint>(block.tickInterval, L"1 - 20tps, 2 - 10tps", 1, 20);
+		panel << createNumTextBox<uint>(block.tickInterval, L"1 - 20tps, 2 - 10tps", 0, 1, 20);
 
 		panel << new gui::Button(L"Save", glm::vec4(10.f), [this, &block, actualName, currentParent, &backupData](gui::GUI*) {
 			backupData.string = stringify(toJson(block, actualName, currentParent, backupData.newParent), false);

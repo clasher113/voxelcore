@@ -21,7 +21,7 @@ static std::string to_string(const glm::vec3& vector, char delimiter = ','){
 }
 
 std::string workshop::stringify(const dv::value& root, bool nice) {
-	json::precision = 5;
+	json::precision = 15;
 	std::string result = json::stringify(root, nice, "  ");
 	json::precision = 15;
 
@@ -61,6 +61,7 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 	if (NOT_EQUAL(drawGroup)) root["draw-group"] = block.drawGroup;
 	if (NOT_EQUAL(hidden)) root["hidden"] = block.hidden;
 	if (NOT_EQUAL(shadeless)) root["shadeless"] = block.shadeless;
+	if (NOT_EQUAL(translucent)) root["translucent"] = block.translucent;
 	if (NOT_EQUAL(tickInterval)) root["tick-interval"] = block.tickInterval;
 	if (NOT_EQUAL(inventorySize)) root["inventory-size"] = block.inventorySize;
 	if (NOT_EQUAL(model)) root["model"] = to_string(block.model);

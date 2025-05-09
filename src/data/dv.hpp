@@ -179,6 +179,12 @@ namespace dv {
     public:
         bool multiline = true;
 
+        template<typename T>
+        static inline T& getRef(const dv::value& value) { // some shity stuff
+            char* c = reinterpret_cast<char*>(&const_cast<dv::value&>(value)) + offsetof(dv::value, val);
+            return reinterpret_cast<T&>(*c);
+        }
+
         value() noexcept : type(value_type::none) {}
         
         /// @brief Constructor for fundamental types

@@ -80,11 +80,13 @@ void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, Conten
 					}
 					if (!isOk) tooltip = prefix;
 				}
-				if (!(isOk = !winput.empty()))
-					tooltip = L"Input must not be empty";
-				else if (!(isOk = std::all_of(winput.begin(), winput.end(), 
-					[](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); }))){
-					tooltip = L"Id has illegal character";
+				if (isOk) {
+					if (!(isOk = !winput.empty()))
+						tooltip = L"Input must not be empty";
+					else if (!(isOk = std::all_of(winput.begin(), winput.end(),
+						[](const wchar_t c) { return c < 255 && (iswalnum(c) || c == '_'); }))) {
+						tooltip = L"Id has illegal character";
+					}
 				}
 				nameInput->setTooltip(tooltip);
 				return isOk;

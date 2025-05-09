@@ -55,7 +55,7 @@ namespace workshop {
 				if (levelRef > DependencyLevel::weak) levelRef = DependencyLevel::required;
 				button.setText(L"Level: " + levels[static_cast<int>(levelRef)]);
 			});
-			gui::Image& image = *new gui::Image(engine.getAssets()->get<Texture>("gui/delete_icon"));
+			gui::Image& image = *new gui::Image("gui/delete_icon");
 			gui::Container& imageContainer = *new gui::Container(image.getSize());
 
 			const float interval = textbox.getPadding().x + textbox.getMargin().x;

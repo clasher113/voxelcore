@@ -137,7 +137,7 @@ static void createList(gui::Panel& panel, gui::Panel& parentPanel, EntityDef& en
 			container << createVectorPanel(aabb.a, glm::vec3(-100.f), glm::vec3(100.f), size.x + 4.f, InputMode::TEXTBOX, runnable());
 			container << createVectorPanel(aabb.b, glm::vec3(-100.f), glm::vec3(100.f), size.x + 4.f, InputMode::TEXTBOX, runnable());
 		}
-		else if (mode == MODE_RADIAL_SENSORS) container << createNumTextBox(entity.radialSensors[i].second, L"Radius", 0.f, 100.f);
+		else if (mode == MODE_RADIAL_SENSORS) container << createNumTextBox(entity.radialSensors[i].second, L"Radius", 3, 0.f, 100.f);
 		imageContainer.listenAction([i, &panel, &parentPanel, mode, assets, &entity](gui::GUI*) {
 			if (mode != MODE_COMPONENTS) {
 				const size_t removingSensorIndex = mode == MODE_RADIAL_SENSORS ? entity.radialSensors[i].first : entity.boxSensors[i].first;

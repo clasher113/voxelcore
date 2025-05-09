@@ -128,6 +128,7 @@ namespace workshop {
 		Atlas* blocksAtlas;
 		Atlas* itemsAtlas;
 		Atlas* previewAtlas;
+		dv::value definedProps;
 
 		struct {
 			float previewSensitivity = 1.f;

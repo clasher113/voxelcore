@@ -20,7 +20,8 @@ namespace workshop {
 	extern gui::Container& createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, vec_t<L, T> max, float width, InputMode inputMode, const std::function<void()>& callback);
 	extern void createEmissionPanel(gui::Container& container, uint8_t* emission);
 	template<typename T>
-	extern gui::TextBox& createNumTextBox(T& value, const std::wstring& placeholder, T min, T max, const std::function<void(T)>& callback = [](T) {});
+	extern gui::TextBox& createNumTextBox(T& value, const std::wstring& placeholder, size_t floatPrecision = 3, T min = std::numeric_limits<T>::lowest(),
+		T max = std::numeric_limits<T>::max() - 1, const std::function<void(T)>& callback = [](T) {});
 }
 
 #endif // !FRONTEND_MENU_WORKSHOP_GUI_BASIC_ELEMENTS_HPP

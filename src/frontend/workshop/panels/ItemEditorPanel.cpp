@@ -61,7 +61,7 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 		panel << parentItem;
 
 		panel << new gui::Label(L"Stack size:");
-		panel << createNumTextBox<uint32_t>(item.stackSize, L"1", 1, 64);
+		panel << createNumTextBox<uint32_t>(item.stackSize, L"1", 0, 1, 64);
 		createEmissionPanel(panel, item.emission);
 
 		panel << new gui::Label(L"Icon");
