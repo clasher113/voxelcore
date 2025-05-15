@@ -206,6 +206,8 @@ bool WorkShopScreen::initialize() {
 
 	backupDefs();
 
+	// todo check the correctness of the save
+
 	return 1;
 }
 
@@ -354,8 +356,7 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 			[=](const std::string& texName) {
 				textures[i] = getTexName(texName);
 				removePanel(5);
-				button->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.95f));
-				button->setHoverColor(glm::vec4(0.05f, 0.1f, 0.15f, 0.75f));
+				deselect(*button);
 				button->setIcon(getAtlas(assets, texName), getTexName(texName));
 				button->setText(getTexName(texName));
 				if (callback) callback();

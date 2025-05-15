@@ -95,6 +95,7 @@ NUM_TEXTBOX(unsigned char)
 NUM_TEXTBOX(float)
 NUM_TEXTBOX(double)
 NUM_TEXTBOX(int64_t)
+NUM_TEXTBOX(int)
 #undef NUM_TEXTBOX
 
 template<typename T>

@@ -158,6 +158,31 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		});
 		panel << button;
 
+		auto overlayTextureName = [](const std::string& overlayTexture) {
+			if (overlayTexture.empty()) return NOT_SET;
+			return overlayTexture;
+		};
+		auto overlayTexture = [](const std::string& overlayTexture) -> std::string {
+			if (overlayTexture.empty()) return "blocks:transparent";
+			return overlayTexture;
+		};
+		
+		panel << new gui::Label("Overlay texture");
+		iconButton = new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), overlayTextureName(block.overlayTexture), getAtlas(assets, overlayTexture(block.overlayTexture)),
+			getTexName(overlayTexture(block.overlayTexture)));
+		iconButton->listenAction([=, &block](gui::GUI*) {
+			createTextureList(35.f, 5, { ContentType::BLOCK, ContentType::ITEM }, iconButton->calcPos().x + iconButton->getSize().x, true,
+				[=, &block](std::string texName) {
+				if (texName == "blocks:transparent") texName = NOT_SET;
+				block.overlayTexture = texName == NOT_SET ? "" : texName;
+				removePanel(5);
+				deselect(*button);
+				iconButton->setIcon(getAtlas(assets, overlayTexture(block.overlayTexture)), getTexName(overlayTexture(block.overlayTexture)));
+				iconButton->setText(overlayTextureName(block.overlayTexture));
+			});
+		});
+		panel << iconButton;
+
 		panel << new gui::Label("Draw group (0 - 255)");
 		panel << createNumTextBox<ubyte>(block.drawGroup, L"0", 0, 0, 255);
 		createEmissionPanel(panel, block.emission);

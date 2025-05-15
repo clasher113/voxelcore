@@ -32,6 +32,9 @@ namespace gui {
 namespace xml {
 	class Document;
 }
+namespace data{
+	class StructLayout;
+}
 enum class BlockModel;
 enum class ItemIconType;
 
@@ -61,24 +64,23 @@ namespace workshop {
 		void removePanels(unsigned int column);
 		void createPanel(const std::function<gui::Panel& ()>& lambda, unsigned int column, float posX = PANEL_POSITION_AUTO);
 
+		void createTextureList(float iconSize, unsigned int column = 1, std::vector<ContentType> types = { ContentType::BLOCK, ContentType::ITEM },
+			float posX = PANEL_POSITION_AUTO, bool showAll = false, const std::function<void(const std::string&)>& callback = 0);
+		void createTextureInfoPanel(const std::string& texName, ContentType type, unsigned int column = 2);
 		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model, const std::function<void()>& callback = 0);
 		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, ItemIconType iconType);
 
-		void createAddingUIElementPanel(float posX, const std::function<void(const std::string&)>& callback, unsigned int filter);
-
 		void createContentList(ContentType type, bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 		void createMaterialsList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
-		void createTextureList(float iconSize, unsigned int column = 1, std::vector<ContentType> types = { ContentType::BLOCK, ContentType::ITEM },
-			float posX = PANEL_POSITION_AUTO, bool showAll = false, const std::function<void(const std::string&)>& callback = 0);
 		void createScriptList(unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 		void createUILayoutList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
+		void createAddingUIElementPanel(float posX, const std::function<void(const std::string&)>& callback, unsigned int filter);
 		void createSoundList();
 		void createEntitiesList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 		void createSkeletonList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 		void createModelsList(bool showAll = false, unsigned int column = 1, float posX = PANEL_POSITION_AUTO, const std::function<void(const std::string&)>& callback = 0);
 
 		void createPackInfoPanel();
-		void createTextureInfoPanel(const std::string& texName, ContentType type, unsigned int column = 2);
 		void createScriptInfoPanel(const std::filesystem::path& file);
 		void createSoundInfoPanel(const std::filesystem::path& file);
 		void createSettingsPanel();
@@ -86,20 +88,22 @@ namespace workshop {
 
 		void createBlockEditor(Block& block);
 		void createAdditionalBlockEditorPanel(Block& block, size_t index, PrimitiveType type);
+		void createBlockConverterPanel(Block& block, float posX);
+		void createPrimitiveEditor(gui::Panel& panel, Block& block, size_t index, PrimitiveType type);
+		void createBlockFieldsEditor(gui::Panel& panel, std::unique_ptr<data::StructLayout>& fields);
+		gui::Panel& createBlockPreview(gui::Panel& parentPanel, Block& block, PrimitiveType type);
+
 		void createItemEditor(ItemDef& item);
 		void createEntityEditorPanel(EntityDef& entity);
-		void createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton, std::vector<size_t> skeletonPath);
 		void createAdditionalEntityEditorPanel(EntityDef& entity, unsigned int mode);
+		void createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton, std::vector<size_t> skeletonPath);
 		void createUILayoutEditor(const std::filesystem::path& path, const std::string& fullName, std::vector<size_t> docPath);
 		void createMaterialEditor(BlockMaterial& material);
-		void createBlockConverterPanel(Block& block, float posX);
-
-		void createPrimitiveEditor(gui::Panel& panel, Block& block, size_t index, PrimitiveType type);
-		gui::Panel& createBlockPreview(gui::Panel& parentPanel, Block& block, PrimitiveType type);
 
 		void createDefActionPanel(ContentAction action, ContentType type, const std::string& name = std::string(), bool reInitialize = true);
 		void createImportPanel(ContentType type = ContentType::BLOCK, std::string mode = "copy");
 		void createFileDeletingConfirmationPanel(const std::vector<std::filesystem::path>& files, unsigned int column, const std::function<void(void)>& callback);
+
 		gui::Panel& createPreview(const std::function<void(gui::Panel&, gui::Image&)>& setupFunc);
 		void createSkeletonPreview(unsigned int column);
 		void createModelPreview(unsigned int column);

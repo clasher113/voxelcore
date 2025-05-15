@@ -40,7 +40,7 @@ const std::vector<std::string> DEFAULT_BLOCK_PROPERTIES{
     "hidden", "draw-group", "picking-item", "surface-replacement", "script-name",
     "ui-layout", "inventory-size", "tick-interval", "overlay-texture",
     "translucent", "fields", "particles", "icon-type", "icon", "placing-block", 
-    "stack-size", "name", "script-file", "culling", /*"data-struct"*/
+    "stack-size", "name", "script-file", "culling"
 };
 
 std::string workshop::getTexName(const std::string& fullName, const std::string& delimiter) {

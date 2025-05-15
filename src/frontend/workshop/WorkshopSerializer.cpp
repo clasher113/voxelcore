@@ -12,6 +12,7 @@
 #include "constants.hpp"
 #include "util/stringutil.hpp"
 #include "objects/rigging.hpp"
+#include "data/StructLayout.hpp"
 
 #include <algorithm>
 #include <map>
@@ -72,6 +73,7 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 	if (NOT_EQUAL(uiLayout)) root["ui-layout"] = block.uiLayout;
 	if (NOT_EQUAL(culling)) root["culling"] = to_string(block.culling);
 	if (NOT_EQUAL(surfaceReplacement)) root["surface-replacement"] = block.surfaceReplacement;
+	if (NOT_EQUAL(overlayTexture)) root["overlay-texture"] = block.overlayTexture;
 	
 	if (!std::equal(std::begin(master.emission), std::end(master.emission), std::begin(block.emission))) {
 		dv::value& emissionarr = root.list("emission");
@@ -125,6 +127,10 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 
 	for (const auto& [key, property] : block.properties.asObject()){
 		root[key] = property;
+	}
+
+	if (block.dataStruct && block.dataStruct->size()){
+		root["fields"] = block.dataStruct->serialize();
 	}
 
 	return root;

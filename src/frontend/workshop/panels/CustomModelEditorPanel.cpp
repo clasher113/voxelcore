@@ -5,6 +5,7 @@
 #include "core_defs.hpp"
 #include "window/Window.hpp"
 #include "coders/json.hpp"
+#include "data/StructLayout.hpp"
 
 #include <algorithm>
 
@@ -382,6 +383,35 @@ static void add(dv::value& dst, const std::string& key, T src){
 	}
 }
 
+static std::function<glm::vec2()> getSizeFunc(gui::Panel& panel, const std::vector<glm::vec2>& sizes){
+	return [&panel, sizes]() {
+		auto& nodes = panel.getNodes();
+		float totalWidth = panel.getSize().x - 2.f - (2.f * nodes.size());
+		const size_t count = std::min(nodes.size(), sizes.size());
+		std::vector<size_t> sizesCalculated;
+
+		// todo optimize
+		for (const glm::vec2& size : sizes) {
+			sizesCalculated.emplace_back(size.x);
+			totalWidth -= size.x;
+		}
+		while (totalWidth > 0) {
+			for (size_t i = 0; i < count; i++) {
+				if (sizesCalculated[i] < sizes[i].y) {
+					sizesCalculated[i]++;
+					totalWidth--;
+				}
+				if (totalWidth <= 0) break;
+			}
+		}
+		for (size_t i = 0; i < count; i++) {
+			nodes[i]->setSize(glm::vec2(sizesCalculated[i], panel.getSize().y - 4.f));
+		}
+
+		return panel.getSize();
+	};
+}
+
 static void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const dv::value& definedProps, std::vector<size_t> path = {}) {
 	panel.clear();
 
@@ -407,35 +437,6 @@ static void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const
 	const std::vector<glm::vec2> objectPanelSizes = { { 32, 32 }, { 80, 120 }, { 100, 300 }, { 100, 5000 }, { 32, 32 } };
 	const std::vector<glm::vec2> createPropPanelSizes = { { 100, 150 }, { 100, 300 }, { 100, 5000 } };
 	const std::vector<glm::vec2> navigationPanelSizes = { { 100, 150 }, { 200, 5000 } };
-
-	auto getSizeFunc = [](gui::Panel& panel, std::vector<glm::vec2> sizes) {
-		return [&panel, sizes]() {
-			auto& nodes = panel.getNodes();
-			float totalWidth = panel.getSize().x - 2.f - (2.f * nodes.size());
-			const size_t count = std::min(nodes.size(), sizes.size());
-			std::vector<size_t> sizesCalculated;
-
-			// todo optimize
-			for (const glm::vec2& size : sizes){
-				sizesCalculated.emplace_back(size.x);
-				totalWidth -= size.x;
-			}
-			while (totalWidth > 0){
-				for (size_t i = 0; i < count; i++) {
-					if (sizesCalculated[i] < sizes[i].y){
-						sizesCalculated[i]++;
-						totalWidth--;
-					}
-					if (totalWidth <= 0) break;
-				}
-			}
-			for (size_t i = 0; i < count; i++) {
-				nodes[i]->setSize(glm::vec2(sizesCalculated[i], panel.getSize().y - 4.f));
-			}
-
-			return panel.getSize();
-		};
-	};
 
 	auto createPropObject = [=, &currentObject, &definedProps, &panel, &blockProps](const std::string& key, dv::value& value) {
 		gui::Panel& propPanel = *new gui::Panel(glm::vec2(0, 38));
@@ -513,7 +514,7 @@ static void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const
 			createPropertyEditor(panel, blockProps, definedProps, path);
 		});
 		gui::TextBox& textBox = *new gui::TextBox(L"");
-		textBox.setText(L"Exploring : " + pathStr);
+		textBox.setText(L"Exploring: " + pathStr);
 		textBox.setEditable(false);
 		navigationPanel << textBox;
 
@@ -568,7 +569,7 @@ static void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const
 		const std::string input(util::wstr2str_utf8(textBox->getInput()));
 		std::wstring tooltip;
 		if (currentObject.isObject()) {
-			if (input.empty()) tooltip = L"Enter property name";
+			if (input.empty()) tooltip = L"Input must not be empty";
 			else if (currentObject.isObject()) {
 				if (currentObject.has(input)) tooltip = L"Property already exists";
 			}
@@ -629,6 +630,147 @@ static void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const
 	panel << createPropPanel;
 }
 
+void workshop::WorkShopScreen::createBlockFieldsEditor(gui::Panel& panel, std::unique_ptr<data::StructLayout>& fields) {
+	panel.clear();
+
+	if (fields == nullptr){
+		fields = std::make_unique<data::StructLayout>();
+	}
+	//													type			name		elements	convert		delete image
+	const std::vector<glm::vec2> fieldPanelSizes = { { 50, 80 }, { 150, 5000 }, { 150, 150 }, { 150, 150 }, {32, 32} };
+	const std::vector<glm::vec2> createFieldPanelSizes = { { 50, 80 }, { 150, 5000 }, { 150, 150 } };
+
+	std::vector<data::Field>& fieldsArr = fields->getFields();
+	std::sort(fieldsArr.begin(), fieldsArr.end(), [](const data::Field& a, const data::Field& b) {
+		return a.name < b.name;
+	});
+	const size_t size = fields->size();
+	const size_t maxSize = MAX_USER_BLOCK_FIELDS_SIZE;
+
+	if (fieldsArr.size()){
+		panel << new gui::Label("Used " + std::to_string(size) + " byte(s) of " + std::to_string(maxSize) + " (" +
+			std::to_string(static_cast<int>(static_cast<float>(size) / maxSize * 100)) + "%)");
+
+		gui::Panel& labelPanel = *new gui::Panel(glm::vec2(0, 30));
+		labelPanel.setColor(glm::vec4(0.5f));
+		labelPanel.setOrientation(gui::Orientation::horizontal);
+		labelPanel << new gui::Label("Type");
+		labelPanel << new gui::Label("Name");
+		labelPanel << new gui::Label("Elements count");
+		labelPanel << new gui::Label("Convert strategy");
+		labelPanel.setSizeFunc(getSizeFunc(labelPanel, fieldPanelSizes));
+		panel << labelPanel;
+	}
+
+	for (size_t i = 0; i < fieldsArr.size(); i++) {
+		data::Field& field = fieldsArr[i];
+		gui::Panel& fieldPanel = *new gui::Panel(glm::vec2(0, 38));
+		fieldPanel.setColor(glm::vec4(0.5f));
+		fieldPanel.setOrientation(gui::Orientation::horizontal);
+
+		gui::TextBox* textBox = new gui::TextBox(L"");
+		textBox->setText(util::str2wstr_utf8(to_string(field.type)));
+		textBox->setEditable(false);
+		fieldPanel << textBox;
+
+		textBox = new gui::TextBox(L"");
+		textBox->setTooltipDelay(0.f);
+		textBox->setText(util::str2wstr_utf8(field.name));
+		textBox->setTextValidator([=, &fieldsArr, &fields](const std::wstring&) {
+			std::string input(util::wstr2str_utf8(textBox->getInput()));
+			std::wstring tooltip;
+			if (input.empty()){	
+				tooltip = L"Input must not be empty";
+			}
+			else if (std::find_if(fieldsArr.begin(), fieldsArr.end(), [input, &field](const data::Field& a) {
+				return a.name == input && field != a;
+			}) != fieldsArr.end()){
+				tooltip = L"Name already in use";
+			}
+			textBox->setTooltip(tooltip);
+			return tooltip.empty();
+		});
+		textBox->setTextConsumer([=, &panel, &fields, &field](std::wstring text) {
+			field.name = util::wstr2str_utf8(textBox->getInput());
+			createBlockFieldsEditor(panel, fields);
+		});
+		textBox->setTextSupplier([&field]() {
+			return util::str2wstr_utf8(field.name);
+		});
+		fieldPanel << textBox;
+
+		const size_t max = (maxSize - size + field.size) / data::sizeof_type(field.type);
+		fieldPanel << createNumTextBox<int>(field.elements, L">1 = array", 0, 1, max, [=, &panel, &fields, &fieldsArr](int){
+			fields.reset(new data::StructLayout(data::StructLayout::create(fieldsArr)));
+			createBlockFieldsEditor(panel, fields);
+		});
+
+		gui::Button& button = *new gui::Button(util::str2wstr_utf8(to_string(field.convertStrategy)), glm::vec4(10.f), gui::onaction());
+		button.listenAction([&button, &field](gui::GUI*) {
+			incrementEnumClass(field.convertStrategy, 1);
+			if (field.convertStrategy > data::FieldConvertStrategy::CLAMP) field.convertStrategy = data::FieldConvertStrategy::RESET;
+			button.setText(util::str2wstr_utf8(to_string(field.convertStrategy)));
+		});
+		fieldPanel << button;
+
+		gui::Button& deleteButton = *new gui::Button(std::make_shared<gui::Image>("gui/delete_icon"));
+		deleteButton.listenAction([=, &panel, &fields, &fieldsArr](gui::GUI*) {
+			fieldsArr.erase(fieldsArr.begin() + i);
+			fields.reset(new data::StructLayout(data::StructLayout::create(fieldsArr)));
+			createBlockFieldsEditor(panel, fields);
+		});
+		fieldPanel << deleteButton;
+
+		fieldPanel.setSizeFunc(getSizeFunc(fieldPanel, fieldPanelSizes));
+
+		panel << fieldPanel;
+	}
+
+	gui::Panel& addFieldPanel = *new gui::Panel(glm::vec2(0.f, 38.f));
+	addFieldPanel.setColor(glm::vec4(0.5f));
+	addFieldPanel.setOrientation(gui::Orientation::horizontal);
+
+	static data::FieldType type = data::FieldType::I8;
+	gui::Button& typeButton = *new gui::Button(util::str2wstr_utf8(to_string(type)), glm::vec4(8.f), gui::onaction());
+	typeButton.setTextAlign(gui::Align::left);
+	typeButton.listenAction([=, &typeButton](gui::GUI*) {
+		incrementEnumClass(type, 1);
+		if (type > data::FieldType::CHAR) type = data::FieldType::I8;
+		typeButton.setText(util::str2wstr_utf8(to_string(type)));
+	});
+	addFieldPanel << typeButton;
+
+	gui::TextBox* textBox = new gui::TextBox(L"");
+	textBox->setHint(L"Enter name");
+	textBox->setTooltipDelay(0.f);
+	textBox->setTextValidator([=, &fieldsArr, &fields](const std::wstring&) {
+		std::string input(util::wstr2str_utf8(textBox->getInput()));
+		std::wstring tooltip;
+		if (input.empty()) {
+			tooltip = L"Input must not be empty";
+		}
+		else if (std::find_if(fieldsArr.begin(), fieldsArr.end(), [input](const data::Field& a) {
+			return a.name == input;
+		}) != fieldsArr.end()) {
+			tooltip = L"Name already in use";
+		}
+		textBox->setTooltip(tooltip);
+		return tooltip.empty();
+	});
+	addFieldPanel << textBox;
+
+	addFieldPanel << new gui::Button(L"Create new", glm::vec4(10.f), [=, &fieldsArr, &panel, &fields](gui::GUI*) {
+		if (!textBox->validate()) return;
+		fieldsArr.emplace_back(type, util::wstr2str_utf8(textBox->getInput()), 1);
+		fields.reset(new data::StructLayout(data::StructLayout::create(fieldsArr)));
+		createBlockFieldsEditor(panel, fields);
+	});
+
+	addFieldPanel.setSizeFunc(getSizeFunc(addFieldPanel, createFieldPanelSizes));
+
+	panel << addFieldPanel;
+}
+
 void WorkShopScreen::createAdditionalBlockEditorPanel(Block& block, size_t index, PrimitiveType type) {
 
 	preview->setBlockSize(block.size);
@@ -666,7 +808,12 @@ void WorkShopScreen::createAdditionalBlockEditorPanel(Block& block, size_t index
 		panel = new gui::Panel(glm::vec2());
 		panel->setColor(glm::vec4(0.f));
 		createPropertyEditor(*panel, block.properties, definedProps);
-		tabsContainer.addTab("props", L"Properties", panel);
+		tabsContainer.addTab("props", L"Custom Properties", panel);
+
+		panel = new gui::Panel(glm::vec2());
+		panel->setColor(glm::vec4(0.f));
+		createBlockFieldsEditor(*panel, block.dataStruct);
+		tabsContainer.addTab("fields", L"Fields", panel);
 		
 		return std::ref(mainPanel);
 	}, 3);

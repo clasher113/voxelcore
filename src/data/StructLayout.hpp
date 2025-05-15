@@ -122,6 +122,8 @@ namespace data {
     public:
         StructLayout() : StructLayout(0, {}, {}) {}
 
+        std::vector<Field>& getFields() { return fields; }
+
         bool operator==(const StructLayout& o) const {
             // if fields are completely equal then structures are equal
             return fields == o.fields;
