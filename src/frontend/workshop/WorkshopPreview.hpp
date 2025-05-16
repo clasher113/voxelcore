@@ -1,10 +1,11 @@
-#ifndef FRONTEND_MENU_WORKSHOP_PREVIEW_HPP
+﻿#ifndef FRONTEND_MENU_WORKSHOP_PREVIEW_HPP
 #define FRONTEND_MENU_WORKSHOP_PREVIEW_HPP
 
 #include "graphics/core/Batch2D.hpp"
 #include "graphics/core/Batch3D.hpp"
 #include "graphics/core/Framebuffer.hpp"
 #include "graphics/core/LineBatch.hpp"
+#include "graphics/core/Mesh.hpp"
 #include "graphics/render/BlocksRenderer.hpp"
 #include "items/Inventory.hpp"
 #include "maths/aabb.hpp"
@@ -18,7 +19,6 @@ class Engine;
 class ContentGfxCache;
 class Chunk;
 class Shader;
-class Mesh;
 class DrawContext;
 struct EntityDef;
 namespace gui {

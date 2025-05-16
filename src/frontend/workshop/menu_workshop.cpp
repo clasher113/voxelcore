@@ -1,4 +1,4 @@
-#include "menu_workshop.hpp"
+ï»¿#include "menu_workshop.hpp"
 
 #include "coders/png.hpp"
 #include "constants.hpp"
@@ -16,14 +16,14 @@
 #include "graphics/ui/gui_xml.hpp"
 #include "assets/AssetsLoader.hpp"
 
-const static std::wstring disclaimerText(L"Îòêàç îò îòâåòñòâåííîñòè:\n\
-Àâòîð ìîäà íå íåñåò íèêàêîé îòâåòñòâåííîñòè çà ïîòåðþ ôàéëîâ èëè èõ ïîâðåæäåíèå â ðåçóëüòàòå íåîñòîðîæíîãî èñïîëüçîâàíèÿ, \
-áàãà èëè íåäîðàáîòêè ìîäà.\n\
-Èñïîëüçóÿ ýòîò ìîä âû ñîãëàøàåòåñü íà âñå âîçìîæíûå ðèñêè ñâÿçàííûå ñ ïîòåðåé ôàéëîâ èëè èõ ïîâðåæäåíèþ\n\
-Ìîä ìîæåò èçìåíèòü âèçóàëüíóþ ñòðóêòóðó ôàéëîâ\n\
-Â ìîäå ìîãóò áûòü äîñòóïíû íå çàäîêóìåíòèðîâàííûå ôóíêöèè äâèæêà, íàõîäÿùèåñÿ â ðàçðàáîòêå, èñïîëüçîâàíèå êîòîðûõ \
-ìîæåò ïðèâåñòè ê íåïðåäñêàçóåìîìó ðåçóëüòàòó. Âñåãäà ïðîâåðÿéòå äîêóìåíòàöèþ íà èñïîëüçóåìûé ôóíêöèîíàë\n\
-Âñåãäà äåëàéòå áåêàïû êîíòåíòà, êîòîðûé áóäåòå ðåäàêòèðîâàòü\
+const static std::wstring disclaimerText(L"ÐžÑ‚ÐºÐ°Ð· Ð¾Ñ‚ Ð¾Ñ‚Ð²ÐµÑ‚ÑÑ‚Ð²ÐµÐ½Ð½Ð¾ÑÑ‚Ð¸:\n\
+ÐÐ²Ñ‚Ð¾Ñ€ Ð¼Ð¾Ð´Ð° Ð½Ðµ Ð½ÐµÑÐµÑ‚ Ð½Ð¸ÐºÐ°ÐºÐ¾Ð¹ Ð¾Ñ‚Ð²ÐµÑ‚ÑÑ‚Ð²ÐµÐ½Ð½Ð¾ÑÑ‚Ð¸ Ð·Ð° Ð¿Ð¾Ñ‚ÐµÑ€ÑŽ Ñ„Ð°Ð¹Ð»Ð¾Ð² Ð¸Ð»Ð¸ Ð¸Ñ… Ð¿Ð¾Ð²Ñ€ÐµÐ¶Ð´ÐµÐ½Ð¸Ðµ Ð² Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚Ðµ Ð½ÐµÐ¾ÑÑ‚Ð¾Ñ€Ð¾Ð¶Ð½Ð¾Ð³Ð¾ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ð½Ð¸Ñ, \
+Ð±Ð°Ð³Ð° Ð¸Ð»Ð¸ Ð½ÐµÐ´Ð¾Ñ€Ð°Ð±Ð¾Ñ‚ÐºÐ¸ Ð¼Ð¾Ð´Ð°.\n\
+Ð˜ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÑ ÑÑ‚Ð¾Ñ‚ Ð¼Ð¾Ð´ Ð²Ñ‹ ÑÐ¾Ð³Ð»Ð°ÑˆÐ°ÐµÑ‚ÐµÑÑŒ Ð½Ð° Ð²ÑÐµ Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ñ‹Ðµ Ñ€Ð¸ÑÐºÐ¸ ÑÐ²ÑÐ·Ð°Ð½Ð½Ñ‹Ðµ Ñ Ð¿Ð¾Ñ‚ÐµÑ€ÐµÐ¹ Ñ„Ð°Ð¹Ð»Ð¾Ð² Ð¸Ð»Ð¸ Ð¸Ñ… Ð¿Ð¾Ð²Ñ€ÐµÐ¶Ð´ÐµÐ½Ð¸ÑŽ\n\
+ÐœÐ¾Ð´ Ð¼Ð¾Ð¶ÐµÑ‚ Ð¸Ð·Ð¼ÐµÐ½Ð¸Ñ‚ÑŒ Ð²Ð¸Ð·ÑƒÐ°Ð»ÑŒÐ½ÑƒÑŽ ÑÑ‚Ñ€ÑƒÐºÑ‚ÑƒÑ€Ñƒ Ñ„Ð°Ð¹Ð»Ð¾Ð²\n\
+Ð’ Ð¼Ð¾Ð´Ðµ Ð¼Ð¾Ð³ÑƒÑ‚ Ð±Ñ‹Ñ‚ÑŒ Ð´Ð¾ÑÑ‚ÑƒÐ¿Ð½Ñ‹ Ð½Ðµ Ð·Ð°Ð´Ð¾ÐºÑƒÐ¼ÐµÐ½Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð½Ñ‹Ðµ Ñ„ÑƒÐ½ÐºÑ†Ð¸Ð¸ Ð´Ð²Ð¸Ð¶ÐºÐ°, Ð½Ð°Ñ…Ð¾Ð´ÑÑ‰Ð¸ÐµÑÑ Ð² Ñ€Ð°Ð·Ñ€Ð°Ð±Ð¾Ñ‚ÐºÐµ, Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ð½Ð¸Ðµ ÐºÐ¾Ñ‚Ð¾Ñ€Ñ‹Ñ… \
+Ð¼Ð¾Ð¶ÐµÑ‚ Ð¿Ñ€Ð¸Ð²ÐµÑÑ‚Ð¸ Ðº Ð½ÐµÐ¿Ñ€ÐµÐ´ÑÐºÐ°Ð·ÑƒÐµÐ¼Ð¾Ð¼Ñƒ Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚Ñƒ. Ð’ÑÐµÐ³Ð´Ð° Ð¿Ñ€Ð¾Ð²ÐµÑ€ÑÐ¹Ñ‚Ðµ Ð´Ð¾ÐºÑƒÐ¼ÐµÐ½Ñ‚Ð°Ñ†Ð¸ÑŽ Ð½Ð° Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐµÐ¼Ñ‹Ð¹ Ñ„ÑƒÐ½ÐºÑ†Ð¸Ð¾Ð½Ð°Ð»\n\
+Ð’ÑÐµÐ³Ð´Ð° Ð´ÐµÐ»Ð°Ð¹Ñ‚Ðµ Ð±ÐµÐºÐ°Ð¿Ñ‹ ÐºÐ¾Ð½Ñ‚ÐµÐ½Ñ‚Ð°, ÐºÐ¾Ñ‚Ð¾Ñ€Ñ‹Ð¹ Ð±ÑƒÐ´ÐµÑ‚Ðµ Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ\
 ");
 
 struct FilterSettings {
@@ -91,8 +91,8 @@ static bool createDisclaimer(gui::Menu* menu, const fs::path& firstStartFile){
 	gui::Label& label = *new gui::Label(disclaimerText);
 	label.setAutoResize(true);
 	label.setMultiline(true);
-	gui::FullCheckBox& checkbox = *new gui::FullCheckBox(L"ß ïðèíèìàþ âñå ðèñêè è õî÷ó ïðîäîëæèòü", glm::vec2(panel->getSize().x, 25));
-	gui::Button* button = new gui::Button(L"Ïðîäîëæèòü", glm::vec4(10.f), [=](gui::GUI*){
+	gui::FullCheckBox& checkbox = *new gui::FullCheckBox(L"Ð¯ Ð¿Ñ€Ð¸Ð½Ð¸Ð¼Ð°ÑŽ Ð²ÑÐµ Ñ€Ð¸ÑÐºÐ¸ Ð¸ Ñ…Ð¾Ñ‡Ñƒ Ð¿Ñ€Ð¾Ð´Ð¾Ð»Ð¶Ð¸Ñ‚ÑŒ", glm::vec2(panel->getSize().x, 25));
+	gui::Button* button = new gui::Button(L"ÐŸÑ€Ð¾Ð´Ð¾Ð»Ð¶Ð¸Ñ‚ÑŒ", glm::vec4(10.f), [=](gui::GUI*){
 		menu->back();
 		menu->setPage("workshop");
 		menu->removePage("workshop-disclaimer");
@@ -108,7 +108,7 @@ static bool createDisclaimer(gui::Menu* menu, const fs::path& firstStartFile){
 	gui::Container& buttonsContainer = *new gui::Container(glm::vec2(panel->getSize().x, button->getSize().y));
 	buttonsContainer.setColor(glm::vec4(0.f));
 	buttonsContainer << button;
-	buttonsContainer << new gui::Button(L"Íàçàä", glm::vec4(10.f), [menu](gui::GUI*) {
+	buttonsContainer << new gui::Button(L"ÐÐ°Ð·Ð°Ð´", glm::vec4(10.f), [menu](gui::GUI*) {
 		menu->back();
 	});
 	placeNodesHorizontally(buttonsContainer);

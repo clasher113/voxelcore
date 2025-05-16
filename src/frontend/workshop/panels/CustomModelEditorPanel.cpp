@@ -1,4 +1,4 @@
-#include "../WorkshopScreen.hpp"
+﻿#include "../WorkshopScreen.hpp"
 
 #include "../IncludeCommons.hpp"
 #include "../WorkshopPreview.hpp"
@@ -56,7 +56,7 @@ namespace gui {
 			return button;
 		}
 		void switchTo(const std::string& id){
-			auto& found = tabs.find(id);
+			const auto& found = tabs.find(id);
 			if (found == tabs.end()) return;
 
 			for (auto& node : tabsContainer->getNodes()){
@@ -484,11 +484,11 @@ static void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const
 			propPanel << boolButton;
 		}
 		else { // object / list
-			propPanel << new gui::Button(L"Click to explore", glm::vec4(8.f), [=, &panel, &definedProps, &blockProps](gui::GUI*) mutable {
+			propPanel << new gui::Button(L"Click to explore", glm::vec4(8.f), [=, p = path, &panel, &definedProps, &blockProps](gui::GUI*) mutable {
 				size_t index = currentObject.isObject() ? std::distance(currentObject.asObject().begin(), currentObject.asObject().find(key)) :
 					std::stoull(key);
-				path.emplace_back(index);
-				createPropertyEditor(panel, blockProps, definedProps, path);
+				p.emplace_back(index);
+				createPropertyEditor(panel, blockProps, definedProps, p);
 			});
 		}
 
@@ -509,9 +509,9 @@ static void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const
 		gui::Panel& navigationPanel = *new gui::Panel(glm::vec2(0, 38));
 		navigationPanel.setColor(glm::vec4(0.5f));
 		navigationPanel.setOrientation(gui::Orientation::horizontal);
-		navigationPanel << new gui::Button(L"<- Back", glm::vec4(10.f), [=, &panel, &blockProps, &definedProps](gui::GUI*) mutable {
-			path.pop_back();
-			createPropertyEditor(panel, blockProps, definedProps, path);
+		navigationPanel << new gui::Button(L"<- Back", glm::vec4(10.f), [=, p = path, &panel, &blockProps, &definedProps](gui::GUI*) mutable {
+			p.pop_back();
+			createPropertyEditor(panel, blockProps, definedProps, p);
 		});
 		gui::TextBox& textBox = *new gui::TextBox(L"");
 		textBox.setText(L"Exploring: " + pathStr);
