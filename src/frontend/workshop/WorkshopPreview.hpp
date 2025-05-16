@@ -1,5 +1,4 @@
-﻿#ifndef FRONTEND_MENU_WORKSHOP_PREVIEW_HPP
-#define FRONTEND_MENU_WORKSHOP_PREVIEW_HPP
+#pragma once
 
 #include "graphics/core/Batch2D.hpp"
 #include "graphics/core/Batch3D.hpp"
@@ -20,7 +19,6 @@ class ContentGfxCache;
 class Chunk;
 class Shader;
 class DrawContext;
-struct EntityDef;
 namespace gui {
 	class UINode;
 }
@@ -128,5 +126,3 @@ namespace workshop {
 		Shader* drawDirectionArrow();
 	};
 }
-
-#endif // !FRONTEND_MENU_WORKSHOP_PREVIEW_HPP

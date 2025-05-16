@@ -1,88 +1,94 @@
-#include "../WorkshopScreen.hpp"
+#include "frontend/workshop/WorkshopScreen.hpp"
 
 #include "assets/Assets.hpp"
 #include "coders/png.hpp"
 #include "graphics/core/Texture.hpp"
-#include "../IncludeCommons.hpp"
-#include "../libs/portable-file-dialogs.h"
-#include "../WorkshopSerializer.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Image.hpp"
+#include "graphics/ui/elements/Textbox.hpp"
+#include "frontend/workshop/gui_elements/BasicElements.hpp"
+#include "frontend/workshop/WorkshopSerializer.hpp"
+#include "engine/Engine.hpp"
 
-namespace workshop {
+#define NOMINMAX
+#include "frontend/workshop/libs/portable-file-dialogs.h"
 
-	static void createDependencyList(gui::Panel& dependencyList, gui::Panel& panel, ContentPack& pack, Engine& engine,
-		std::vector<ContentPack> contentPacks) {
-		dependencyList.clear();
+using namespace workshop;
 
-		for (auto& elem : pack.dependencies) {
-			const size_t dependencyIndex = &elem - pack.dependencies.data();
+static void createDependencyList(gui::Panel& dependencyList, gui::Panel& panel, ContentPack& pack, Engine& engine,
+	std::vector<ContentPack> contentPacks) {
+	dependencyList.clear();
 
-			gui::Container& container = *new gui::Container(glm::vec2(dependencyList.getSize().x));
-			container.setScrollable(false);
+	for (auto& elem : pack.dependencies) {
+		const size_t dependencyIndex = &elem - pack.dependencies.data();
 
-			PacksManager manager = engine.createPacksManager(engine.getPaths().getCurrentWorldFolder());
-			manager.scan();
-			std::vector<ContentPack> scanned = manager.getAll(manager.getAllNames());
+		gui::Container& container = *new gui::Container(glm::vec2(dependencyList.getSize().x));
+		container.setScrollable(false);
 
-			gui::TextBox& textbox = createTextBox(container, elem.id, L"Dependency ID");
-			textbox.setTooltipDelay(0.f);
-			textbox.setTextValidator([scanned, &textbox, &pack, &elem](const std::wstring&) {
-				const std::string input(util::wstr2str_utf8(textbox.getInput()));
-				auto [code, isOk] = checkPackId(textbox.getInput(), scanned);
-				bool packExist = std::find_if(scanned.begin(), scanned.end(), [input](const ContentPack& pack) {
-					return pack.id == input;
-				}) != scanned.end();
-				if (elem.level == DependencyLevel::required) {
-					code = packExist ? "Dependency exist" : "Dependency not exist";
-					isOk = packExist;
-				}
-				else {
-					if (!isOk && packExist) code = "Dependency available";
-					else if (isOk) code = "Dependency not available";
-					isOk = isOk || packExist;
-				}
-				if (input == pack.id){
-					isOk = false;
-					code = "Pack recursion";
-				}
-				textbox.setTooltip(util::str2wstr_utf8(code));
-				return isOk;
-			});
+		PacksManager manager = engine.createPacksManager(engine.getPaths().getCurrentWorldFolder());
+		manager.scan();
+		std::vector<ContentPack> scanned = manager.getAll(manager.getAllNames());
 
-			const std::wstring levels[] = { L"required", L"optional", L"weak" };
-			gui::Button& button = *new gui::Button(L"Level: " + levels[static_cast<int>(elem.level)], glm::vec4(10.f), gui::onaction());
-			button.listenAction([&levelRef = pack.dependencies[dependencyIndex].level, levels, &button](gui::GUI*) {
-				incrementEnumClass(levelRef, 1);
-				if (levelRef > DependencyLevel::weak) levelRef = DependencyLevel::required;
-				button.setText(L"Level: " + levels[static_cast<int>(levelRef)]);
-			});
-			gui::Image& image = *new gui::Image("gui/delete_icon");
-			gui::Container& imageContainer = *new gui::Container(image.getSize());
+		gui::TextBox& textbox = createTextBox(container, elem.id, L"Dependency ID");
+		textbox.setTooltipDelay(0.f);
+		textbox.setTextValidator([scanned, &textbox, &pack, &elem](const std::wstring&) {
+			const std::string input(util::wstr2str_utf8(textbox.getInput()));
+			auto [code, isOk] = checkPackId(textbox.getInput(), scanned);
+			bool packExist = std::find_if(scanned.begin(), scanned.end(), [input](const ContentPack& pack) {
+				return pack.id == input;
+			}) != scanned.end();
+			if (elem.level == DependencyLevel::required) {
+				code = packExist ? "Dependency exist" : "Dependency not exist";
+				isOk = packExist;
+			}
+			else {
+				if (!isOk && packExist) code = "Dependency available";
+				else if (isOk) code = "Dependency not available";
+				isOk = isOk || packExist;
+			}
+			if (input == pack.id){
+				isOk = false;
+				code = "Pack recursion";
+			}
+			textbox.setTooltip(util::str2wstr_utf8(code));
+			return isOk;
+		});
 
-			const float interval = textbox.getPadding().x + textbox.getMargin().x;
-			const glm::vec2 size((panel.getSize().x - image.getSize().x) / 2.f - interval, textbox.getSize().y);
-			textbox.setSize(size);
-			button.setSize(size);
-			button.setPos(glm::vec2(size.x + interval, 0.f));
+		const std::wstring levels[] = { L"required", L"optional", L"weak" };
+		gui::Button& button = *new gui::Button(L"Level: " + levels[static_cast<int>(elem.level)], glm::vec4(10.f), gui::onaction());
+		button.listenAction([&levelRef = pack.dependencies[dependencyIndex].level, levels, &button](gui::GUI*) {
+			incrementEnumClass(levelRef, 1);
+			if (levelRef > DependencyLevel::weak) levelRef = DependencyLevel::required;
+			button.setText(L"Level: " + levels[static_cast<int>(levelRef)]);
+		});
+		gui::Image& image = *new gui::Image("gui/delete_icon");
+		gui::Container& imageContainer = *new gui::Container(image.getSize());
 
-			imageContainer.setPos(glm::vec2(size.x * 2.f + interval, 0.f));
-			imageContainer.listenAction([=, &engine, &dependencyList, &panel, &pack](gui::GUI*) {
-				pack.dependencies.erase(pack.dependencies.begin() + dependencyIndex);
-				createDependencyList(dependencyList, panel, pack, engine, contentPacks);
-				panel.refresh();
-			});
-			imageContainer << image;
+		const float interval = textbox.getPadding().x + textbox.getMargin().x;
+		const glm::vec2 size((panel.getSize().x - image.getSize().x) / 2.f - interval, textbox.getSize().y);
+		textbox.setSize(size);
+		button.setSize(size);
+		button.setPos(glm::vec2(size.x + interval, 0.f));
 
-			container << imageContainer;
-			container << button;
-			container.setSize(glm::vec2(container.getSize().x, size.y));
+		imageContainer.setPos(glm::vec2(size.x * 2.f + interval, 0.f));
+		imageContainer.listenAction([=, &engine, &dependencyList, &panel, &pack](gui::GUI*) {
+			pack.dependencies.erase(pack.dependencies.begin() + dependencyIndex);
+			createDependencyList(dependencyList, panel, pack, engine, contentPacks);
+			panel.refresh();
+		});
+		imageContainer << image;
 
-			dependencyList << container;
-		}
-		dependencyList.cropToContent();
+		container << imageContainer;
+		container << button;
+		container.setSize(glm::vec2(container.getSize().x, size.y));
+
+		dependencyList << container;
 	}
+	dependencyList.cropToContent();
 }
 
-void workshop::WorkShopScreen::createPackInfoPanel() {
+void WorkShopScreen::createPackInfoPanel() {
 	createPanel([this]() {
 
 		auto loadIcon = [this]() {

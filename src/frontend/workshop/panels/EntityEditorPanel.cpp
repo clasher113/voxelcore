@@ -1,12 +1,20 @@
-#include "../WorkshopScreen.hpp"
+#include "frontend/workshop/WorkshopScreen.hpp"
 
+#include "assets/Assets.hpp"
 #include "content/Content.hpp"
-#include "../IncludeCommons.hpp"
 #include "objects/EntityDef.hpp"
-#include "../WorkshopSerializer.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/CheckBox.hpp"
+#include "graphics/ui/elements/Image.hpp"
+#include "graphics/ui/elements/Textbox.hpp"
+#include "frontend/workshop/gui_elements/BasicElements.hpp"
+#include "frontend/workshop/WorkshopSerializer.hpp"
+#include "frontend/workshop/WorkshopPreview.hpp"
 #include "graphics/core/Texture.hpp"
+#include "util/stringutil.hpp"
 #include "constants.hpp"
-#include "../WorkshopPreview.hpp"
 
 using namespace workshop;
 

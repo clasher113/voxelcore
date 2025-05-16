@@ -1,7 +1,9 @@
 #include "BasicElements.hpp"
 
-#include "graphics/core/Atlas.hpp"
-#include "../IncludeCommons.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
+#include "graphics/ui/elements/CheckBox.hpp"
+#include "graphics/ui/elements/TrackBar.hpp"
+#include "util/stringutil.hpp"
 
 gui::TextBox& workshop::createTextBox(gui::Container& container, std::string& string, const std::wstring& placeholder) {
 	gui::TextBox& textBox = *new gui::TextBox(placeholder);

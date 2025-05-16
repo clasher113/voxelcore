@@ -1,5 +1,4 @@
-#ifndef FRONTEND_MENU_WORKSHOP_UTILS_HPP
-#define FRONTEND_MENU_WORKSHOP_UTILS_HPP
+#pragma once
 
 #include <filesystem>
 #include <glm/glm.hpp>
@@ -7,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 #include <array>
+#include <functional>
 
 #include "data/dv.hpp"
 #include "maths/aabb.hpp"
@@ -28,7 +28,6 @@ namespace gui {
 
 template<glm::length_t L, typename T>
 using vec_t = glm::vec<L, T, glm::defaultp>;
-using ptr_vec3 = vec_t<3, double*>;
 
 inline const std::string NOT_SET = "[not set]";
 inline const std::string BLOCKS_PREVIEW_ATLAS = "block-previews";
@@ -103,6 +102,7 @@ namespace workshop {
 	extern gui::UINode* markRemovable(gui::UINode* node);
 	extern gui::UINode& markRemovable(gui::UINode& node);
 	extern void removeRemovable(gui::Container& container);
+	extern std::function<glm::vec2()> getSizeFunc(gui::Panel& panel, const std::vector<glm::vec2>& sizes);
 
 	extern void validateBlock(Assets* assets, Block& block);
 	extern void validateItem(Assets* assets, ItemDef& item);
@@ -125,4 +125,3 @@ namespace workshop {
 		return enumClass;
 	}
 }
-#endif // !FRONTEND_MENU_WORKSHOP_UTILS_HPP

@@ -1,5 +1,4 @@
-#ifndef FRONTEND_MENU_MENU_WORKSHOP_HPP
-#define FRONTEND_MENU_MENU_WORKSHOP_HPP
+#pragma once
 
 class Engine;
 namespace gui {
@@ -9,5 +8,3 @@ namespace gui {
 namespace workshop {
 	extern void create_workshop_button(Engine& engine, const gui::Page* page);
 }
-
-#endif // !FRONTEND_MENU_MENU_WORKSHOP_H_

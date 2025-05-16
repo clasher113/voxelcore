@@ -1,9 +1,7 @@
-#ifndef FRONTEND_MENU_BLOCK_MODEL_CONVERTER_HPP
-#define FRONTEND_MENU_BLOCK_MODEL_CONVERTER_HPP
+#pragma once
 
 #include "maths/aabb.hpp"
 #include "maths/UVRegion.hpp"
-#include "WorkshopUtils.hpp"
 
 #include <filesystem>
 #include <glm/glm.hpp>
@@ -14,12 +12,6 @@
 class Block;
 class Atlas;
 struct ContentPack;
-namespace dynamic {
-	class Map;
-}
-namespace gui {
-	class UINode;
-}
 
 namespace workshop {
 	class BlockModelConverter {
@@ -35,7 +27,7 @@ namespace workshop {
 			int rotation = 0;
 			UVRegion uv;
 			std::string name;
-			bool isUnique() const { return rotation != 0 || !(uv == UVRegion()); }
+			bool isUnique() const;
 		};
 		struct PrimitiveData {
 			glm::vec3 rotation{ 0.f };
@@ -52,4 +44,3 @@ namespace workshop {
 		std::unordered_map<std::string, std::vector<TextureData>> croppedTextures;
 	};
 }
-#endif // !FRONTEND_MENU_BLOCK_MODEL_CONVERTER_HPP

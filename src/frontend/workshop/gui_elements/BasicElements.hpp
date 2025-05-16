@@ -1,11 +1,10 @@
-#ifndef FRONTEND_MENU_WORKSHOP_GUI_BASIC_ELEMENTS_HPP
-#define FRONTEND_MENU_WORKSHOP_GUI_BASIC_ELEMENTS_HPP
+#pragma once
 
 #include <functional>
 #include <glm/fwd.hpp>
 #include <string>
 
-#include "../WorkshopUtils.hpp"
+#include "frontend/workshop/WorkshopUtils.hpp"
 
 namespace gui {
 	class TextBox;
@@ -23,5 +22,3 @@ namespace workshop {
 	extern gui::TextBox& createNumTextBox(T& value, const std::wstring& placeholder, size_t floatPrecision = 3, T min = std::numeric_limits<T>::lowest(),
 		T max = std::numeric_limits<T>::max() - 1, const std::function<void(T)>& callback = [](T) {});
 }
-
-#endif // !FRONTEND_MENU_WORKSHOP_GUI_BASIC_ELEMENTS_HPP

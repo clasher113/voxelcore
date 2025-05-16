@@ -1,4 +1,4 @@
-#include "WorkshopUtils.hpp"
+﻿#include "WorkshopUtils.hpp"
 
 #include "assets/Assets.hpp"
 #include "constants.hpp"
@@ -283,6 +283,35 @@ void workshop::removeRemovable(gui::Container& container) {
 		auto& node = container.getNodes().at(i);
 		if (node->getId() == REMOVABLE_MARK) container.remove(node);
 	}
+}
+
+std::function<glm::vec2()> workshop::getSizeFunc(gui::Panel& panel, const std::vector<glm::vec2>& sizes) {
+	return [&panel, sizes]() {
+		auto& nodes = panel.getNodes();
+		float totalWidth = panel.getSize().x - 2.f - (2.f * nodes.size());
+		const size_t count = std::min(nodes.size(), sizes.size());
+		std::vector<size_t> sizesCalculated;
+
+		// todo optimize
+		for (const glm::vec2& size : sizes) {
+			sizesCalculated.emplace_back(size.x);
+			totalWidth -= size.x;
+		}
+		while (totalWidth > 0) {
+			for (size_t i = 0; i < count; i++) {
+				if (sizesCalculated[i] < sizes[i].y) {
+					sizesCalculated[i]++;
+					totalWidth--;
+				}
+				if (totalWidth <= 0) break;
+			}
+		}
+		for (size_t i = 0; i < count; i++) {
+			nodes[i]->setSize(glm::vec2(sizesCalculated[i], panel.getSize().y - 4.f));
+		}
+
+		return panel.getSize();
+	};
 }
 
 void workshop::validateBlock(Assets* assets, Block& block) {

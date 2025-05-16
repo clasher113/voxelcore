@@ -1,4 +1,4 @@
-﻿#include "menu_workshop.hpp"
+#include "menu_workshop.hpp"
 
 #include "coders/png.hpp"
 #include "constants.hpp"
@@ -6,14 +6,17 @@
 #include "graphics/core/Texture.hpp"
 #include "graphics/ui/elements/Container.hpp"
 #include "graphics/ui/elements/Menu.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "graphics/ui/elements/CheckBox.hpp"
+#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/Image.hpp"
 #include "graphics/ui/GUI.hpp"
-#include "graphics/ui/gui_util.hpp"
 #include "util/stringutil.hpp"
-#include "IncludeCommons.hpp"
 #include "WorkshopScreen.hpp"
 #include "WorkshopSerializer.hpp"
 #include "files/files.hpp"
-#include "graphics/ui/gui_xml.hpp"
 #include "assets/AssetsLoader.hpp"
 
 const static std::wstring disclaimerText(L"Отказ от ответственности:\n\

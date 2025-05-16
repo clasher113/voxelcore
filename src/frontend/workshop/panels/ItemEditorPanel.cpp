@@ -1,10 +1,20 @@
-#include "../WorkshopScreen.hpp"
+#include "frontend/workshop/WorkshopScreen.hpp"
 
 #include "items/ItemDef.hpp"
 #include "content/Content.hpp"
-#include "../IncludeCommons.hpp"
-#include "../WorkshopSerializer.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Textbox.hpp"
+#include "frontend/workshop/gui_elements/BasicElements.hpp"
+#include "frontend/workshop/gui_elements/IconButton.hpp"
+#include "frontend/workshop/WorkshopSerializer.hpp"
+#include "util/stringutil.hpp"
 #include "core_defs.hpp"
+
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 	createPanel([this, &item]() {

@@ -1,15 +1,19 @@
-#include "../WorkshopScreen.hpp"
+#include "frontend/workshop/WorkshopScreen.hpp"
 
 #include "assets/Assets.hpp"
 #include "content/Content.hpp"
 #include "graphics/core/Atlas.hpp"
 #include "items/ItemDef.hpp"
-#include "../IncludeCommons.hpp"
-#include "../WorkshopPreview.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Textbox.hpp"
+#include "frontend/workshop/gui_elements/IconButton.hpp"
+#include "frontend/workshop/WorkshopPreview.hpp"
 #include "objects/EntityDef.hpp"
 #include "frontend/UiDocument.hpp"
 #include "graphics/commons/Model.hpp"
 #include "graphics/core/Texture.hpp"
+#include "engine/Engine.hpp"
 
 #include <algorithm>
 

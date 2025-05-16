@@ -1,13 +1,21 @@
+#include "frontend/workshop/WorkshopScreen.hpp"
+
 #include "coders/xml.hpp"
 #include "content/Content.hpp"
 #include "files/files.hpp"
 #include "window/Events.hpp"
-#include "../IncludeCommons.hpp"
-#include "../WorkshopPreview.hpp"
-#include "../WorkshopScreen.hpp"
-#include "../WorkshopSerializer.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "graphics/ui/elements/CheckBox.hpp"
+#include "graphics/ui/elements/Textbox.hpp"
+#include "frontend/workshop/WorkshopPreview.hpp"
+#include "frontend/workshop/WorkshopSerializer.hpp"
+#include "engine/Engine.hpp"
 
-void workshop::WorkShopScreen::createUILayoutEditor(const fs::path& path, const std::string& fullName, std::vector<size_t> docPath) {
+using namespace workshop;
+
+void WorkShopScreen::createUILayoutEditor(const fs::path& path, const std::string& fullName, std::vector<size_t> docPath) {
 	createPanel([this, path, fullName, docPath]() {
 		gui::Panel& panel = *new gui::Panel(glm::vec2(250));
 

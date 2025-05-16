@@ -9,8 +9,11 @@
 #include "files/files.hpp"
 #include "graphics/core/Atlas.hpp"
 #include "graphics/core/Texture.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "frontend/workshop/gui_elements/IconButton.hpp"
 #include "voxels/Block.hpp"
-#include "IncludeCommons.hpp"
 #include "WorkshopPreview.hpp"
 #include "WorkshopSerializer.hpp"
 #include "WorkshopUtils.hpp"
@@ -20,7 +23,6 @@
 #include "libs/portable-file-dialogs.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
-#include <array>
 
 static debug::Logger logger("workshop-converter");
 
@@ -431,4 +433,8 @@ static void rotateImage(std::unique_ptr<ImageData>& image, size_t angleDegrees) 
 		}
 	}
 	delete[] copy;
+}
+
+bool workshop::BlockModelConverter::TextureData::isUnique() const { 
+	return rotation != 0 || !(uv == UVRegion()); 
 }

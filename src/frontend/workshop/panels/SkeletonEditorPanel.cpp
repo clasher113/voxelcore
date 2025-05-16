@@ -1,9 +1,14 @@
-#include "../WorkshopScreen.hpp"
+#include "frontend/workshop/WorkshopScreen.hpp"
 
 #include "objects/rigging.hpp"
-#include "../IncludeCommons.hpp"
-#include "../WorkshopPreview.hpp"
-#include "../WorkshopSerializer.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Image.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "util/stringutil.hpp"
+#include "frontend/workshop/gui_elements/BasicElements.hpp"
+#include "frontend/workshop/WorkshopPreview.hpp"
+#include "frontend/workshop/WorkshopSerializer.hpp"
 
 using namespace workshop;
 

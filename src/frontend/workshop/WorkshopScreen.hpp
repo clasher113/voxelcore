@@ -1,5 +1,4 @@
-#ifndef FRONTEND_MENU_WORKSHOP_SCREEN_HPP
-#define FRONTEND_MENU_WORKSHOP_SCREEN_HPP
+#pragma once
 
 #include "frontend/screens/Screen.hpp"
 #include "content/ContentPack.hpp"
@@ -10,7 +9,6 @@
 #include <glm/glm.hpp>
 #include <map>
 #include <unordered_map>
-#include <unordered_set>
 
 class Atlas;
 class Block;
@@ -26,7 +24,6 @@ namespace rigging {
 }
 namespace gui {
 	class Panel;
-	class UINode;
 	class GUI;
 }
 namespace xml {
@@ -90,6 +87,7 @@ namespace workshop {
 		void createAdditionalBlockEditorPanel(Block& block, size_t index, PrimitiveType type);
 		void createBlockConverterPanel(Block& block, float posX);
 		void createPrimitiveEditor(gui::Panel& panel, Block& block, size_t index, PrimitiveType type);
+		void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const dv::value& definedProps, std::vector<size_t> path = {});
 		void createBlockFieldsEditor(gui::Panel& panel, std::unique_ptr<data::StructLayout>& fields);
 		gui::Panel& createBlockPreview(gui::Panel& parentPanel, Block& block, PrimitiveType type);
 
@@ -114,6 +112,8 @@ namespace workshop {
 
 		bool ignoreUnsaved = false;
 		int framerate;
+		PrimitiveType modelPrimitive = PrimitiveType::AABB;
+
 		gui::GUI* gui;
 		std::map<unsigned int, std::shared_ptr<gui::Panel>> panels;
 		std::unordered_map<std::string, std::shared_ptr<xml::Document>> xmlDocs;
@@ -148,5 +148,3 @@ namespace workshop {
 		std::unique_ptr<Preview> preview;
 	};
 }
-
-#endif // !FRONTEND_MENU_WORKSHOP_SCREEN_HPP

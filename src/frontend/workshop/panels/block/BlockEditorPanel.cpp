@@ -1,11 +1,17 @@
-#include "../WorkshopScreen.hpp"
+#include "frontend/workshop/WorkshopScreen.hpp"
 
 #include "content/Content.hpp"
 #include "items/ItemDef.hpp"
-#include "../BlockModelConverter.hpp"
-#include "../IncludeCommons.hpp"
-#include "../WorkshopPreview.hpp"
-#include "../WorkshopSerializer.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
+#include "frontend/workshop/gui_elements/BasicElements.hpp"
+#include "frontend/workshop/gui_elements/IconButton.hpp"
+#include "frontend/workshop/BlockModelConverter.hpp"
+#include "frontend/workshop/WorkshopPreview.hpp"
+#include "frontend/workshop/WorkshopSerializer.hpp"
+#include "util/stringutil.hpp"
 #include "core_defs.hpp"
 
 void workshop::WorkShopScreen::createBlockEditor(Block& block) {
@@ -28,7 +34,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		createFullCheckBox(panel, L"Translucent", block.translucent, L"Block has semi-transparent texture");
 		createFullCheckBox(panel, L"Obstacle", block.obstacle, L"Is the block a physical obstacle");
 		createFullCheckBox(panel, L"Selectable", block.selectable, L"Can the block be selected");
-		createFullCheckBox(panel, L"Replaceable", block.replaceable, L"Can the block be replaced with other. \n Examples of replaceable blocks: air, flower, water");
+		createFullCheckBox(panel, L"Replaceable", block.replaceable, L"Can the block be replaced with other. Examples of replaceable blocks: air, flower, water");
 		createFullCheckBox(panel, L"Shadeless", block.shadeless, L"Does block model have shading");
 		createFullCheckBox(panel, L"Ambient Occlusion", block.ambientOcclusion, L"Does block model have vertex-based AO effect");
 		createFullCheckBox(panel, L"Breakable", block.breakable, L"Can player destroy the block");

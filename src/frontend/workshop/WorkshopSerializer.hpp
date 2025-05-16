@@ -1,5 +1,4 @@
-#ifndef FRONTEND_MENU_WORKSHOP_SERIALIZER_HPP
-#define FRONTEND_MENU_WORKSHOP_SERIALIZER_HPP
+#pragma once
 
 #include <filesystem>
 #include <string>
@@ -32,5 +31,3 @@ namespace workshop {
 	extern void saveSkeleton(const rigging::Bone& root, const std::filesystem::path& packFolder, const std::string& actualName);
 	extern void saveDocument(const xml::Document& document, const std::filesystem::path& packFolder, const std::string& actualName);
 }
-
-#endif // !FRONTEND_MENU_WORKSHOP_SERIALIZER_HPP

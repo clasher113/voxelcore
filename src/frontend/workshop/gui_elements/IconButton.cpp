@@ -1,10 +1,10 @@
-#include "IconButton.hpp"
+﻿#include "IconButton.hpp"
 
-#include "../../../graphics/core/Atlas.hpp"
-#include "../../../graphics/ui/elements/Image.hpp"
-#include "../../../graphics/ui/elements/Label.hpp"
-#include "../../../util/stringutil.hpp"
-#include "../WorkshopUtils.hpp"
+#include "graphics/core/Atlas.hpp"
+#include "graphics/ui/elements/Image.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "util/stringutil.hpp"
+#include "frontend/workshop/WorkshopUtils.hpp"
 
 gui::IconButton::IconButton(glm::vec2 size, const std::string& text, Texture* const texture, const UVRegion& uv, const std::string& additionalText) : Container(size),
 label(new gui::Label(text)),

@@ -1,11 +1,20 @@
-#include "../WorkshopScreen.hpp"
+#include "frontend/workshop/WorkshopScreen.hpp"
 
 #include "coders/xml.hpp"
 #include "items/ItemDef.hpp"
-#include "../IncludeCommons.hpp"
-#include "../WorkshopSerializer.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Label.hpp"
+#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "frontend/workshop/WorkshopSerializer.hpp"
 #include "objects/EntityDef.hpp"
 #include "objects/rigging.hpp"
+#include "util/stringutil.hpp"
+#include "voxels/Block.hpp"
+
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, ContentType type, const std::string& name, bool reInitialize) {
 	createPanel([this, action, type, name, reInitialize]() {
