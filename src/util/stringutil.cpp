@@ -289,9 +289,15 @@ void util::trim(std::string& s) {
 
 std::string util::to_string(double x) {
     std::stringstream ss;
-    ss << std::setprecision(6);
-    ss << x;
-    return ss.str();
+    ss << std::fixed << std::setprecision(10) << x;
+    std::string s;
+    ss >> s;
+    size_t pos = s.find_last_not_of('0') + 1;
+    pos = std::max(pos, s.find('.') + 2);
+    if (pos != std::string::npos && pos < s.length()) {
+        s.erase(pos);
+    }
+    return s;
 }
 
 std::wstring util::to_wstring(double x, int precision) {

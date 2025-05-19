@@ -54,6 +54,11 @@ void WorkShopScreen::createAdditionalBlockEditorPanel(Block& block, size_t index
 		createBlockFieldsEditor(*panel, block.dataStruct);
 		tabsContainer.addTab("fields", L"Fields", panel);
 
+		panel = new gui::Panel(glm::vec2());
+		panel->setColor(glm::vec4(0.f));
+		createBlockParticlesEditor(*panel, block.particles);
+		tabsContainer.addTab("particles", L"Particles", panel);
+
 		return std::ref(mainPanel);
 	}, 3);
 }

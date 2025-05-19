@@ -52,7 +52,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		const Block* currentParent = content->blocks.find(backupData.currentParent);
 		const Block* newParent = content->blocks.find(backupData.newParent);
 
-		gui::IconButton& parentBlock = *new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), parentIcoName(newParent), previewAtlas, parentIcoTexName(newParent));
+		gui::IconButton& parentBlock = *new gui::IconButton(35.f, parentIcoName(newParent), previewAtlas, parentIcoTexName(newParent));
 		parentBlock.listenAction([=, &panel, &backupData, &parentBlock, &block](gui::GUI*) {
 			createContentList(ContentType::BLOCK, true, 5, panel.calcPos().x + panel.getSize().x, [=, &backupData, &parentBlock, &block](const std::string& string) {
 				const Block* parent = content->blocks.find(string);
@@ -79,7 +79,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 			if (item->iconType == ItemIconType::BLOCK) return item->icon;
 			return getTexName(item->icon);
 		};
-		gui::IconButton* iconButton = new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), block.pickingItem, atlas(block.pickingItem),
+		gui::IconButton* iconButton = new gui::IconButton(35.f, block.pickingItem, atlas(block.pickingItem),
 			texName(item(block.pickingItem)));
 		iconButton->listenAction([=, &panel, &block](gui::GUI*) {
 			createContentList(ContentType::ITEM, true, 5, panel.calcPos().x + panel.getSize().x, [=, &block](const std::string& name) {
@@ -92,7 +92,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		panel << iconButton;
 
 		panel << new gui::Label("Surface replacement");
-		iconButton = new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), block.surfaceReplacement, previewAtlas,
+		iconButton = new gui::IconButton(35.f, block.surfaceReplacement, previewAtlas,
 		   block.surfaceReplacement);
 		iconButton->setTooltip(L"Block will be used instead of this if generated on surface");
 		iconButton->listenAction([=, &panel, &block](gui::GUI*) {
@@ -174,7 +174,7 @@ void workshop::WorkShopScreen::createBlockEditor(Block& block) {
 		};
 		
 		panel << new gui::Label("Overlay texture");
-		iconButton = new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), overlayTextureName(block.overlayTexture), getAtlas(assets, overlayTexture(block.overlayTexture)),
+		iconButton = new gui::IconButton(35.f, overlayTextureName(block.overlayTexture), getAtlas(assets, overlayTexture(block.overlayTexture)),
 			getTexName(overlayTexture(block.overlayTexture)));
 		iconButton->listenAction([=, &block](gui::GUI*) {
 			createTextureList(35.f, 5, { ContentType::BLOCK, ContentType::ITEM }, iconButton->calcPos().x + iconButton->getSize().x, true,

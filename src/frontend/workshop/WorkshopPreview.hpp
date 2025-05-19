@@ -6,6 +6,7 @@
 #include "graphics/core/LineBatch.hpp"
 #include "graphics/core/Mesh.hpp"
 #include "graphics/render/BlocksRenderer.hpp"
+#include "graphics/render/ParticlesRenderer.hpp"
 #include "items/Inventory.hpp"
 #include "maths/aabb.hpp"
 #include "window/Camera.hpp"
@@ -61,6 +62,7 @@ namespace workshop {
 		void setCurrentAABB(const glm::vec3& a, const glm::vec3& b, PrimitiveType type);
 		void setCurrentTetragon(const glm::vec3* const tetragon);
 		void setCurrentPrimitive(PrimitiveType type) { primitiveType = type; };
+		void updateParticles();
 
 		void setUiDocument(const std::shared_ptr<xml::Document> document, std::shared_ptr<int> enviroment, bool forseUpdate = false);
 
@@ -77,6 +79,7 @@ namespace workshop {
 		bool drawCurrentTetragon = false;
 		bool drawBlockHitbox = false;
 		bool drawDirection = true;
+		float particlesSpeed = 1.f;
 		PrimitiveType lookAtPrimitive;
 
 	private:
@@ -97,6 +100,7 @@ namespace workshop {
 		ModelBatch modelBatch;
 		std::shared_ptr<Chunk> chunk;
 		Chunks chunks;
+		ParticlesRenderer particlesRenderer;
 		Camera camera;
 		Framebuffer framebuffer;
 

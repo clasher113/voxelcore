@@ -1,5 +1,6 @@
 #include "WorkshopPreview.hpp"
 
+#include "assets/assets_util.hpp"
 #include "content/Content.hpp"
 #include "engine/Engine.hpp"
 #include "graphics/core/Atlas.hpp"
@@ -39,6 +40,7 @@ lineBatch(1024),
 batch2d(1024),
 batch3d(1024),
 chunks(1, 1, 0, 0, nullptr, *cache.getContent()->getIndices()),
+particlesRenderer(assets, *(Level*)nullptr, chunks, &engine.getSettings().graphics),
 modelBatch(8192, *engine.getAssets(), chunks, engine.getSettings()),
 primitiveType(PrimitiveType::COUNT),
 lookAtPrimitive(PrimitiveType::COUNT)
@@ -135,6 +137,7 @@ void Preview::setBlock(Block* block) {
 	currentBlock = block;
 	chunk->voxels[CHUNK_D * CHUNK_W + CHUNK_D + 1].id = block->rt.id;
 	updateMesh();
+	updateParticles();
 }
 
 static void updateTextures(rigging::Bone& bone, const Assets& assets) {
@@ -173,6 +176,24 @@ void Preview::setCurrentTetragon(const glm::vec3* const tetragon) {
 	primitiveType = PrimitiveType::TETRAGON;
 	for (size_t i = 0; i < 4; i++) {
 		currentTetragon[i] = tetragon[i] - 0.5f;
+	}
+}
+
+void workshop::Preview::updateParticles() {
+	static u64id_t lastEmitter = 0;
+	if (Emitter* emitter = particlesRenderer.getEmitter(lastEmitter)) {
+		emitter->stop();
+	}
+	if (currentBlock->particles) {
+		auto treg = util::get_texture_region(assets, currentBlock->particles->texture, "");
+		lastEmitter = particlesRenderer.add(std::make_unique<Emitter>(
+			*(Level*)nullptr,
+			glm::vec3(0.f),
+			*currentBlock->particles,
+			treg.texture,
+			treg.region,
+			-1
+		));
 	}
 }
 
@@ -326,6 +347,12 @@ void Preview::drawBlock() {
 	main->use();
 	texture->bind();
 	mesh->draw();
+
+	main = setupEntitiesShader(glm::vec3(0.f));
+	main->use();
+	ctx->setCullFace(false);
+	particlesRenderer.render(camera, engine.getTime().getDelta() * particlesSpeed);
+
 	endRenderer(ctx, false, false);
 }
 

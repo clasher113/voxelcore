@@ -62,7 +62,8 @@ gui::Container& workshop::createVectorPanel(vec_t<L, T>& vec, vec_t<L, T> min, v
 	gui::Container& container = *new gui::Container(glm::vec2(width, 0));
 
 	for (typename vec_t<L, T>::length_type i = 0; i < vec_t<L, T>::length(); i++) {
-		container << createNumTextBox(vec[i], coords[i], 3, min[i], max[i], std::function<void(T)>([callback](T num) { if (callback) callback(); }));
+		container << createNumTextBox(vec[i], coords[i] + L" (" + util::str2wstr_utf8(util::to_string(min[i])) + L")", 3, min[i], max[i], 
+			std::function<void(T)>([callback](T num) { if (callback) callback(); }));
 	}
 	placeNodesHorizontally(container);
 

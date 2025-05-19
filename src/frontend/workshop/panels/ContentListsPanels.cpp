@@ -47,7 +47,7 @@ static void createList(const std::vector<ListButtonInfo> list, bool icons, gui::
 		for (const ListButtonInfo& info : list_copy) {
 			gui::UINode* node = nullptr;
 			if (icons) {
-				node = new gui::IconButton(glm::vec2(dstPanel.getSize().x, iconSize), info.displayName, info.texture, info.region);
+				node = new gui::IconButton(iconSize, info.displayName, info.texture, info.region);
 			}
 			else {
 				gui::Button& button = *new gui::Button(util::str2wstr_utf8(info.displayName), glm::vec4(10.f), gui::onaction());

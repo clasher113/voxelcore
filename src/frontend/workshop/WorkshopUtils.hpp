@@ -50,7 +50,7 @@ namespace workshop {
 	};
 
 	enum class ContentType {
-		BLOCK = 0, ITEM, UI_LAYOUT, ENTITY, SKELETON, MODEL
+		BLOCK = 0, ITEM, UI_LAYOUT, ENTITY, SKELETON, MODEL, PARTICLE
 	};
 
 	enum UIElementsArgs : unsigned long long {
@@ -75,6 +75,7 @@ namespace workshop {
 	extern Atlas* getAtlas(Assets* assets, const std::string& fullName, const std::string& delimiter = ":");
 
 	extern std::string getTexName(const std::string& fullName, const std::string& delimiter = ":");
+	extern std::string getAtlasName(const std::string& fullName, const std::string& delimiter = ":");
 	extern std::string getDefName(ContentType type);
 	extern std::string getDefName(const std::string& fullName);
 	extern std::string getScriptName(const ContentPack& pack, const std::string& scriptName);

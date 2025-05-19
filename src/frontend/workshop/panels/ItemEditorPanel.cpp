@@ -57,7 +57,7 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 		const ItemDef* currentParent = content->items.find(backupData.currentParent);
 		const ItemDef* newParent = content->items.find(backupData.newParent);
 
-		gui::IconButton& parentItem = *new gui::IconButton(glm::vec2(panel.getSize().x, 35.f), parentIcoName(newParent), parentIcoAtlas(newParent), parentIcoTexName(newParent));
+		gui::IconButton& parentItem = *new gui::IconButton(35.f, parentIcoName(newParent), parentIcoAtlas(newParent), parentIcoTexName(newParent));
 		parentItem.listenAction([=, &panel, &backupData, &parentItem, &item](gui::GUI*) {
 			createContentList(ContentType::ITEM, true, 5, panel.calcPos().x + panel.getSize().x, [=, &backupData, &parentItem, &item](const std::string& string) {
 				const ItemDef* parent = content->items.find(string);

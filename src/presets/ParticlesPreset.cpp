@@ -46,7 +46,7 @@ dv::value ParticlesPreset::serialize() const {
     root["angle_spread"] = angleSpread;
     root["min_angular_vel"] = minAngularVelocity;
     root["max_angular_vel"] = maxAngularVelocity;
-    root["spawn_spread"] = dv::to_value(size);
+    root["spawn_spread"] = dv::to_value(spawnSpread);
     root["spawn_shape"] = to_string(spawnShape);
     root["random_sub_uv"] = randomSubUV;
     return root;

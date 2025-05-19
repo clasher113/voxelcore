@@ -19,6 +19,7 @@ class ContentGfxCache;
 struct ItemDef;
 struct EntityDef;
 struct BlockMaterial;
+struct ParticlesPreset;
 namespace rigging {
 	class SkeletonConfig;
 }
@@ -89,7 +90,9 @@ namespace workshop {
 		void createPrimitiveEditor(gui::Panel& panel, Block& block, size_t index, PrimitiveType type);
 		void createPropertyEditor(gui::Panel& panel, dv::value& blockProps, const dv::value& definedProps, std::vector<size_t> path = {});
 		void createBlockFieldsEditor(gui::Panel& panel, std::unique_ptr<data::StructLayout>& fields);
+		void createBlockParticlesEditor(gui::Panel& panel, std::unique_ptr<ParticlesPreset>& particles);
 		gui::Panel& createBlockPreview(gui::Panel& parentPanel, Block& block, PrimitiveType type);
+		gui::Panel& createParticlesPreview();
 
 		void createItemEditor(ItemDef& item);
 		void createEntityEditorPanel(EntityDef& entity);

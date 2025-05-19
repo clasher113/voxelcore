@@ -1,4 +1,4 @@
-﻿#include "WorkshopUtils.hpp"
+#include "WorkshopUtils.hpp"
 
 #include "assets/Assets.hpp"
 #include "constants.hpp"
@@ -7,11 +7,16 @@
 #include "debug/Logger.hpp"
 #include "graphics/core/Atlas.hpp"
 #include "graphics/core/Texture.hpp"
+#include "graphics/ui/elements/Panel.hpp"
+#include "graphics/ui/elements/Button.hpp"
+#include "graphics/ui/elements/Image.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
+#include "gui_elements/IconButton.hpp"
 #include "items/ItemDef.hpp"
 #include "maths/UVRegion.hpp"
 #include "voxels/Block.hpp"
-#include "../UiDocument.hpp"
-#include "IncludeCommons.hpp"
+#include "frontend/UiDocument.hpp"
+#include "engine/Engine.hpp"
 
 static debug::Logger logger("workshop-validator");
 
@@ -44,6 +49,7 @@ const std::vector<std::string> DEFAULT_BLOCK_PROPERTIES{
 };
 
 std::string workshop::getTexName(const std::string& fullName, const std::string& delimiter) {
+	if (fullName.empty()) return "transparent";
 	const size_t pos = fullName.find(delimiter);
 	if (pos != std::string::npos) {
 		return fullName.substr(pos + 1);
@@ -51,7 +57,17 @@ std::string workshop::getTexName(const std::string& fullName, const std::string&
 	return fullName;
 }
 
+std::string workshop::getAtlasName(const std::string& fullName, const std::string& delimiter) {
+	if (fullName.empty()) return "blocks";
+	const size_t pos = fullName.find(delimiter);
+	if (pos != std::string::npos) {
+		return fullName.substr(0, pos);
+	}
+	return fullName;
+}
+
 Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName, const std::string& delimiter) {
+	if (fullName.empty()) return assets->get<Atlas>("blocks");
 	const size_t pos = fullName.find(delimiter);
 	if (pos != std::string::npos) {
 		Atlas* atlas = assets->get<Atlas>(fullName.substr(0, pos));
@@ -61,7 +77,7 @@ Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName, const std
 }
 
 std::string workshop::getDefName(ContentType type) {
-	const char* const names[] = { "block", "item", "layout", "entity", "skeleton", "model" };
+	const char* const names[] = { "block", "item", "layout", "entity", "skeleton", "model", "particle" };
 	if (static_cast<size_t>(type) >= std::size(names)) return "";
 	return names[static_cast<size_t>(type)];
 }
@@ -72,7 +88,7 @@ std::string workshop::getDefName(const std::string& fullName) {
 
 std::string workshop::getDefFolder(ContentType type) {
 	const std::string folders[] = { ContentPack::BLOCKS_FOLDER.string(), ContentPack::ITEMS_FOLDER.string(), LAYOUTS_FOLDER, 
-		ContentPack::ENTITIES_FOLDER.string(), SKELETONS_FOLDER, MODELS_FOLDER };
+		ContentPack::ENTITIES_FOLDER.string(), SKELETONS_FOLDER, MODELS_FOLDER, "particles" };
 	if (static_cast<size_t>(type) >= std::size(folders)) return "";
 	return folders[static_cast<size_t>(type)];
 }

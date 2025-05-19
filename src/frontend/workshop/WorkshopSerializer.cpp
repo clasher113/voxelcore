@@ -13,6 +13,7 @@
 #include "util/stringutil.hpp"
 #include "objects/rigging.hpp"
 #include "data/StructLayout.hpp"
+#include "presets/ParticlesPreset.hpp"
 
 #include <algorithm>
 #include <map>
@@ -131,6 +132,10 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 
 	if (block.dataStruct && block.dataStruct->size()){
 		root["fields"] = block.dataStruct->serialize();
+	}
+
+	if (block.particles){
+		root["particles"] = block.particles->serialize();
 	}
 
 	return root;

@@ -234,7 +234,7 @@ void WorkShopScreen::createNavigationPanel() {
 	panel << new gui::Button(L"Items", glm::vec4(10.f), [this](gui::GUI*) { createContentList(ContentType::ITEM); });
 	panel << new gui::Button(L"Entities", glm::vec4(10.f), [this](gui::GUI*) { createEntitiesList(); });
 	panel << new gui::Button(L"Skeletons", glm::vec4(10.f), [this](gui::GUI*) { createSkeletonList(); });
-	panel << new gui::Button(L"Textures", glm::vec4(10.f), [this](gui::GUI*) { createTextureList(50.f, 1, { ContentType::BLOCK, ContentType::ITEM, ContentType::ENTITY }); });
+	panel << new gui::Button(L"Textures", glm::vec4(10.f), [this](gui::GUI*) { createTextureList(50.f, 1, { ContentType::BLOCK, ContentType::ITEM, ContentType::ENTITY, ContentType::PARTICLE }); });
 	panel << new gui::Button(L"Models", glm::vec4(10.f), [this](gui::GUI*) { createModelsList(); });
 	panel << new gui::Button(L"Sounds", glm::vec4(10.f), [this](gui::GUI*) { createSoundList(); });
 	panel << new gui::Button(L"Scripts", glm::vec4(10.f), [this](gui::GUI*) { createScriptList(); });
@@ -350,7 +350,7 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 	if (buttonsNum == 0) return;
 	panel << markRemovable(new gui::Label(buttonsNum == 1 ? L"Texture" : L"Texture faces"));
 	for (size_t i = 0; i < buttonsNum; i++) {
-		gui::IconButton* button = new gui::IconButton(glm::vec2(panel.getSize().x, iconSize), textures[i], blocksAtlas, textures[i],
+		gui::IconButton* button = new gui::IconButton(iconSize, textures[i], blocksAtlas, textures[i],
 			(buttonsNum == 6 ? faces[i] : ""));
 		button->listenAction([=](gui::GUI*) {
 			createTextureList(35.f, 5, { ContentType::BLOCK }, button->calcPos().x + button->getSize().x, true,
@@ -380,7 +380,7 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 		return texture;
 	};
 
-	gui::IconButton* button = new gui::IconButton(glm::vec2(panel.getSize().x, iconSize), texName(), getAtlas(assets, texture), texName());
+	gui::IconButton* button = new gui::IconButton(iconSize, texName(), getAtlas(assets, texture), texName());
 	button->listenAction([this, button, texName, &panel, &texture, iconSize, iconType](gui::GUI*) {
 		auto& nodes = button->getNodes();
 		auto callback = [this, button, nodes, texName, iconSize, &texture](const std::string& textureName) {
@@ -587,13 +587,13 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 							createUtilsPanel();
 						});
 					});
-					for (const auto& pair : unusedTextures) {
-						const Atlas* atlas = assets->get<Atlas>(getDefFolder(pair.first));
-						const std::string file = pair.second.stem().string();
+					for (const auto& [contentType, path] : unusedTextures) {
+						const Atlas* atlas = assets->get<Atlas>(getDefFolder(contentType));
+						const std::string file = path.stem().string();
 
-						gui::IconButton& button = *new gui::IconButton(glm::vec2(panel.getSize().x, 50.f), file, atlas, file);
-						button.listenAction([this, file, pair](gui::GUI*) {
-							createTextureInfoPanel(getDefFolder(pair.first) + ':' + file, pair.first, 3);
+						gui::IconButton& button = *new gui::IconButton(50.f, file, atlas, file);
+						button.listenAction([this, file, contentType](gui::GUI*) {
+							createTextureInfoPanel(getDefFolder(contentType) + ':' + file, contentType, 3);
 						});
 						panel << button;
 					}
@@ -650,9 +650,9 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 					for (const auto& pair : duplicates) {
 						filesList << new gui::Label(pair.first.stem().string());
 						for (const auto& duplicate : pair.second) {
-							std::string file = duplicate.stem().string();
+							const std::string file = duplicate.stem().string();
 							files.emplace_back(duplicate);
-							filesList << new gui::IconButton(glm::vec2(panel.getSize().x, 50.f), file, blocksAtlas, file);
+							filesList << new gui::IconButton(50.f, file, blocksAtlas, file);
 						}
 					}
 					optimizeContainer(filesList);
@@ -827,7 +827,7 @@ void WorkShopScreen::createMaterialEditor(BlockMaterial& material) {
 gui::Panel& workshop::WorkShopScreen::createPreview(const std::function<void(gui::Panel&, gui::Image&)>& setupFunc) {
 	gui::Panel& panel = *new gui::Panel(glm::vec2());
 	gui::Image& image = *new gui::Image(preview->getTexture(), glm::vec2(panel.getSize().x));
-	panel.listenInterval(0.01f, [this, &panel, &image]() {
+	panel.listenInterval(0.001f, [this, &panel, &image]() {
 		if (panel.isHover() && image.isInside(Events::cursor)) {
 			if (Events::jclicked(mousecode::BUTTON_1)) preview->lmb = true;
 			if (Events::jclicked(mousecode::BUTTON_2)) preview->rmb = true;
@@ -871,15 +871,17 @@ gui::Panel& workshop::WorkShopScreen::createBlockPreview(gui::Panel& parentPanel
 	gui::Panel& panel = createPreview([=, &parentPanel, &block](gui::Panel& panel, gui::Image& image) {
 		panel.listenInterval(0.01f, [=, &parentPanel, &panel, &image, &block]() {
 			preview->lookAtPrimitive = PrimitiveType::COUNT;
-			if (type != PrimitiveType::HITBOX) lookAtInfo->setText(L"\nYou can select a primitive with the mouse\n\n");
-			if (panel.isHover() && image.isInside(Events::cursor)) {
-				size_t index;
-				if (type != PrimitiveType::HITBOX && preview->rayCast(Events::cursor.x - image.calcPos().x, Events::cursor.y - image.calcPos().y, index)) {
-					if (Events::jclicked(mousecode::BUTTON_1)) {
-						createPrimitiveEditor(parentPanel, block, index, preview->lookAtPrimitive);
+			if (type == PrimitiveType::AABB || type == PrimitiveType::TETRAGON) {
+				lookAtInfo->setText(L"\nYou can select a primitive with the mouse\n\n");
+				if (panel.isHover() && image.isInside(Events::cursor)) {
+					size_t index;
+					if (preview->rayCast(Events::cursor.x - image.calcPos().x, Events::cursor.y - image.calcPos().y, index)) {
+						if (Events::jclicked(mousecode::BUTTON_1)) {
+							createPrimitiveEditor(parentPanel, block, index, preview->lookAtPrimitive);
+						}
+						lookAtInfo->setText(L"\nPointing at: " + getPrimitiveName(preview->lookAtPrimitive) +
+							L"\nPrimitive index: " + std::to_wstring(index) + L"\nClick LMB to choose");
 					}
-					lookAtInfo->setText(L"\nPointing at: " + getPrimitiveName(preview->lookAtPrimitive) + 
-						L"\nPrimitive index: " + std::to_wstring(index) + L"\nClick LMB to choose");
 				}
 			}
 			preview->drawBlock();
@@ -893,6 +895,24 @@ gui::Panel& workshop::WorkShopScreen::createBlockPreview(gui::Panel& parentPanel
 			createFullCheckBox(panel, L"Highlight current Tetragon", preview->drawCurrentTetragon);
 	});
 	panel << lookAtInfo;
+	return panel;
+}
+
+gui::Panel& workshop::WorkShopScreen::createParticlesPreview() {
+	gui::Panel& panel = createPreview([=](gui::Panel& panel, gui::Image&) {
+		gui::Label* particlesCount = new gui::Label("");
+		gui::Label* particlesSpeed = new gui::Label(L"Particles speed: " + std::to_wstring(preview->particlesSpeed));
+		gui::TrackBar* speedSlider = new gui::TrackBar(0.0, 10.0, preview->particlesSpeed, 0.01);
+		speedSlider->setConsumer([=](double value) {
+			preview->particlesSpeed = value;
+			particlesSpeed->setText(L"Particles speed: " + std::to_wstring(preview->particlesSpeed));
+		});
+		panel << particlesCount << particlesSpeed << speedSlider;
+		panel.listenInterval(0.01f, [=, &panel]() {
+			particlesCount->setText(L"Particles count: " + std::to_wstring(ParticlesRenderer::visibleParticles));
+			preview->drawBlock();
+		});
+	});
 	return panel;
 }
 
