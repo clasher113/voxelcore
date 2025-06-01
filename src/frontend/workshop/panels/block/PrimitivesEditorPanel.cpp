@@ -1,9 +1,10 @@
 #include "frontend/workshop/WorkshopScreen.hpp"
 
+#include "content/Content.hpp"
 #include "graphics/ui/elements/Panel.hpp"
 #include "graphics/ui/elements/Button.hpp"
 #include "graphics/ui/elements/Label.hpp"
-#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
 #include "frontend/workshop/gui_elements/BasicElements.hpp"
 #include "frontend/workshop/WorkshopPreview.hpp"
 #include "voxels/Block.hpp"
@@ -120,11 +121,15 @@ void WorkShopScreen::createPrimitiveEditor(gui::Panel& panel, Block& block, size
 	if (!block.customModelRaw.has(currentPrimitiveId))
 		block.customModelRaw[currentPrimitiveId] = dv::list();
 	dv::value& currentPrimitiveList = block.customModelRaw[currentPrimitiveId];
+	const Block* const parent = content->blocks.find(blocksList[getDefName(block.name)].parent);
+	const bool readOnly = type != PrimitiveType::HITBOX && parent && parent->customModelRaw.getType() != dv::value_type::none;
 
 	if (type != PrimitiveType::HITBOX) {
-		editorPanel << new gui::Button(L"Import model", glm::vec4(10.f), [this, &editorPanel, &block](gui::GUI*) {
-			createBlockConverterPanel(block, editorPanel.calcPos().x + editorPanel.getSize().x);
-		});
+		if (!readOnly) {
+			editorPanel << new gui::Button(L"Import model", glm::vec4(10.f), [this, &editorPanel, &block](gui::GUI*) {
+				createBlockConverterPanel(block, editorPanel.calcPos().x + editorPanel.getSize().x);
+			});
+		}
 		editorPanel << new gui::Button(L"Primitive: " + currentPrimitiveName, glm::vec4(10.f), [=, &panel, &block](gui::GUI*) mutable {
 			modelPrimitive = incrementEnumClass(type, 1);
 			if (modelPrimitive > PrimitiveType::TETRAGON) modelPrimitive = PrimitiveType::AABB;
@@ -133,47 +138,54 @@ void WorkShopScreen::createPrimitiveEditor(gui::Panel& panel, Block& block, size
 	}
 	const size_t primitivesCount = getPrimitivesCount(block, type);
 	editorPanel << new gui::Label(currentPrimitiveName + L": " + std::to_wstring(primitivesCount == 0 ? 0 : index + 1) + L"/" + std::to_wstring(primitivesCount));
+	if (readOnly){
+		editorPanel << new gui::Label("Read-only mode!");
+	}
 
-	editorPanel << new gui::Button(L"Add new", glm::vec4(10.f), [=, &panel, &block, &currentPrimitiveList](gui::GUI*) {
-		if (type == PrimitiveType::HITBOX) {
-			block.hitboxes.emplace_back();
-		}
-		else {
-			const dv::value template_ = type == PrimitiveType::AABB ?
-				dv::list({ 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND }) :
-				dv::list({ 0.f, 0.f, 0.5f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, TEXTURE_NOTFOUND });
+	if (!readOnly) {
+		editorPanel << new gui::Button(L"Add new", glm::vec4(10.f), [=, &panel, &block, &currentPrimitiveList](gui::GUI*) {
+			if (type == PrimitiveType::HITBOX) {
+				block.hitboxes.emplace_back();
+			}
+			else {
+				const dv::value template_ = type == PrimitiveType::AABB ?
+					dv::list({ 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND, TEXTURE_NOTFOUND }) :
+					dv::list({ 0.f, 0.f, 0.5f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, TEXTURE_NOTFOUND });
 
-			currentPrimitiveList.add(template_);
-		}
+				currentPrimitiveList.add(template_);
+			}
 
-		createPrimitiveEditor(panel, block, getPrimitivesCount(block, type) - 1, type);
-		preview->updateCache();
-	});
+			createPrimitiveEditor(panel, block, getPrimitivesCount(block, type) - 1, type);
+			preview->updateCache();
+		});
+	}
 
 	if (getPrimitivesCount(block, type) == 0) return;
 
 	fetchModelData(block, type);
 
-	editorPanel << new gui::Button(L"Copy current", glm::vec4(10.f), [=, &panel, &block, &currentPrimitiveList](gui::GUI*) {
-		if (type == PrimitiveType::HITBOX) {
-			block.hitboxes.emplace_back(block.hitboxes[index]);
-		}
-		else {
-			currentPrimitiveList.add(currentPrimitiveList[index]);
-			preview->updateCache();
-		}
-		createPrimitiveEditor(panel, block, getPrimitivesCount(block, type) - 1, type);
-	});
-	editorPanel << new gui::Button(L"Remove current", glm::vec4(10.f), [=, &panel, &block, &currentPrimitiveList](gui::GUI*) {
-		if (type == PrimitiveType::HITBOX) {
-			block.hitboxes.erase(block.hitboxes.begin() + index);
-		}
-		else {
-			currentPrimitiveList.erase(index);
-			preview->updateCache();
-		}
-		createPrimitiveEditor(panel, block, std::min(getPrimitivesCount(block, type) - 1, index), type);
-	});
+	if (!readOnly) {
+		editorPanel << new gui::Button(L"Copy current", glm::vec4(10.f), [=, &panel, &block, &currentPrimitiveList](gui::GUI*) {
+			if (type == PrimitiveType::HITBOX) {
+				block.hitboxes.emplace_back(block.hitboxes[index]);
+			}
+			else {
+				currentPrimitiveList.add(currentPrimitiveList[index]);
+				preview->updateCache();
+			}
+			createPrimitiveEditor(panel, block, getPrimitivesCount(block, type) - 1, type);
+		});
+		editorPanel << new gui::Button(L"Remove current", glm::vec4(10.f), [=, &panel, &block, &currentPrimitiveList](gui::GUI*) {
+			if (type == PrimitiveType::HITBOX) {
+				block.hitboxes.erase(block.hitboxes.begin() + index);
+			}
+			else {
+				currentPrimitiveList.erase(index);
+				preview->updateCache();
+			}
+			createPrimitiveEditor(panel, block, std::min(getPrimitivesCount(block, type) - 1, index), type);
+		});
+	}
 	editorPanel << new gui::Button(L"Previous", glm::vec4(10.f), [=, &panel, &block](gui::GUI*) {
 		if (index != 0) {
 			createPrimitiveEditor(panel, block, index - 1, type);
@@ -199,6 +211,7 @@ void WorkShopScreen::createPrimitiveEditor(gui::Panel& panel, Block& block, size
 	};
 
 	gui::Panel& inputPanel = *new gui::Panel(glm::vec2(editorPanel.getSize().x));
+	inputPanel.setInteractive(!readOnly);
 	inputPanel.setColor(glm::vec4(0.f));
 	editorPanel << inputPanel;
 
@@ -272,24 +285,27 @@ void WorkShopScreen::createPrimitiveEditor(gui::Panel& panel, Block& block, size
 	editorPanel << createInputModeButton(createInput);
 	if (type != PrimitiveType::HITBOX) {
 		gui::Panel& texturePanel = *new gui::Panel(glm::vec2(editorPanel.getSize().x, 35.f));
+		texturePanel.setInteractive(!readOnly);
 		createTexturesPanel(texturePanel, 35.f, textures_ptr, (type == PrimitiveType::AABB ? BlockModel::aabb : BlockModel::custom), [=, &block]() {
 			applyModelData(block, type);
 		}
 		);
 		editorPanel << texturePanel;
 	}
-	if (type == PrimitiveType::AABB) {
-		editorPanel << new gui::Button(L"Convert to tetragons", glm::vec4(10.f), [=, &panel, &block, &currentPrimitiveList](gui::GUI*) {
-			std::vector<glm::vec3> tetragons = aabb2tetragons(points[index * 2], points[index * 2 + 1] + points[index * 2]);
-			std::vector<std::string> tex(textures.data() + index * 6, textures.data() + index * 6 + 6);
-			currentPrimitiveList.erase(index);
-			fetchModelData(block, PrimitiveType::TETRAGON);
-			points.insert(points.end(), tetragons.begin(), tetragons.end());
-			textures.insert(textures.end(), tex.begin(), tex.end());
-			applyModelData(block, PrimitiveType::TETRAGON);
-			preview->updateCache();
-			createPrimitiveEditor(panel, block, getPrimitivesCount(block, PrimitiveType::TETRAGON) - 1, PrimitiveType::TETRAGON);
-		});
+	if (!readOnly) {
+		if (type == PrimitiveType::AABB) {
+			editorPanel << new gui::Button(L"Convert to tetragons", glm::vec4(10.f), [=, &panel, &block, &currentPrimitiveList](gui::GUI*) {
+				std::vector<glm::vec3> tetragons = aabb2tetragons(points[index * 2], points[index * 2 + 1] + points[index * 2]);
+				std::vector<std::string> tex(textures.data() + index * 6, textures.data() + index * 6 + 6);
+				currentPrimitiveList.erase(index);
+				fetchModelData(block, PrimitiveType::TETRAGON);
+				points.insert(points.end(), tetragons.begin(), tetragons.end());
+				textures.insert(textures.end(), tex.begin(), tex.end());
+				applyModelData(block, PrimitiveType::TETRAGON);
+				preview->updateCache();
+				createPrimitiveEditor(panel, block, getPrimitivesCount(block, PrimitiveType::TETRAGON) - 1, PrimitiveType::TETRAGON);
+			});
+		}
 	}
 
 	editorPanel << new gui::Label("Go to:");

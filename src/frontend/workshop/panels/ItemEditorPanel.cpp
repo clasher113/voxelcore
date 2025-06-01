@@ -5,7 +5,7 @@
 #include "graphics/ui/elements/Panel.hpp"
 #include "graphics/ui/elements/Label.hpp"
 #include "graphics/ui/elements/Button.hpp"
-#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
 #include "frontend/workshop/gui_elements/BasicElements.hpp"
 #include "frontend/workshop/gui_elements/IconButton.hpp"
 #include "frontend/workshop/WorkshopSerializer.hpp"
@@ -31,7 +31,7 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 			panel << label;
 
 			panel << new gui::Button(L"Create file", glm::vec4(10.f), [this, &item, actualName](gui::GUI*) {
-				saveItem(item, currentPack.folder, actualName, nullptr, "");
+				saveItem(item, currentPack.folder);
 				createItemEditor(item);
 			});
 			return std::ref(panel);
@@ -42,30 +42,30 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 		createTextBox(panel, item.caption, L"Example item");
 
 		panel << new gui::Label(L"Parent item");
-		auto parentIcoName = [](const ItemDef* const parentItem) {
-			if (parentItem) return parentItem->name;
-			return NOT_SET;
+		auto parentIcoName = [](const ItemDef* const parent) {
+			return parent ? parent->name : NOT_SET;
 		};
-		auto parentIcoTexName = [parentIcoName](const ItemDef* const parent) {
-			return parentIcoName(parent) == NOT_SET ? CORE_AIR : (parent->iconType == ItemIconType::BLOCK ? parent->icon : getTexName(parent->icon));
-		};
-		auto parentIcoAtlas = [this, parentIcoName](const ItemDef* const parent) {
-			return parentIcoName(parent) == NOT_SET ? previewAtlas : (parent->iconType == ItemIconType::BLOCK ? previewAtlas : getAtlas(assets, parent->icon));
+		auto parentIcoTexName = [](const ItemDef* const parent) -> std::string {
+			if (parent){
+				return parent->iconType == ItemIconType::BLOCK ? BLOCKS_PREVIEW_ATLAS + ':' + parent->icon : parent->icon;
+			}
+			return "blocks:transparent";
 		};
 
 		BackupData& backupData = itemsList[actualName];
-		const ItemDef* currentParent = content->items.find(backupData.currentParent);
-		const ItemDef* newParent = content->items.find(backupData.newParent);
+		const ItemDef* currentParent = content->items.find(backupData.parent);
 
-		gui::IconButton& parentItem = *new gui::IconButton(35.f, parentIcoName(newParent), parentIcoAtlas(newParent), parentIcoTexName(newParent));
-		parentItem.listenAction([=, &panel, &backupData, &parentItem, &item](gui::GUI*) {
-			createContentList(ContentType::ITEM, true, 5, panel.calcPos().x + panel.getSize().x, [=, &backupData, &parentItem, &item](const std::string& string) {
-				const ItemDef* parent = content->items.find(string);
-				if (parent->name == CORE_EMPTY || parent->name == item.name) parent = nullptr;
-				backupData.newParent = parent ? string : "";
-				parentItem.setIcon(parentIcoAtlas(parent), parentIcoTexName(parent));
-				parentItem.setText(parentIcoName(parent));
-				removePanels(5);
+		gui::IconButton& parentItem = *new gui::IconButton(assets, 35.f, parentIcoName(currentParent), parentIcoTexName(currentParent));
+		parentItem.listenAction([=, &item, &panel](gui::GUI*) {
+			if (showUnsaved()) return;
+			createContentList(ContentType::ITEM, true, 5, panel.calcPos().x + panel.getSize().x, [=, &item](std::string string) {
+				const std::string name = item.name;
+				if (string == CORE_EMPTY || string == item.name) string.clear();
+				saveItem(item, currentPack.folder, currentParent, string);
+				removePanels(1);
+				initialize();
+				createContentList(ContentType::ITEM);
+				createItemEditor(*content->items.getDefs().at(name));
 			});
 		});
 		panel << parentItem;
@@ -101,27 +101,42 @@ void workshop::WorkShopScreen::createItemEditor(ItemDef& item) {
 		panel << placingBlockPanel;
 
 		panel << new gui::Label("Script file");
-		button = new gui::Button(util::str2wstr_utf8(getScriptName(currentPack, item.scriptName)), glm::vec4(10.f), gui::onaction());
-		button->listenAction([this, &panel, button, actualName, &item](gui::GUI*) {
-			createScriptList(5, panel.calcPos().x + panel.getSize().x, [this, button, actualName, &item](const std::string& string) {
+		panel << (button = new gui::Button(util::str2wstr_utf8(getScriptName(currentPack, item.scriptName)), glm::vec4(10.f), gui::onaction()));
+		button->listenAction([=, &panel, &item](gui::GUI*) {
+			createScriptList(5, panel.calcPos().x + panel.getSize().x, [=, &item](const std::string& string) {
 				removePanels(5);
 				std::string scriptName(getScriptName(currentPack, string));
 				item.scriptName = (scriptName == NOT_SET ? (getScriptName(currentPack, actualName) == NOT_SET ? actualName : "") : scriptName);
 				button->setText(util::str2wstr_utf8(scriptName));
 			});
 		});
-		panel << button;
 
-		panel << new gui::Button(L"Save", glm::vec4(10.f), [this, actualName, &item, &backupData, currentParent](gui::GUI*) {
-			backupData.string = stringify(toJson(item, actualName, currentParent, backupData.newParent), false);
-			saveItem(item, currentPack.folder, actualName, currentParent, backupData.newParent);
+		panel << new gui::Button(L"Save", glm::vec4(10.f), [=, &item, &backupData](gui::GUI*) {
+			const std::string parentName = currentParent ? currentParent->name : "";
+			backupData.serialized = stringify(item, currentParent, parentName);
+			saveItem(item, currentPack.folder, currentParent, parentName);
 		});
+
+		bool isParent = false;
+		std::wstring parentOf = L"Action impossible: Parent of ";
+		for (const auto& [name, data] : itemsList) {
+			if (data.parent == item.name) {
+				parentOf.append(util::str2wstr_utf8(name) + L'\n');
+				isParent = true;
+			}
+		}
+
 		if (!item.generated) {
-			panel << new gui::Button(L"Rename", glm::vec4(10.f), [this, actualName](gui::GUI*) {
+			panel << (button = new gui::Button(L"Rename", glm::vec4(10.f), gui::onaction())); 
+			if (isParent) button->setTooltip(parentOf);
+			else button->listenAction([=](gui::GUI*) {
 				createDefActionPanel(ContentAction::RENAME, ContentType::ITEM, actualName);
 			});
 		}
-		panel << new gui::Button(L"Delete", glm::vec4(10.f), [this, &item, actualName](gui::GUI*) {
+
+		panel << (button = new gui::Button(L"Delete", glm::vec4(10.f), gui::onaction()));
+		if (isParent) button->setTooltip(parentOf);
+		else button->listenAction([=, &item](gui::GUI*) {
 			createDefActionPanel(ContentAction::DELETE, ContentType::ITEM, actualName, !item.generated);
 		});
 

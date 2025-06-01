@@ -1,10 +1,11 @@
 #include "WorkshopScreen.hpp"
 
 #include "assets/AssetsLoader.hpp"
-#include "coders/imageio.hpp"
 #include "files/files.hpp"
 #include "debug/Logger.hpp"
 #include "content/Content.hpp"
+#include "coders/imageio.hpp"
+#include "coders/json.hpp"
 #include "graphics/core/Atlas.hpp"
 #include "graphics/core/Shader.hpp"
 #include "graphics/core/Texture.hpp"
@@ -169,16 +170,15 @@ bool WorkShopScreen::initialize() {
 	content = engine.getContent();
 	indices = content->getIndices();
 	cache.reset(new ContentGfxCache(*content, *assets, engine.getSettings().graphics));
-	previewAtlas = BlocksPreview::build(*cache, *assets, *content->getIndices()).release();
-	assets->store(std::unique_ptr<Atlas>(previewAtlas), BLOCKS_PREVIEW_ATLAS);
+	updateIcons();
 	itemsAtlas = assets->get<Atlas>("items");
 	blocksAtlas = assets->get<Atlas>("blocks");
 	preview.reset(new Preview(engine, *cache));
 	// force load all models and textures
 	AssetsLoader loader(assets, engine.getResPaths());
 	loader.add(AssetType::TEXTURE, "textures/gui/circle", "gui/circle");
-	for (const auto& pack : packs){
-		for (const auto& file : getFiles(pack.folder/MODELS_FOLDER, false)){
+	for (const auto& pack : packs) {
+		for (const auto& file : getFiles(pack.folder / MODELS_FOLDER, false)) {
 			if (assets->get<model::Model>(file.stem().string())) continue;
 			if (fs::is_regular_file(file) && (file.extension() == ".obj" || file.extension() == ".vec3"))
 				loader.add(AssetType::MODEL, fs::relative(file, engine.getResPaths()->getMainRoot()).replace_extension().string(), file.stem().string());
@@ -197,17 +197,9 @@ bool WorkShopScreen::initialize() {
 	}
 	catch (const assetload::error& err) {}
 
-	for (size_t i = 0; i < indices->blocks.count(); i++) {
-		Block& block = *const_cast<Block*>(indices->blocks.get(i));
-		for (const std::string& defaultProp : DEFAULT_BLOCK_PROPERTIES){
-			if (block.properties.has(defaultProp)) block.properties.erase(defaultProp);
-		}
-	}
 	definedProps = engine.getResPaths()->readCombinedObject("config/user-props.toml");
 
 	backupDefs();
-
-	// todo check the correctness of the save
 
 	return 1;
 }
@@ -234,7 +226,7 @@ void WorkShopScreen::createNavigationPanel() {
 	panel << new gui::Button(L"Items", glm::vec4(10.f), [this](gui::GUI*) { createContentList(ContentType::ITEM); });
 	panel << new gui::Button(L"Entities", glm::vec4(10.f), [this](gui::GUI*) { createEntitiesList(); });
 	panel << new gui::Button(L"Skeletons", glm::vec4(10.f), [this](gui::GUI*) { createSkeletonList(); });
-	panel << new gui::Button(L"Textures", glm::vec4(10.f), [this](gui::GUI*) { createTextureList(50.f, 1, { ContentType::BLOCK, ContentType::ITEM, ContentType::ENTITY, ContentType::PARTICLE }); });
+	panel << new gui::Button(L"Textures", glm::vec4(10.f), [this](gui::GUI*) { createTextureList(50.f); });
 	panel << new gui::Button(L"Models", glm::vec4(10.f), [this](gui::GUI*) { createModelsList(); });
 	panel << new gui::Button(L"Sounds", glm::vec4(10.f), [this](gui::GUI*) { createSoundList(); });
 	panel << new gui::Button(L"Scripts", glm::vec4(10.f), [this](gui::GUI*) { createScriptList(); });
@@ -350,15 +342,14 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 	if (buttonsNum == 0) return;
 	panel << markRemovable(new gui::Label(buttonsNum == 1 ? L"Texture" : L"Texture faces"));
 	for (size_t i = 0; i < buttonsNum; i++) {
-		gui::IconButton* button = new gui::IconButton(iconSize, textures[i], blocksAtlas, textures[i],
-			(buttonsNum == 6 ? faces[i] : ""));
+		gui::IconButton* button = new gui::IconButton(assets, iconSize, textures[i], "blocks:" + textures[i], (buttonsNum == 6 ? faces[i] : ""));
 		button->listenAction([=](gui::GUI*) {
 			createTextureList(35.f, 5, { ContentType::BLOCK }, button->calcPos().x + button->getSize().x, true,
 			[=](const std::string& texName) {
 				textures[i] = getTexName(texName);
 				removePanel(5);
 				deselect(*button);
-				button->setIcon(getAtlas(assets, texName), getTexName(texName));
+				button->setIcon(assets, texName);
 				button->setText(getTexName(texName));
 				if (callback) callback();
 				preview->updateCache();
@@ -375,19 +366,19 @@ void WorkShopScreen::createTexturesPanel(gui::Panel& panel, float iconSize, std:
 	panel.setColor(glm::vec4(0.f));
 	if (iconType == ItemIconType::NONE) return;
 
-	auto texName = [this, iconType, &texture]() {
-		if (iconType == ItemIconType::SPRITE) return getTexName(texture);
-		return texture;
+	auto texName = [iconType, &texture]() {
+		if (iconType == ItemIconType::SPRITE) return texture;
+		return BLOCKS_PREVIEW_ATLAS + ':' + texture;
 	};
 
-	gui::IconButton* button = new gui::IconButton(iconSize, texName(), getAtlas(assets, texture), texName());
+	gui::IconButton* button = new gui::IconButton(assets, iconSize, texture, texName());
 	button->listenAction([this, button, texName, &panel, &texture, iconSize, iconType](gui::GUI*) {
 		auto& nodes = button->getNodes();
 		auto callback = [this, button, nodes, texName, iconSize, &texture](const std::string& textureName) {
 			texture = textureName;
 			removePanel(5);
-			button->setIcon(getAtlas(assets, texture), texName());
-			button->setText(texName());
+			button->setIcon(assets, texName());
+			button->setText(texture);
 		};
 		if (iconType == ItemIconType::SPRITE) {
 			createTextureList(35.f, 5, { ContentType::BLOCK, ContentType::ITEM }, PANEL_POSITION_AUTO, true, callback);
@@ -537,40 +528,66 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 		});
 
 		panel << new gui::Button(L"Find unused textures", glm::vec4(10.f), [this](gui::GUI*) {
-			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
-			const fs::path itemsTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::ITEMS_FOLDER);
+			const ContentType types[] = { ContentType::BLOCK, ContentType::ITEM, ContentType::ENTITY, ContentType::PARTICLE };
 
 			std::unordered_multimap<ContentType, fs::path> unusedTextures;
 
-			for (const auto& path : getFiles(blocksTexturesPath, false)) {
-				if (!fs::is_regular_file(path)) continue;
-				const std::string fileName = path.stem().string();
-				bool inUse = false;
-				for (size_t i = 0; i < indices->blocks.count() && !inUse; i++) {
-					Block* const block = const_cast<Block*>(indices->blocks.get(i));
-					std::vector<dv::value*> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
-					if (block->name.find(currentPackId) == std::string::npos) continue;
-					if (std::find(std::begin(block->textureFaces), std::end(block->textureFaces), fileName) != std::end(block->textureFaces)) inUse = true;
-					if (std::find_if(strings.begin(), strings.end(), [fileName](const dv::value* value){
-						return value->asString() == fileName;
-					}) != strings.end()) inUse = true;
+			for (const ContentType type : types) {
+				const fs::path texturesPath(currentPack.folder / TEXTURES_FOLDER / getDefFolder(type));
+				for (const fs::path& path : getFiles(texturesPath, false)) {
+					if (path.extension() != ".png") continue;
+					const std::string fileName = path.stem().string();
+					bool inUse = false;
+					if (type == ContentType::BLOCK || type == ContentType::ITEM) {
+						if (type == ContentType::BLOCK) {
+							for (const auto& [_, block] : content->blocks.getDefs()) {
+								if (inUse) break;
+								const std::vector<dv::value*> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
+								if (std::find(std::begin(block->textureFaces), std::end(block->textureFaces), fileName) != std::end(block->textureFaces)) inUse = true;
+								if (std::find_if(strings.begin(), strings.end(), [fileName](const dv::value* value) {
+									return value->asString() == fileName;
+								}) != strings.end()) inUse = true;
+							}
+						}
+						for (const auto& [_, item] : content->items.getDefs()) {
+							if (inUse) break;
+							if (item->iconType == ItemIconType::SPRITE && getTexName(item->icon) == fileName) inUse = true;
+						}
+					}
+					else if (type == ContentType::PARTICLE) {
+						for (const auto& [_, block] : content->blocks.getDefs()) {
+							if (inUse) break;
+							std::unique_ptr<ParticlesPreset>& particle = block->particles;
+							if (particle) {
+								if (getTexName(particle->texture) == fileName) inUse == true;
+								if (std::find_if(particle->frames.begin(), particle->frames.end(), [fileName](const std::string& frame) {
+									return getTexName(frame) == fileName;
+								}) != particle->frames.end()) inUse = true;
+							}
+						}
+					}
+					auto findUnused = [=](auto self, rigging::Bone& bone, const std::string& fileName) -> bool {
+						if (bone.model.model == nullptr) bone.model.refresh(*assets);
+						if (bone.model.model != nullptr) {
+							for (const model::Mesh& mesh : bone.model.model->meshes) {
+								if (mesh.texture == fileName) return true;
+							}
+						}
+						for (auto& subBone : bone.getSubnodes()) {
+							if (self(self, *subBone, fileName)) return true;
+						}
+						return false;
+					};
+
+					for (const auto& [_, skeleton] : content->getSkeletons()) {
+						if (inUse) break;
+						inUse = findUnused(findUnused, *skeleton->getRoot(), getDefFolder(type)  + '/' + fileName);
+					}
+
+					if (!inUse) unusedTextures.emplace(type, path);
 				}
-				for (size_t i = 0; i < indices->items.count() && !inUse; i++) {
-					const ItemDef* const item = indices->items.get(i);
-					if (item->name.find(currentPackId) == std::string::npos) continue;
-					if (item->iconType == ItemIconType::SPRITE && getTexName(item->icon) == fileName) inUse = true;
-				}
-				if (!inUse) unusedTextures.emplace(ContentType::BLOCK, path);
 			}
-			for (const auto& path : getFiles(itemsTexturesPath, false)) {
-				const std::string fileName = path.stem().string();
-				bool inUse = false;
-				for (size_t i = 0; i < indices->items.count() && !inUse; i++) {
-					const ItemDef* const item = indices->items.get(i);
-					if (item->iconType == ItemIconType::SPRITE && getTexName(item->icon) == fileName) inUse = true;
-				}
-				if (!inUse) unusedTextures.emplace(ContentType::ITEM, path);
-			}
+
 			createPanel([this, unusedTextures]() {
 				gui::Panel& panel = *new gui::Panel(glm::vec2(300));
 
@@ -587,13 +604,12 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 							createUtilsPanel();
 						});
 					});
-					for (const auto& [contentType, path] : unusedTextures) {
-						const Atlas* atlas = assets->get<Atlas>(getDefFolder(contentType));
-						const std::string file = path.stem().string();
+					for (const auto& [type, path] : unusedTextures) {
+						const std::string file = getDefFolder(type) + (type == ContentType::ENTITY ? '/' : ':') + path.stem().string();
 
-						gui::IconButton& button = *new gui::IconButton(50.f, file, atlas, file);
-						button.listenAction([this, file, contentType](gui::GUI*) {
-							createTextureInfoPanel(getDefFolder(contentType) + ':' + file, contentType, 3);
+						gui::IconButton& button = *new gui::IconButton(assets, 50.f, file, file);
+						button.listenAction([this, file, type](gui::GUI*) {
+							createTextureInfoPanel(file, type, 3);
 						});
 						panel << button;
 					}
@@ -604,34 +620,32 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 		});
 
 		panel << new gui::Button(L"Find texture duplicates", glm::vec4(10.f), [this](gui::GUI*) {
-			const fs::path blocksTexturesPath(currentPack.folder / TEXTURES_FOLDER / ContentPack::BLOCKS_FOLDER);
-			const Texture* const blocksTexture = blocksAtlas->getTexture();
-			ubyte* imageData = blocksAtlas->getImage()->getData();
+			const ContentType types[] = { ContentType::BLOCK, ContentType::ITEM, ContentType::PARTICLE };
+			std::unordered_map<ContentType, std::unordered_map<fs::path, std::set<fs::path>>> duplicates;
 
-			std::unordered_map<fs::path, std::set<fs::path>> duplicates;
+			for (const ContentType type : types) {
+				const fs::path texturesPath(currentPack.folder / TEXTURES_FOLDER / getDefFolder(type));
 
-			std::vector<fs::path> files = getFiles(blocksTexturesPath, false);
-			std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) {
-				return a.stem().string() < b.stem().string();
-			});
+				std::vector<fs::path> files = getFiles(texturesPath, false);
 
-			std::vector<std::vector<ubyte>> filesBytes;
-			for (const auto& file : files) {
-				filesBytes.emplace_back(files::read_bytes(file));
-			}
-			std::set<fs::path> skipList;
+				std::vector<std::vector<ubyte>> filesBytes;
+				for (const auto& file : files) {
+					filesBytes.emplace_back(files::read_bytes(file));
+				}
+				std::set<fs::path> skipList;
 
-			for (size_t i = 0; i < filesBytes.size(); i++) {
-				for (size_t j = i + 1; j < filesBytes.size(); j++) {
-					if (skipList.find(files[j]) != skipList.end()) continue;
-					if (filesBytes[i] == filesBytes[j]) {
-						if (duplicates.find(files[i]) == duplicates.end()) {
-							duplicates.emplace(files[i], std::set<fs::path>{files[j]});
+				for (size_t i = 0; i < filesBytes.size(); i++) {
+					for (size_t j = i + 1; j < filesBytes.size(); j++) {
+						if (skipList.find(files[j]) != skipList.end()) continue;
+						if (filesBytes[i] == filesBytes[j]) {
+							if (duplicates[type].find(files[i]) == duplicates[type].end()) {
+								duplicates[type].emplace(files[i], std::set<fs::path>{files[j]});
+							}
+							else {
+								duplicates[type].at(files[i]).insert(files[j]);
+							}
+							skipList.insert(files[j]);
 						}
-						else {
-							duplicates.at(files[i]).insert(files[j]);
-						}
-						skipList.insert(files[j]);
 					}
 				}
 			}
@@ -647,31 +661,56 @@ void workshop::WorkShopScreen::createUtilsPanel() {
 					gui::Panel& filesList = *new gui::Panel(panel.getSize());
 					filesList.setMaxLength(500);
 
-					for (const auto& pair : duplicates) {
-						filesList << new gui::Label(pair.first.stem().string());
-						for (const auto& duplicate : pair.second) {
-							const std::string file = duplicate.stem().string();
-							files.emplace_back(duplicate);
-							filesList << new gui::IconButton(50.f, file, blocksAtlas, file);
+					for (const auto& [type, copies] : duplicates) {
+						for (const auto& [original, copy] : copies) {
+							filesList << new gui::Label(original.stem().string());
+							for (const auto& path : copy) {
+								const std::string file = getDefFolder(type) + (type == ContentType::ENTITY ? '/' : ':') + path.stem().string();
+								files.emplace_back(path);
+								gui::IconButton& button = *new gui::IconButton(assets, 50.f, file, file);
+								button.listenAction([this, file, type](gui::GUI*) {
+									createTextureInfoPanel(file, type, 3);
+								});
+								filesList << button;
+							}
 						}
 					}
 					optimizeContainer(filesList);
 					panel << new gui::Label("Found " + std::to_string(files.size()) + " duplicated textures");
 					panel << filesList;
-					panel << new gui::Button(L"Delete duplicates", glm::vec4(10.f), [this, duplicates, files](gui::GUI*) {
-						for (const auto& pair : duplicates) {
-							const std::string uniqueTexName = pair.first.stem().string();
-							for (const auto& duplicate : pair.second) {
-								const std::string duplicateTexName = duplicate.stem().string();
-								for (size_t i = 0; i < indices->blocks.count(); i++) {
-									Block* const block = indices->blocks.getIterable().at(i);
-									if (block->name.find(currentPackId) == std::string::npos) continue;
-									std::vector<dv::value*> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
-									for (dv::value* blockTexture : strings) {
-										if (blockTexture->asString() == duplicateTexName) *blockTexture = uniqueTexName;
+					panel << new gui::Button(L"Delete duplicates", glm::vec4(10.f), [=](gui::GUI*) {
+						for (const auto& [type, copies] : duplicates) { // replace duplicates with unique
+							for (const auto& [original, copy] : copies) {
+								const std::string uniqueTexName = original.stem().string();
+								for (const auto& duplicate : copy) {
+									const std::string duplicateTexName = duplicate.stem().string();
+									if (type == ContentType::BLOCK || type == ContentType::ITEM) {
+										if (type == ContentType::BLOCK) {
+											for (auto& [_, block] : content->blocks.getDefs()) {
+												std::vector<dv::value*> strings = getAllWithType(block->customModelRaw, dv::value_type::string);
+												for (dv::value* blockTexture : strings) {
+													if (blockTexture->asString() == duplicateTexName) *blockTexture = uniqueTexName;
+												}
+												for (std::string& blockTexture : block->textureFaces) {
+													if (blockTexture == duplicateTexName) blockTexture = uniqueTexName;
+												}
+											}
+										}
+										for (auto& [_, item] : content->items.getDefs()) {
+											if (item->iconType == ItemIconType::SPRITE && getTexName(item->icon) == duplicateTexName)
+												item->icon = uniqueTexName;
+										}
 									}
-									for (std::string& blockTexture : block->textureFaces) {
-										if (blockTexture == duplicateTexName) blockTexture = uniqueTexName;
+									else if (type == ContentType::PARTICLE) {
+										for (auto& [_, block] : content->blocks.getDefs()) {
+											if (block->particles){
+												std::unique_ptr<ParticlesPreset>& particle = block->particles;
+												if (particle->texture == duplicateTexName) particle->texture = uniqueTexName;
+												for (std::string& frame : particle->frames){
+													if (frame == duplicateTexName) frame = uniqueTexName;
+												}
+											}
+										}
 									}
 								}
 							}
@@ -699,17 +738,17 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, ContentT
 
 		Texture* texture = nullptr;
 		UVRegion uv;
-		if (type == ContentType::ENTITY){
+		if (type == ContentType::ENTITY) {
 			texture = assets->get<Texture>(texName);
 		}
-		else{
+		else {
 			const Atlas* const atlas = getAtlas(assets, texName);
 			texture = atlas->getTexture();
 			uv = atlas->get(getTexName(texName));
 		}
 
-		gui::Image& image = *new gui::Image(texture, glm::vec2(0.f));
-		formatTextureImage(image, texture, panel.getSize().x, uv);
+		gui::Image& image = *new gui::Image(texName, glm::vec2(0.f));
+		formatTextureImage(image, texName, panel.getSize().x, assets);
 		gui::Container& imageContainer = *new gui::Container(glm::vec2(panel.getSize().x));
 		imageContainer << image;
 		panel << imageContainer;
@@ -720,10 +759,11 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, ContentT
 		panel << new gui::Label(L"Texture type: " + util::str2wstr_utf8(getDefName(type)));
 		panel << new gui::Button(L"Delete", glm::vec4(10.f), [this, texName, type](gui::GUI*) {
 			showUnsaved([this, texName, type]() {
-				createFileDeletingConfirmationPanel({ currentPack.folder / TEXTURES_FOLDER / getDefFolder(type) / std::string(getTexName(texName) + ".png") },
+				const std::string delimiter(type == ContentType::ENTITY ? "/" : ":");
+				createFileDeletingConfirmationPanel({ currentPack.folder / TEXTURES_FOLDER / getDefFolder(type) / std::string(getTexName(texName, delimiter) + ".png") },
 				3, [this]() {
 					initialize();
-					createTextureList(50.f, 1);
+					createTextureList(50.f);
 				});
 			});
 		});
@@ -741,7 +781,8 @@ void WorkShopScreen::createImportPanel(ContentType type, std::string mode) {
 				switch (type) {
 					case ContentType::BLOCK: createImportPanel(ContentType::ITEM, mode); break;
 					case ContentType::ITEM: createImportPanel(ContentType::ENTITY, mode); break;
-					case ContentType::ENTITY: createImportPanel(ContentType::BLOCK, mode); break;
+					case ContentType::ENTITY: createImportPanel(ContentType::PARTICLE, mode); break;
+					case ContentType::PARTICLE: createImportPanel(ContentType::BLOCK, mode); break;
 				}
 			});
 		}
@@ -905,7 +946,10 @@ gui::Panel& workshop::WorkShopScreen::createParticlesPreview() {
 		gui::TrackBar* speedSlider = new gui::TrackBar(0.0, 10.0, preview->particlesSpeed, 0.01);
 		speedSlider->setConsumer([=](double value) {
 			preview->particlesSpeed = value;
-			particlesSpeed->setText(L"Particles speed: " + std::to_wstring(preview->particlesSpeed));
+		});
+		speedSlider->setSupplier([=]() {
+			particlesSpeed->setText(L"Particles speed: " + util::to_wstring(preview->particlesSpeed, 2));
+			return preview->particlesSpeed;
 		});
 		panel << particlesCount << particlesSpeed << speedSlider;
 		panel.listenInterval(0.01f, [=, &panel]() {
@@ -916,22 +960,20 @@ gui::Panel& workshop::WorkShopScreen::createParticlesPreview() {
 	return panel;
 }
 
-void workshop::WorkShopScreen::createSkeletonPreview(unsigned int column) {
-	createPanel([this]() {
-		gui::Panel& panel = createPreview([this](gui::Panel& panel, gui::Image& image) {
-			panel.listenInterval(0.01f, [this]() {
-				preview->drawSkeleton();
-			});
+gui::Panel& workshop::WorkShopScreen::createSkeletonPreview() {
+	gui::Panel& panel = createPreview([this](gui::Panel& panel, gui::Image& image) {
+		panel.listenInterval(0.01f, [this]() {
+			preview->drawSkeleton();
 		});
-		return std::ref(panel);
-	}, column);
+	});
+	return panel;
 }
 
 void workshop::WorkShopScreen::createModelPreview(unsigned int column) {
 	createPanel([this]() {
-		gui::Panel& panel =  createPreview([this](gui::Panel& panel, gui::Image& image) {
-		panel.listenInterval(0.01f, [this]() {
-			preview->drawModel();
+		gui::Panel& panel = createPreview([this](gui::Panel& panel, gui::Image& image) {
+			panel.listenInterval(0.01f, [this]() {
+				preview->drawModel();
 			});
 		});
 		return std::ref(panel);
@@ -956,26 +998,20 @@ void WorkShopScreen::createUIPreview() {
 	}, 3);
 }
 
-static std::string findParent(const fs::path& path, workshop::ContentType type, const std::string& actualName) {
-	std::string parentName;
-	fs::path file(path / getDefFolder(type) / (actualName + getDefFileFormat(type)));
-	if (!fs::is_regular_file(file)) return parentName;
-	dv::value map = files::read_json(file);
-	if (map.has("parent")) parentName = map.asString("parent");
-	return parentName;
-}
-
 template<typename T>
-static void backup(std::unordered_map<std::string, BackupData>& dst, const ContentUnitIndices<T>& src, const ContentUnitDefs<T>& content,
-	workshop::ContentType type, const std::string& packId, fs::path& packPath
+static void backup(std::unordered_map<std::string, BackupData>& dst, const ContentUnitDefs<T>& content, workshop::ContentType type,
+	const std::string& packId, const fs::path& packPath
 ) {
-	for (size_t i = 0; i < src.count(); i++) {
-		const T* const def = src.get(i);
-		if (def->name.find(packId) == std::string::npos) continue;
-		std::string defName(getDefName(def->name));
+	for (const auto& [name, def] : content.getDefs()) {
+		if (def->name.find(packId) != 0) continue;
+		const std::string defName(getDefName(name));
 		BackupData& data = dst[defName];
-		data.currentParent = data.newParent = findParent(packPath, type, defName);
-		data.string = stringify(toJson(*def, defName, content.find(data.currentParent), data.newParent), false);
+		const fs::path file(packPath / getDefFolder(type) / (defName + getDefFileFormat(type)));
+		if (fs::is_regular_file(file)) {
+			dv::value map = files::read_json(file);
+			if (map.has("parent")) data.parent = map["parent"].asString();
+		}
+		data.serialized = stringify(*def, content.find(data.parent), data.parent);
 	}
 }
 
@@ -984,12 +1020,12 @@ void workshop::WorkShopScreen::backupDefs() {
 	itemsList.clear();
 	entityList.clear();
 	skeletons.clear();
-	backup<Block>(blocksList, indices->blocks, content->blocks, ContentType::BLOCK, currentPackId, currentPack.folder);
-	backup<ItemDef>(itemsList, indices->items, content->items, ContentType::ITEM, currentPackId, currentPack.folder);
-	backup<EntityDef>(entityList, indices->entities, content->entities, ContentType::ENTITY, currentPackId, currentPack.folder);
-	for (const auto& [name, skeleton] : content->getSkeletons()){
+	backup<Block>(blocksList, content->blocks, ContentType::BLOCK, currentPackId, currentPack.folder);
+	backup<ItemDef>(itemsList, content->items, ContentType::ITEM, currentPackId, currentPack.folder);
+	backup<EntityDef>(entityList, content->entities, ContentType::ENTITY, currentPackId, currentPack.folder);
+	for (const auto& [name, skeleton] : content->getSkeletons()) {
 		if (name.find(currentPackId) != 0) continue;
-		skeletons[getDefName(name)] = stringify(toJson(*skeleton->getRoot(), getDefName(name)), false);
+		skeletons[getDefName(name)] = stringify(*skeleton->getRoot());
 	}
 }
 
@@ -997,24 +1033,24 @@ bool workshop::WorkShopScreen::showUnsaved(const std::function<void()>& callback
 	std::unordered_multimap<ContentType, std::string> unsavedList;
 
 	for (const auto& [name, data] : blocksList) {
-		const Block* parent = content->blocks.find(data.currentParent);
-		if (data.string != stringify(toJson(*content->blocks.find(currentPackId + ':' + name), name, parent, data.newParent), false))
+		const Block* parent = content->blocks.find(data.parent);
+		if (data.serialized != stringify(*content->blocks.find(currentPackId + ':' + name), parent, data.parent))
 			unsavedList.emplace(ContentType::BLOCK, name);
 	}
 	for (const auto& [name, data] : itemsList) {
 		const ItemDef* item = content->items.find(currentPackId + ':' + name);
 		if (item->generated) continue;
-		const ItemDef* parent = content->items.find(data.currentParent);
-		if (data.string != stringify(toJson(*item, name, parent, data.newParent), false))
+		const ItemDef* parent = content->items.find(data.parent);
+		if (data.serialized != stringify(*item, parent, data.parent))
 			unsavedList.emplace(ContentType::ITEM, name);
 	}
 	for (const auto& [name, data] : entityList) {
-		const EntityDef* parent = content->entities.find(data.currentParent);
-		if (data.string != stringify(toJson(*content->entities.find(currentPackId + ':' + name), name, parent, data.newParent), false))
+		const EntityDef* parent = content->entities.find(data.parent);
+		if (data.serialized != stringify(*content->entities.find(currentPackId + ':' + name), parent, data.parent))
 			unsavedList.emplace(ContentType::ENTITY, name);
 	}
-	for (const auto& [name, data] : skeletons){
-		if (data != stringify(toJson(*content->getSkeleton(currentPackId + ':' + name)->getRoot(), name), false))
+	for (const auto& [name, data] : skeletons) {
+		if (data != stringify(*content->getSkeleton(currentPackId + ':' + name)->getRoot()))
 			unsavedList.emplace(ContentType::SKELETON, name);
 	}
 
@@ -1048,19 +1084,21 @@ bool workshop::WorkShopScreen::showUnsaved(const std::function<void()>& callback
 	gui::Container& buttonsContainer = *new gui::Container(glm::vec2(outerPanel.getSize().x, 20));
 	buttonsContainer << new gui::Button(L"Back", glm::vec4(10.f), [this, containerPtr](gui::GUI*) { gui->remove(containerPtr); });
 	buttonsContainer << new gui::Button(L"Save all", glm::vec4(10.f), [this, containerPtr, unsavedList, callback](gui::GUI*) {
-		for (const auto& pair : unsavedList) {
-			const BackupData& backup = (pair.first == ContentType::BLOCK ? blocksList.at(pair.second) : itemsList.at(pair.second));
-			if (pair.first == ContentType::BLOCK)
-				saveBlock(*content->blocks.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second,
-					content->blocks.find(backup.currentParent), backup.newParent);
-			else if (pair.first == ContentType::ITEM)
-				saveItem(*content->items.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second,
-					content->items.find(backup.currentParent), backup.newParent);
-			else if (pair.first == ContentType::ENTITY)
-				saveEntity(*content->entities.find(currentPackId + ':' + pair.second), currentPack.folder, pair.second,
-					content->entities.find(backup.currentParent), backup.newParent);
-			else if (pair.first == ContentType::SKELETON)
-				saveSkeleton(*content->getSkeleton(pair.second)->getRoot(), currentPack.folder, pair.second);
+		for (const auto& [type, name] : unsavedList) {
+			if (type == ContentType::BLOCK) {
+				const std::string& parent = blocksList.at(name).parent;
+				saveBlock(*content->blocks.find(currentPackId + ':' + name), currentPack.folder, content->blocks.find(parent), parent);
+			}
+			else if (type == ContentType::ITEM) {
+				const std::string& parent = itemsList.at(name).parent;
+				saveItem(*content->items.find(currentPackId + ':' + name), currentPack.folder, content->items.find(parent), parent);
+			}
+			else if (type == ContentType::ENTITY) {
+				const std::string& parent = entityList.at(name).parent;
+				saveEntity(*content->entities.find(currentPackId + ':' + name), currentPack.folder, content->entities.find(parent), parent);
+			}
+			else if (type == ContentType::SKELETON)
+				saveSkeleton(*content->getSkeleton(name)->getRoot(), currentPack.folder, name);
 		}
 		backupDefs();
 		gui->remove(containerPtr);
@@ -1085,4 +1123,10 @@ bool workshop::WorkShopScreen::showUnsaved(const std::function<void()>& callback
 	gui->add(containerPtr);
 
 	return true;
+}
+
+void workshop::WorkShopScreen::updateIcons() {
+	previewAtlas = BlocksPreview::build(*cache, *assets, *content->getIndices()).release();
+	assets->store(std::unique_ptr<Atlas>(previewAtlas), BLOCKS_PREVIEW_ATLAS);
+	Window::viewport(0, 0, Window::width, Window::height);
 }

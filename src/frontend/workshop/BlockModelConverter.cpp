@@ -71,15 +71,14 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 				gui::Label& deleteTexturesLabel = *new gui::Label(std::to_wstring(deleteTextures) + L" Texture(s) will be deleted");
 
 				nodes.emplace_back(new gui::Label("File: " + fs::path(file[0]).stem().string()));
-
 				nodes.emplace_back(new gui::Label("Texture list"));
 				auto& textureMap = converter->getTextureMap();
 				for (auto& pair : textureMap) {
-					gui::IconButton& textureButton = *new gui::IconButton(50.f, pair.second, blocksAtlas, pair.second, pair.first);
+					gui::IconButton& textureButton = *new gui::IconButton(assets, 50.f, pair.second, pair.second, pair.first);
 					textureButton.listenAction([this, &textureButton, &panel, converter, &createTexturesLabel, &pair](gui::GUI*) {
 						createTextureList(50.f, 6, { ContentType::BLOCK }, panel.getPos().x + panel.getSize().x, true, [this, &textureButton, converter, &createTexturesLabel, &pair](const std::string& textureName) {
 							pair.second = getTexName(textureName);
-							textureButton.setIcon(getAtlas(assets, textureName), pair.second);
+							textureButton.setIcon(assets, textureName);
 							textureButton.setText(pair.second);
 							createTexturesLabel.setText(std::to_wstring(converter->prepareTextures()) + L" Texture(s) will be created");
 							removePanel(6);
@@ -112,7 +111,6 @@ void workshop::WorkShopScreen::createBlockConverterPanel(Block& block, float pos
 
 						createContentList(ContentType::BLOCK);
 						createBlockEditor(*converting);
-						createAdditionalBlockEditorPanel(*converting, 0, PrimitiveType::AABB);
 						delete converted;
 					}
 				}));

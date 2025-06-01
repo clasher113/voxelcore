@@ -1,8 +1,8 @@
-﻿#include "frontend/workshop/WorkshopScreen.hpp"
+#include "frontend/workshop/WorkshopScreen.hpp"
 
 #include "graphics/ui/elements/Panel.hpp"
 #include "graphics/ui/elements/Image.hpp"
-#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
 #include "graphics/ui/elements/Button.hpp"
 #include "frontend/workshop/gui_elements/BasicElements.hpp"
 #include "util/stringutil.hpp"
@@ -152,6 +152,7 @@ void WorkShopScreen::createPropertyEditor(gui::Panel& panel, dv::value& blockPro
 	}
 	if (currentObject.isObject()) {
 		for (auto& [key, value] : currentObject.asObject()) {
+			if (isRoot && contains(DEFAULT_BLOCK_PROPERTIES, key)) continue;
 			panel << createPropObject(key, const_cast<dv::value&>(value));
 		}
 	}
@@ -182,17 +183,8 @@ void WorkShopScreen::createPropertyEditor(gui::Panel& panel, dv::value& blockPro
 		std::wstring tooltip;
 		if (currentObject.isObject()) {
 			if (input.empty()) tooltip = L"Input must not be empty";
-			else if (currentObject.isObject()) {
-				if (currentObject.has(input)) tooltip = L"Property already exists";
-			}
-			else if (isRoot) {
-				for (const std::string& name : DEFAULT_BLOCK_PROPERTIES) {
-					if (input == name) {
-						tooltip = L"Default property name cannot be used";
-						break;
-					}
-				}
-			}
+			else if (isRoot && contains(DEFAULT_BLOCK_PROPERTIES, input)) tooltip = L"Default property name cannot be used";
+			else if (currentObject.has(input)) tooltip = L"Property already exists";
 		}
 		else if (currentObject.isList()) {
 			if (!input.empty()) {

@@ -132,7 +132,7 @@ void WorkShopScreen::createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton
 		panel << button;
 
 		panel << new gui::Button(L"Save", glm::vec4(10.f), [this, &skeleton, actualName](gui::GUI*) {
-			skeletons[skeleton.getName()] = stringify(toJson(*skeleton.getRoot(), actualName), false);
+			skeletons[skeleton.getName()] = stringify(*skeleton.getRoot());
 			saveSkeleton(*skeleton.getRoot(), currentPack.folder, actualName);
 		});
 		panel << new gui::Button(L"Rename", glm::vec4(10.f), [this, actualName](gui::GUI*) {
@@ -144,7 +144,10 @@ void WorkShopScreen::createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton
 
 		currentBone.model.refresh(*assets);
 		preview->setSkeleton(&skeleton);
-		createSkeletonPreview(3);
+
+		createPanel([this]() {
+			return std::ref(createSkeletonPreview());
+		}, 3);
 
 		return std::ref(panel);
 	}, 2);

@@ -4,7 +4,7 @@
 #include "items/ItemDef.hpp"
 #include "graphics/ui/elements/Panel.hpp"
 #include "graphics/ui/elements/Label.hpp"
-#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
 #include "graphics/ui/elements/Button.hpp"
 #include "frontend/workshop/WorkshopSerializer.hpp"
 #include "objects/EntityDef.hpp"
@@ -69,25 +69,27 @@ void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, Conten
 					return false;
 				}
 				{
-					std::wstring prefix(L"Id already in use: ");
+					auto contains = [](const std::unordered_map<std::string, BackupData>& data, const std::string& name) {
+						return data.find(name) != data.end();
+					};
+					std::string prefix("Id already in use: ");
 					if (type == ContentType::BLOCK || type == ContentType::ITEM || type == ContentType::ENTITY) {
-						auto blockIt = blocksList.find(input);
-						auto itemIt = itemsList.find(input);
-						auto entityIt = entityList.find(input);
-						isOk = !(blockIt != blocksList.end() || itemIt != itemsList.end() || entityIt != entityList.end());
-						if (blockIt != blocksList.end()) prefix.append(util::str2wstr_utf8("block." + blockIt->first));
-						if (itemIt != itemsList.end()) prefix.append(util::str2wstr_utf8("item." + itemIt->first));
-						if (entityIt != entityList.end()) prefix.append(util::str2wstr_utf8("entity." + entityIt->first));
+						if (!(isOk = !contains(blocksList, input))) 
+							prefix.append(getDefName(ContentType::BLOCK) + '.' + input);
+						else if (!(isOk = !contains(itemsList, input))) 
+							prefix.append(getDefName(ContentType::ITEM) + '.' + input);
+						else if (!(isOk = !contains(entityList, input))) 
+							prefix.append(getDefName(ContentType::ENTITY) + '.' + input);
 					}
 					else if (type == ContentType::UI_LAYOUT) {
 						if (!(isOk = !fs::is_regular_file(currentPack.folder / getDefFolder(type) / (input + ".xml"))))
-							prefix.append(winput);
+							prefix.append(input);
 					}
 					else if (type == ContentType::SKELETON) {
 						if (!(isOk = skeletons.find(input) == skeletons.end()))
-							prefix.append(winput);
+							prefix.append(input);
 					}
-					if (!isOk) tooltip = prefix;
+					if (!isOk) tooltip = util::str2wstr_utf8(prefix);
 				}
 				if (isOk) {
 					if (!(isOk = !winput.empty()))
@@ -122,9 +124,9 @@ void workshop::WorkShopScreen::createDefActionPanel(ContentAction action, Conten
 					doc->setRoot(std::move(root));
 					saveDocument(*doc, currentPack.folder, input);
 				}
-				else if (type == ContentType::BLOCK) saveBlock(Block(':' + input), currentPack.folder, input, nullptr, "");
-				else if (type == ContentType::ITEM) saveItem(ItemDef(':' + input), currentPack.folder, input, nullptr, "");
-				else if (type == ContentType::ENTITY) saveEntity(EntityDef(':' + input), currentPack.folder, input, nullptr, "");
+				else if (type == ContentType::BLOCK) saveBlock(Block(input), currentPack.folder);
+				else if (type == ContentType::ITEM) saveItem(ItemDef(input), currentPack.folder);
+				else if (type == ContentType::ENTITY) saveEntity(EntityDef(input), currentPack.folder);
 				else if (type == ContentType::SKELETON) saveSkeleton(rigging::Bone(0, "", "", {}, glm::vec3(0.f)), currentPack.folder, input);
 			}
 			else if (action == ContentAction::RENAME) {

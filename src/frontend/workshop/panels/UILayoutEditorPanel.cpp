@@ -8,7 +8,7 @@
 #include "graphics/ui/elements/Button.hpp"
 #include "graphics/ui/elements/Label.hpp"
 #include "graphics/ui/elements/CheckBox.hpp"
-#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
 #include "frontend/workshop/WorkshopPreview.hpp"
 #include "frontend/workshop/WorkshopSerializer.hpp"
 #include "engine/Engine.hpp"

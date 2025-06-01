@@ -6,7 +6,7 @@
 #include "items/ItemDef.hpp"
 #include "graphics/ui/elements/Panel.hpp"
 #include "graphics/ui/elements/Button.hpp"
-#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
 #include "frontend/workshop/gui_elements/IconButton.hpp"
 #include "frontend/workshop/WorkshopPreview.hpp"
 #include "objects/EntityDef.hpp"
@@ -19,11 +19,10 @@
 
 using namespace workshop;
 
-struct ListButtonInfo{
+struct ListButtonInfo {
 	std::string fullName;
 	std::string displayName;
-	UVRegion region;
-	Texture* texture;
+	std::string texture;
 	static void sortAlphabetically(std::vector<ListButtonInfo>& list){
 		std::sort(list.begin(), list.end(), [](const ListButtonInfo& a, const ListButtonInfo& b) {
 			return a.displayName < b.displayName;
@@ -31,8 +30,8 @@ struct ListButtonInfo{
 	}
 };
 
-static void createList(const std::vector<ListButtonInfo> list, bool icons, gui::Panel& dstPanel, const std::function<void(const std::string&)>& callback = 0,
-	float iconSize = 25.f)
+static void createList(const Assets* const assets, const std::vector<ListButtonInfo>& list, gui::Panel& dstPanel, 
+	const std::function<void(const std::string&)>& callback = 0, float iconSize = 25.f)
 {
 	auto createList = [=, &dstPanel](const std::string& searchName) {
 		std::vector<ListButtonInfo> list_copy = list;
@@ -46,21 +45,21 @@ static void createList(const std::vector<ListButtonInfo> list, bool icons, gui::
 		}
 		for (const ListButtonInfo& info : list_copy) {
 			gui::UINode* node = nullptr;
-			if (icons) {
-				node = new gui::IconButton(iconSize, info.displayName, info.texture, info.region);
-			}
-			else {
+			if (info.texture.empty()) {
 				gui::Button& button = *new gui::Button(util::str2wstr_utf8(info.displayName), glm::vec4(10.f), gui::onaction());
 				button.setTextAlign(gui::Align::left);
 				node = &button;
+			}
+			else {
+				node = new gui::IconButton(assets, iconSize, info.displayName, info.texture);
 			}
 			node->listenAction([=](gui::GUI*) {
 				if (callback) callback(info.fullName);
 			});
 			dstPanel << markRemovable(node);
 		}
-		if (icons) setSelectable<gui::IconButton>(dstPanel);
-		else setSelectable<gui::Button>(dstPanel);
+		setSelectable<gui::IconButton>(dstPanel);
+		setSelectable<gui::Button>(dstPanel);
 	};
 
 	gui::TextBox& textBox = *new gui::TextBox(L"Search");
@@ -112,30 +111,24 @@ void workshop::WorkShopScreen::createContentList(ContentType type, bool showAll,
 		});
 
 		for (const auto& [fullName, actualName] : sorted) {
-			Atlas* contentAtlas = previewAtlas;
-			std::string textureName(fullName);
+			std::string textureName(BLOCKS_PREVIEW_ATLAS + ':' + fullName);
 
 			if (type == ContentType::ITEM) {
-				ItemDef& item = *const_cast<ItemDef*>(content->items.find(fullName));
+				ItemDef& item = *content->items.getDefs().at(fullName);
 				validateItem(assets, item);
-				if (item.iconType == ItemIconType::BLOCK)
-					textureName = item.icon;
-				else {
-					contentAtlas = getAtlas(assets, item.icon);
-					textureName = getTexName(item.icon);
-				}
+				textureName = item.icon;
+				if (item.iconType == ItemIconType::BLOCK) textureName = BLOCKS_PREVIEW_ATLAS + ':' + textureName;
 			}
-
-			list.emplace_back(ListButtonInfo{ fullName, showAll ? fullName : actualName, contentAtlas->get(textureName), contentAtlas->getTexture() });
+			list.emplace_back(ListButtonInfo{ fullName, showAll ? fullName : actualName, textureName });
 		}
 
-		createList(list, true, panel, [this, type, callback](const std::string& string) {
+		createList(assets, list, panel, [this, type, callback](const std::string& string) {
 			if (callback) callback(string);
 			else {
 				if (type == ContentType::BLOCK) 
-					createBlockEditor(*const_cast<Block*>(content->blocks.find(string)));
+					createBlockEditor(*content->blocks.getDefs().at(string));
 				else if (type == ContentType::ITEM)
-					createItemEditor(*const_cast<ItemDef*>(content->items.find(string)));
+					createItemEditor(*content->items.getDefs().at(string));
 			}
 		}, 32.f);
 
@@ -162,20 +155,15 @@ void WorkShopScreen::createTextureList(float iconSize, unsigned int column, std:
 			for (const auto& type : types) {
 				fs::path path(packPath / TEXTURES_FOLDER / getDefFolder(type));
 				if (!fs::exists(path)) continue;
-				Texture* texture = nullptr;
-				UVRegion uv;
 
 				for (const auto& entry : getFiles(path, false)) {
-					std::string file = entry.stem().string();
-					if (type == ContentType::ENTITY)
-						texture = assets->get<Texture>(getDefFolder(type) + '/' + file);
-					else {
-						Atlas* atlas = assets->get<Atlas>(getDefFolder(type));
-						texture = atlas->getTexture();
-						uv = atlas->get(file);
-					}
-					if (texture)
-						list.emplace_back(ListButtonInfo{std::to_string(static_cast<int>(type)) + ';' + file, file, uv, texture});
+					const std::string file = entry.stem().string();
+					std::string textureName;
+
+					if (type == ContentType::ENTITY) textureName = getDefFolder(type) + '/' + file;
+					else textureName = getDefFolder(type) + ':' + file;
+
+					list.emplace_back(ListButtonInfo{ std::to_string(static_cast<int>(type)) + ';' + file, file, textureName});
 				}
 			}
 		}
@@ -185,7 +173,7 @@ void WorkShopScreen::createTextureList(float iconSize, unsigned int column, std:
 			});
 		}
 
-		createList(list, true, panel, [this, callback](const std::string& string){
+		createList(assets, list, panel, [this, callback](const std::string& string){
 			std::vector<std::string> split = util::split(string, ';');
 			const ContentType type = static_cast<ContentType>(stoi(split[0]));
 			if (callback) callback(getDefFolder(type) + ':' + split[1]);
@@ -206,15 +194,15 @@ void WorkShopScreen::createMaterialsList(bool showAll, unsigned int column, floa
 		gui::Panel& panel = *new gui::Panel(glm::vec2(settings.contentListWidth));
 
 		std::vector<ListButtonInfo> list;
-		for (auto& elem : content->getBlockMaterials()) {
-			if (!showAll && elem.first.find(currentPackId) != 0) continue;
-			list.emplace_back(ListButtonInfo{ elem.first, (showAll ? elem.first : getDefName(elem.first)), UVRegion(), 0 });
+		for (const auto& [name, _] : content->getBlockMaterials()) {
+			if (!showAll && name.find(currentPackId) != 0) continue;
+			list.emplace_back(ListButtonInfo{ name, (showAll ? name : getDefName(name)) });
 		}
 
 		ListButtonInfo::sortAlphabetically(list);
-		createList(list, false, panel, [this, callback](const std::string& string) {
+		createList(assets, list, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
-			else createMaterialEditor(const_cast<BlockMaterial&>(*content->findBlockMaterial(string)));
+			else createMaterialEditor(*content->getBlockMaterials().at(string));
 		});
 
 		return std::ref(panel);
@@ -235,11 +223,11 @@ void WorkShopScreen::createScriptList(unsigned int column, float posX, const std
 			std::string fullScriptName = parentDir.string() + "/" + elem.stem().string();
 			std::string scriptName = fs::path(getScriptName(currentPack, fullScriptName)).stem().string();
 
-			list.emplace_back(ListButtonInfo{ elem.string() + ';' + fullScriptName, scriptName, UVRegion(), 0 });
+			list.emplace_back(ListButtonInfo{ elem.string() + ';' + fullScriptName, scriptName });
 		}
 
 		ListButtonInfo::sortAlphabetically(list);
-		createList(list, false, panel, [this, callback](const std::string& string) {
+		createList(assets, list, panel, [this, callback](const std::string& string) {
 			std::vector<std::string> split = util::split(string, ';');
 			if (callback) callback(split[1]);
 			else createScriptInfoPanel(split[0]);
@@ -256,11 +244,11 @@ void WorkShopScreen::createSoundList() {
 		std::vector<fs::path> sounds = getFiles(currentPack.folder / SOUNDS_FOLDER, true);
 		std::vector<ListButtonInfo> list;
 		for (const auto& elem : sounds) {
-			list.emplace_back(ListButtonInfo{ elem.string(), elem.stem().string(), UVRegion(), 0 });
+			list.emplace_back(ListButtonInfo{ elem.string(), elem.stem().string() });
 		}
 
 		ListButtonInfo::sortAlphabetically(list);
-		createList(list, false, panel, [this](const std::string& string) {
+		createList(assets, list, panel, [this](const std::string& string) {
 			createSoundInfoPanel(string);
 		});
 
@@ -279,7 +267,7 @@ void WorkShopScreen::createUILayoutList(bool showAll, unsigned int column, float
 
 		std::vector<ListButtonInfo> list;
 
-		if (showAll) list.emplace_back(ListButtonInfo{ " ; ", NOT_SET, UVRegion(), 0 });
+		if (showAll) list.emplace_back(ListButtonInfo{ " ; ", NOT_SET });
 		for (const ContentPack& pack : engine.getContentPacks()) {
 			if (showAll == false && pack.id != currentPackId) continue;
 			auto files = getFiles(pack.folder / LAYOUTS_FOLDER, false);
@@ -289,12 +277,12 @@ void WorkShopScreen::createUILayoutList(bool showAll, unsigned int column, float
 				const std::string fullName(pack.id + ':' + actualName);
 				const std::string displayName(actualName.empty() ? NOT_SET : showAll ? fullName : actualName);
 
-				list.emplace_back(ListButtonInfo{ file.string() + ";" + fullName, displayName, UVRegion(), 0 });
+				list.emplace_back(ListButtonInfo{ file.string() + ";" + fullName, displayName });
 			}
 		}
 
 		ListButtonInfo::sortAlphabetically(list);
-		createList(list, false, panel, [this, callback](const std::string& string) {
+		createList(assets, list, panel, [this, callback](const std::string& string) {
 			std::vector<std::string> split = util::split(string, ';');
 			if (callback) callback(split[1]);
 			else createUILayoutEditor(split[0], split[1], {});
@@ -314,16 +302,16 @@ void workshop::WorkShopScreen::createEntitiesList(bool showAll, unsigned int col
 			});
 		}
 		std::vector<ListButtonInfo> list;
-		if (showAll) list.emplace_back(ListButtonInfo{ "", NOT_SET, UVRegion(), nullptr });
+		if (showAll) list.emplace_back(ListButtonInfo{ "", NOT_SET });
 		for (EntityDef* entity : indices->entities.getIterable()) {
 			if (!showAll && entity->name.find(currentPackId) != 0) continue;
-			list.emplace_back(ListButtonInfo{ entity->name, showAll ? entity->name : getDefName(entity->name), UVRegion(), nullptr });
+			list.emplace_back(ListButtonInfo{ entity->name, showAll ? entity->name : getDefName(entity->name) });
 		}
 
 		ListButtonInfo::sortAlphabetically(list);
-		createList(list, false, panel, [this, callback](const std::string& string) {
+		createList(assets, list, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
-			else createEntityEditorPanel(*const_cast<EntityDef*>(content->entities.find(string)));
+			else createEntityEditorPanel(*content->entities.getDefs().at(string));
 		});
 
 		return std::ref(panel);
@@ -342,17 +330,17 @@ void workshop::WorkShopScreen::createSkeletonList(bool showAll, unsigned int col
 		}
 
 		std::vector<ListButtonInfo> list;
-		if (showAll) list.emplace_back(ListButtonInfo{ "", NOT_SET, UVRegion(), nullptr });
+		if (showAll) list.emplace_back(ListButtonInfo{ "", NOT_SET });
 
-		for (auto& skeleton : content->getSkeletons()){
-			if (!showAll && skeleton.first.find(currentPackId) != 0) continue;
-			list.emplace_back(ListButtonInfo{ skeleton.first, showAll ? skeleton.first : getDefName(skeleton.first), UVRegion(), nullptr });
+		for (const auto& [name, skeleton] : content->getSkeletons()){
+			if (!showAll && name.find(currentPackId) != 0) continue;
+			list.emplace_back(ListButtonInfo{ name, showAll ? name : getDefName(name) });
 		}
 
 		ListButtonInfo::sortAlphabetically(list);
-		createList(list, false, panel, [this, callback](const std::string& string) {
+		createList(assets, list, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
-			else createSkeletonEditorPanel(*const_cast<rigging::SkeletonConfig*>(content->getSkeleton(string)), {});
+			else createSkeletonEditorPanel(*content->getSkeletons().at(string), {});
 		});
 
 		return std::ref(panel);
@@ -366,13 +354,13 @@ void workshop::WorkShopScreen::createModelsList(bool showAll, unsigned int colum
 		gui::Panel& panel = *new gui::Panel(glm::vec2(settings.contentListWidth));
 
 		std::vector<ListButtonInfo> list;
-		if (showAll) list.emplace_back(ListButtonInfo{ "", NOT_SET, UVRegion(), nullptr });
+		if (showAll) list.emplace_back(ListButtonInfo{ "", NOT_SET });
 
 		for (const ContentPack& pack : engine.getContentPacks()) {
 			if (showAll == false && pack.id != currentPackId) continue;
 			for (const fs::path& file : getFiles(pack.folder / MODELS_FOLDER, false)) {
 				const std::string name = file.stem().string();
-				list.emplace_back(ListButtonInfo{ name, name, UVRegion(), nullptr });
+				list.emplace_back(ListButtonInfo{ name, name });
 			}
 		}
 
@@ -384,7 +372,7 @@ void workshop::WorkShopScreen::createModelsList(bool showAll, unsigned int colum
 
 		ListButtonInfo::sortAlphabetically(list);
 		list.erase(std::unique(list.begin(), list.end(), [](const ListButtonInfo& a, const ListButtonInfo& b) {return a.displayName == b.displayName; }), list.end());
-		createList(list, false, panel, [this, callback](const std::string& string) {
+		createList(assets, list, panel, [this, callback](const std::string& string) {
 			if (callback) callback(string);
 			else {
 				preview->setModel(assets->get<model::Model>(string));

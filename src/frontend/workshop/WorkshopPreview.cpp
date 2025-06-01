@@ -22,11 +22,14 @@
 #include "graphics/render/ModelsGenerator.hpp"
 #include "graphics/core/Mesh.hpp"
 #include "graphics/ui/elements/InventoryView.hpp"
+#include "debug/Logger.hpp"
 
 #include <cstring>
 #include <glm/gtx/intersect.hpp>
 
 using namespace workshop;
+
+static debug::Logger logger("workshop-preview");
 
 Preview::Preview(Engine& engine, ContentGfxCache& cache) : engine(engine), cache(cache), 
 assets(*engine.getAssets()),
@@ -137,7 +140,7 @@ void Preview::setBlock(Block* block) {
 	currentBlock = block;
 	chunk->voxels[CHUNK_D * CHUNK_W + CHUNK_D + 1].id = block->rt.id;
 	updateMesh();
-	updateParticles();
+	updateParticles(true);
 }
 
 static void updateTextures(rigging::Bone& bone, const Assets& assets) {
@@ -168,8 +171,14 @@ void Preview::setModel(model::Model* model) {
 void Preview::setCurrentAABB(const glm::vec3& a, const glm::vec3& b, PrimitiveType type) {
 	primitiveType = type;
 	AABB& aabb = (type == PrimitiveType::AABB ? currentAABB : currentHitbox);
-	aabb.a = a + b / 2.f - 0.5f;
-	aabb.b = b;
+	if (type == PrimitiveType::HITBOX){
+		aabb.a = a + (b - a) / 2.f - 0.5f;
+		aabb.b = b - a;
+	}
+	else {
+		aabb.a = a + b / 2.f - 0.5f;
+		aabb.b = b;
+	}
 }
 
 void Preview::setCurrentTetragon(const glm::vec3* const tetragon) {
@@ -179,10 +188,11 @@ void Preview::setCurrentTetragon(const glm::vec3* const tetragon) {
 	}
 }
 
-void workshop::Preview::updateParticles() {
+void workshop::Preview::updateParticles(bool clear) {
 	static u64id_t lastEmitter = 0;
 	if (Emitter* emitter = particlesRenderer.getEmitter(lastEmitter)) {
 		emitter->stop();
+		if (clear) particlesRenderer.render(camera, std::numeric_limits<float>::max());
 	}
 	if (currentBlock->particles) {
 		auto treg = util::get_texture_region(assets, currentBlock->particles->texture, "");
@@ -351,7 +361,15 @@ void Preview::drawBlock() {
 	main = setupEntitiesShader(glm::vec3(0.f));
 	main->use();
 	ctx->setCullFace(false);
+
+	std::chrono::time_point begin = std::chrono::system_clock::now();
 	particlesRenderer.render(camera, engine.getTime().getDelta() * particlesSpeed);
+	if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - begin).count() > 250 &&
+		particlesRenderer.visibleParticles > 10'000) {
+		updateParticles(true);
+		particlesSpeed = 0.f;
+		logger.warning() << "Particles rendering was stopped due to lag";
+	}
 
 	endRenderer(ctx, false, false);
 }

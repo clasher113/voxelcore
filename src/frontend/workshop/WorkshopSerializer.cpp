@@ -18,19 +18,13 @@
 #include <algorithm>
 #include <map>
 
+static const std::string INDENT("    ");
+
 static std::string to_string(const glm::vec3& vector, char delimiter = ','){
 	return std::to_string(vector.x) + delimiter + std::to_string(vector.y) + delimiter + std::to_string(vector.z);
 }
 
-std::string workshop::stringify(const dv::value& root, bool nice) {
-	json::precision = 15;
-	std::string result = json::stringify(root, nice, "  ");
-	json::precision = 15;
-
-	return result;
-}
-
-dv::value workshop::toJson(const Block& block, const std::string& actualName, const Block* const parent, const std::string& newParent) {
+std::string workshop::stringify(const Block& block, const Block* const parent, const std::string& newParent) {
 	Block temp(block.name);
 	const Block& master = (parent ? *parent : temp);
 
@@ -115,19 +109,26 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 		return std::all_of(std::cbegin(arr) + offset, std::cbegin(arr) + offset + numElements, [&r = arr[offset]](const std::string& value) {return value == r; });
 	};
 	if (block.model == BlockModel::custom) {
-		const std::string primitivesNames[] = { AABB_STR, TETRAGON_STR };
-		dv::value& primitives = root["model-primitives"] = block.customModelRaw;
-		for (const std::string& primitiveId : primitivesNames){
-			if (primitives.has(primitiveId)) {
-				for (auto& primitive : primitives[primitiveId]) {
-					primitive.multiline = false;
-				};
+		if (json::stringify(master.customModelRaw, false) != json::stringify(block.customModelRaw, false)) {
+			dv::value& primitives = root["model-primitives"] = block.customModelRaw;
+			for (const std::string& primitiveId : { AABB_STR, TETRAGON_STR }) {
+				if (primitives.has(primitiveId)) {
+					for (auto& primitive : primitives[primitiveId]) {
+						primitive.multiline = false;
+					};
+				}
 			}
 		}
 	}
 
-	for (const auto& [key, property] : block.properties.asObject()){
-		root[key] = property;
+	if (block.properties.isObject()){
+		dv::value props = block.properties;
+		for (const std::string& defaultProp : DEFAULT_BLOCK_PROPERTIES){
+			if (props.has(defaultProp)) props.erase(defaultProp);
+		}
+		for (const auto& [key, property] : props.asObject()) {
+			root[key] = property;
+		}
 	}
 
 	if (block.dataStruct && block.dataStruct->size()){
@@ -135,14 +136,15 @@ dv::value workshop::toJson(const Block& block, const std::string& actualName, co
 	}
 
 	if (block.particles){
-		root["particles"] = block.particles->serialize();
+		if (!master.particles || json::stringify(master.particles->serialize(), false) != json::stringify(block.particles->serialize(), false))
+			root["particles"] = block.particles->serialize();
 	}
 
-	return root;
+	return json::stringify(root, true, INDENT);
 #undef NOT_EQUAL
 }
 
-dv::value workshop::toJson(const ItemDef& item, const std::string& actualName, const ItemDef* const parent, const std::string& newParent) {
+std::string workshop::stringify(const ItemDef& item, const ItemDef* const parent, const std::string& newParent) {
 	ItemDef temp(item.name);
 	const ItemDef& master = (parent ? *parent : temp);
 
@@ -152,19 +154,23 @@ dv::value workshop::toJson(const ItemDef& item, const std::string& actualName, c
 
 	if (!newParent.empty()) root["parent"] = newParent;
 	if (NOT_EQUAL(stackSize)) root["stack-size"] = item.stackSize;
-	if (NOT_EQUAL(iconType)) {
-		std::string iconStr("");
+	auto getIconName = [&item]() {
 		switch (item.iconType) {
-			case ItemIconType::NONE: iconStr = "none";
-				break;
-			case ItemIconType::BLOCK: iconStr = "block";
-				break;
-			case ItemIconType::SPRITE: iconStr = "sprite";
-				break;
+			case ItemIconType::NONE: return "none";
+			case ItemIconType::BLOCK: return "block";
+			case ItemIconType::SPRITE: return "sprite";
+			default: return "";
 		}
-		if (!iconStr.empty()) root["icon-type"] = iconStr;
+	};
+	if (parent && (NOT_EQUAL(iconType) || NOT_EQUAL(icon))) {
+		root["icon-type"] = getIconName();
+		root["icon"] = item.icon;
 	}
-	if (NOT_EQUAL(icon)) root["icon"] = item.icon;
+	else {
+		if (NOT_EQUAL(iconType) || !newParent.empty()) root["icon-type"] = getIconName();
+		if (NOT_EQUAL(icon) || newParent.empty()) root["icon"] = item.icon;
+	}
+
 	if (NOT_EQUAL(placingBlock)) root["placing-block"] = item.placingBlock;
 	if (NOT_EQUAL(scriptName)) root["script-name"] = item.scriptName;
 
@@ -176,11 +182,11 @@ dv::value workshop::toJson(const ItemDef& item, const std::string& actualName, c
 		}
 	}
 
-	return root;
+	return json::stringify(root, true, INDENT);
 #undef NOT_EQUAL
 }
 
-dv::value workshop::toJson(const EntityDef& entity, const std::string& actualName, const EntityDef* const parent, const std::string& newParent) {
+std::string workshop::stringify(const EntityDef& entity, const EntityDef* const parent, const std::string& newParent) {
 	EntityDef temp(entity.name);
 	const EntityDef& master = (parent ? *parent : temp);
 
@@ -234,7 +240,7 @@ dv::value workshop::toJson(const EntityDef& entity, const std::string& actualNam
 		}
 	}
 
-	return root;
+	return json::stringify(root, true, INDENT);
 #undef NOT_EQUAL
 }
 
@@ -255,12 +261,12 @@ static void putBone(dv::value& map, const rigging::Bone& bone){
 	}
 }
 
-dv::value workshop::toJson(const rigging::Bone& rootBone, const std::string& actualName) {
+std::string workshop::stringify(const rigging::Bone& rootBone) {
 	dv::value root = dv::object();
 
 	putBone(root["root"] = dv::object(), rootBone);
 
-	return root;
+	return json::stringify(root, true, INDENT);
 }
 
 void workshop::saveContentPack(const ContentPack& pack) {
@@ -284,28 +290,28 @@ void workshop::saveContentPack(const ContentPack& pack) {
 	files::write_json(pack.folder / ContentPack::PACKAGE_FILENAME, root);
 }
 
-void workshop::saveBlock(const Block& block, const fs::path& packFolder, const std::string& actualName, const Block* const parent, const std::string& newParent) {
-	fs::path path = packFolder / ContentPack::BLOCKS_FOLDER;
+void workshop::saveBlock(const Block& block, const fs::path& packFolder, const Block* const currentParent, const std::string& newParent) {
+	const fs::path path = packFolder / ContentPack::BLOCKS_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
-	files::write_string(path / fs::path(actualName + ".json"), stringify(toJson(block, actualName, parent, newParent), true));
+	files::write_string(path / fs::path(getDefName(block.name) + ".json"), stringify(block, currentParent, newParent));
 }
 
-void workshop::saveItem(const ItemDef& item, const fs::path& packFolder, const std::string& actualName, const ItemDef* const parent, const std::string& newParent) {
+void workshop::saveItem(const ItemDef& item, const fs::path& packFolder, const ItemDef* const currentParent, const std::string& newParent) {
 	fs::path path = packFolder / ContentPack::ITEMS_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
-	files::write_string(path / fs::path(actualName + ".json"), stringify(toJson(item, actualName, parent, newParent), true));
+	files::write_string(path / fs::path(getDefName(item.name) + ".json"), stringify(item, currentParent, newParent));
 }
 
-void workshop::saveEntity(const EntityDef& entity, const std::filesystem::path& packFolder, const std::string& actualName, const EntityDef* const parent, const std::string& newParent) {
+void workshop::saveEntity(const EntityDef& entity, const std::filesystem::path& packFolder, const EntityDef* const currentParent, const std::string& newParent) {
 	fs::path path = packFolder / ContentPack::ENTITIES_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
-	files::write_string(path / fs::path(actualName + ".json"), stringify(toJson(entity, actualName, parent, newParent), true));
+	files::write_string(path / fs::path(getDefName(entity.name) + ".json"), stringify(entity, currentParent, newParent));
 }
 
 void workshop::saveSkeleton(const rigging::Bone& root, const std::filesystem::path& packFolder, const std::string& actualName) {
 	fs::path path = packFolder / SKELETONS_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
-	files::write_string(path / fs::path(actualName + ".json"), stringify(toJson(root, actualName), true));
+	files::write_string(path / fs::path(actualName + ".json"), stringify(root));
 }
 
 void workshop::saveDocument(const xml::Document& document, const fs::path& packFolder, const std::string& actualName) {

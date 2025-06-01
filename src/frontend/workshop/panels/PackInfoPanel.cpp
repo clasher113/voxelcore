@@ -6,7 +6,7 @@
 #include "graphics/ui/elements/Panel.hpp"
 #include "graphics/ui/elements/Button.hpp"
 #include "graphics/ui/elements/Image.hpp"
-#include "graphics/ui/elements/Textbox.hpp"
+#include "graphics/ui/elements/TextBox.hpp"
 #include "frontend/workshop/gui_elements/BasicElements.hpp"
 #include "frontend/workshop/WorkshopSerializer.hpp"
 #include "engine/Engine.hpp"

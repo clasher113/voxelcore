@@ -35,13 +35,13 @@ namespace data{
 }
 enum class BlockModel;
 enum class ItemIconType;
+enum class SensorType;
 
 namespace workshop {
 	class Preview;
 	struct BackupData {
-		std::string string;
-		std::string currentParent;
-		std::string newParent;
+		std::string parent;
+		std::string serialized;
 	};
 
 	class WorkShopScreen : public Screen {
@@ -62,7 +62,7 @@ namespace workshop {
 		void removePanels(unsigned int column);
 		void createPanel(const std::function<gui::Panel& ()>& lambda, unsigned int column, float posX = PANEL_POSITION_AUTO);
 
-		void createTextureList(float iconSize, unsigned int column = 1, std::vector<ContentType> types = { ContentType::BLOCK, ContentType::ITEM },
+		void createTextureList(float iconSize, unsigned int column = 1, std::vector<ContentType> types = { ContentType::BLOCK, ContentType::ITEM, ContentType::ENTITY, ContentType::PARTICLE },
 			float posX = PANEL_POSITION_AUTO, bool showAll = false, const std::function<void(const std::string&)>& callback = 0);
 		void createTextureInfoPanel(const std::string& texName, ContentType type, unsigned int column = 2);
 		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model, const std::function<void()>& callback = 0);
@@ -94,9 +94,12 @@ namespace workshop {
 		gui::Panel& createBlockPreview(gui::Panel& parentPanel, Block& block, PrimitiveType type);
 		gui::Panel& createParticlesPreview();
 
-		void createItemEditor(ItemDef& item);
 		void createEntityEditorPanel(EntityDef& entity);
-		void createAdditionalEntityEditorPanel(EntityDef& entity, unsigned int mode);
+		void createAdditionalEntityEditorPanel(EntityDef& entity);
+		void createEntitySensorsEditor(gui::Panel& panel, EntityDef& entity, SensorType type);
+		void createEntityComponentsEditor(gui::Panel& panel, EntityDef& entity);
+
+		void createItemEditor(ItemDef& item);
 		void createSkeletonEditorPanel(rigging::SkeletonConfig& skeleton, std::vector<size_t> skeletonPath);
 		void createUILayoutEditor(const std::filesystem::path& path, const std::string& fullName, std::vector<size_t> docPath);
 		void createMaterialEditor(BlockMaterial& material);
@@ -106,12 +109,13 @@ namespace workshop {
 		void createFileDeletingConfirmationPanel(const std::vector<std::filesystem::path>& files, unsigned int column, const std::function<void(void)>& callback);
 
 		gui::Panel& createPreview(const std::function<void(gui::Panel&, gui::Image&)>& setupFunc);
-		void createSkeletonPreview(unsigned int column);
+		gui::Panel& createSkeletonPreview();
 		void createModelPreview(unsigned int column);
 		void createUIPreview();
 
 		void backupDefs();
 		bool showUnsaved(const std::function<void()>& callback = 0);
+		void updateIcons();
 
 		bool ignoreUnsaved = false;
 		int framerate;

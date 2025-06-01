@@ -13,13 +13,9 @@ namespace gui {
 
 	class IconButton : public Container {
 	public:
-		IconButton(float height, const std::string& text, Texture* const texture, const UVRegion& uv, const std::string& additionalText = "");
-		IconButton(float height, const std::string& text, const Atlas* const atlas, const std::string& textureName, const std::string& additionalText = "");
-		IconButton(float height, const std::string& text, const Assets* const assets, const std::string& atlasAndTexture, const std::string& additionalText = "");
+		IconButton(const Assets* const assets, float height, const std::string& text, const std::string& textureName, const std::string& additionalText = "");
 
 		void setIcon(const Assets* const assets, const std::string& atlasAndTexture);
-		void setIcon(const Atlas* const atlas, const std::string& textureName);
-		void setIcon(Texture* const texture);
 		void setText(const std::string& text);
 
 	private:

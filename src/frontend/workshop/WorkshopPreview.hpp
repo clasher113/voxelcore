@@ -62,7 +62,7 @@ namespace workshop {
 		void setCurrentAABB(const glm::vec3& a, const glm::vec3& b, PrimitiveType type);
 		void setCurrentTetragon(const glm::vec3* const tetragon);
 		void setCurrentPrimitive(PrimitiveType type) { primitiveType = type; };
-		void updateParticles();
+		void updateParticles(bool clear);
 
 		void setUiDocument(const std::shared_ptr<xml::Document> document, std::shared_ptr<int> enviroment, bool forseUpdate = false);
 

@@ -57,15 +57,15 @@ void WorkShopScreen::createBlockParticlesEditor(gui::Panel& panel, std::unique_p
 	editorPanel << button;
 
 	editorPanel << new gui::Label("Max distance (0.01 - inf)");
-	editorPanel << createNumTextBox(particles->maxDistance, L"0.01", 3, 0.01f);
+	editorPanel << createNumTextBox(particles->maxDistance, L"0.01", 2, 0.01f);
 	editorPanel << new gui::Label("Spawn interval (0.0001 - inf)");
-	editorPanel << createNumTextBox(particles->spawnInterval, L"0.0001", 3, 0.0001f);
+	editorPanel << createNumTextBox(particles->spawnInterval, L"0.0001", 4, 0.0001f);
 	editorPanel << new gui::Label("Life time (0.01 - inf)");
-	editorPanel << createNumTextBox(particles->lifetime, L"0.01", 3, 0.01f);
+	editorPanel << createNumTextBox(particles->lifetime, L"0.01", 2, 0.01f);
 	editorPanel << new gui::Label("Life time spread (0 - inf)");
-	editorPanel << createNumTextBox(particles->lifetimeSpread, L"0.0", 3, 0.f);
+	editorPanel << createNumTextBox(particles->lifetimeSpread, L"0.0", 2, 0.f);
 	editorPanel << new gui::Label("Size spread (0 - inf)");
-	editorPanel << createNumTextBox(particles->sizeSpread, L"0.0", 3, 0.f);
+	editorPanel << createNumTextBox(particles->sizeSpread, L"0.0", 2, 0.f);
 	editorPanel << new gui::Label("Angle spread (-1 - 1)");
 	editorPanel << createNumTextBox(particles->angleSpread, L"-1.0", 3, -1.f, 1.f);
 	editorPanel << new gui::Label("Min angular velocity");
@@ -73,7 +73,7 @@ void WorkShopScreen::createBlockParticlesEditor(gui::Panel& panel, std::unique_p
 	editorPanel << new gui::Label("Max angular velocity");
 	editorPanel << createNumTextBox(particles->maxAngularVelocity, L"0.0", 3, 0.f);
 	editorPanel << new gui::Label("Random sub UV (0.0 - 1.0)");
-	editorPanel << createNumTextBox(particles->randomSubUV, L"0.0", 3, 0.f, 1.f);
+	editorPanel << createNumTextBox(particles->randomSubUV, L"0.0", 4, 0.f, 1.f);
 
 	constexpr float floatMax = std::numeric_limits<float>::max();
 	constexpr float floatLowest = std::numeric_limits<float>::lowest();
@@ -113,7 +113,7 @@ void WorkShopScreen::createBlockParticlesEditor(gui::Panel& panel, std::unique_p
 	};
 
 	editorPanel << new gui::Label("Texture");
-	gui::IconButton* iconButton = new gui::IconButton(35.f, getButtonText(particles->texture), assets, particles->texture);
+	gui::IconButton* iconButton = new gui::IconButton(assets, 35.f, getButtonText(particles->texture), particles->texture);
 	iconButton->listenAction([=, &editorPanel, &particles](gui::GUI*) {
 		createTextureList(35.f, 5, getTextureTypes(&particles->texture), editorPanel.calcPos().x + editorPanel.getSize().x,
 			true, [=, &particles](const std::string& textureName) {
@@ -136,7 +136,7 @@ void WorkShopScreen::createBlockParticlesEditor(gui::Panel& panel, std::unique_p
 			std::string& frame = particles->frames[i];
 			gui::Container& frameContainer = *new gui::Container(glm::vec2(editorPanel.getSize().x, 35.f));
 			frameContainer.setColor(glm::vec4(0.f));
-			gui::IconButton* iconButton = new gui::IconButton(35.f, getButtonText(frame), assets, frame);
+			gui::IconButton* iconButton = new gui::IconButton(assets, 35.f, getButtonText(frame), frame);
 			iconButton->setSize(glm::vec2(editorPanel.getSize().x, 35.f));
 			iconButton->listenAction([=, &editorPanel, &frame](gui::GUI*) {
 				createTextureList(35.f, 5, getTextureTypes(&frame), editorPanel.calcPos().x + editorPanel.getSize().x,
@@ -168,11 +168,11 @@ void WorkShopScreen::createBlockParticlesEditor(gui::Panel& panel, std::unique_p
 
 	editorPanel << new gui::Button(L"Delete preset", glm::vec4(10.f), [=, &panel, &particles](gui::GUI*) {
 		particles.reset();
-		preview->updateParticles();
+		preview->updateParticles(true);
 		createBlockParticlesEditor(panel, particles);
 	});
 
 	editorPanel.listenInterval(0.25f, [this]() {
-		preview->updateParticles();
+		preview->updateParticles(false);
 	});
 }

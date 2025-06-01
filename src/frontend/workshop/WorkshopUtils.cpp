@@ -66,7 +66,7 @@ std::string workshop::getAtlasName(const std::string& fullName, const std::strin
 	return fullName;
 }
 
-Atlas* workshop::getAtlas(Assets* assets, const std::string& fullName, const std::string& delimiter) {
+Atlas* workshop::getAtlas(const Assets* const assets, const std::string& fullName, const std::string& delimiter) {
 	if (fullName.empty()) return assets->get<Atlas>("blocks");
 	const size_t pos = fullName.find(delimiter);
 	if (pos != std::string::npos) {
@@ -166,13 +166,23 @@ std::vector<glm::vec3> workshop::aabb2tetragons(const glm::vec3& a, const glm::v
 	};
 }
 
-void workshop::formatTextureImage(gui::Image& image, Texture* const texture, float height, const UVRegion& region) {
-	const glm::vec2 textureSize((region.u2 - region.u1) * texture->getWidth(), (region.v2 - region.v1) * texture->getHeight());
+void workshop::formatTextureImage(gui::Image& image, const std::string& textureName, float height, const Assets* const assets) {
+	glm::vec2 textureSize(height);
+	const size_t separator = textureName.find(':');
+	if (separator == std::string::npos){
+		const Texture* const texture = assets->get<Texture>(textureName);
+		if (texture) textureSize = glm::vec2(texture->getWidth(), texture->getHeight());
+	} 
+	else if (const Atlas* const atlas = getAtlas(assets, textureName)){
+		const UVRegion& region = atlas->get(getTexName(textureName));
+		const Texture* const texture = atlas->getTexture();
+		textureSize = glm::vec2((region.u2 - region.u1) * texture->getWidth(), (region.v2 - region.v1) * texture->getHeight());
+	}
+
 	const glm::vec2 multiplier(height / textureSize);
 	image.setSize(textureSize * std::min(multiplier.x, multiplier.y));
 	image.setPos(glm::vec2(height / 2.f - image.getSize().x / 2.f, height / 2.f - image.getSize().y / 2.f));
-	image.setTexture(texture);
-	image.setUVRegion(region);
+	image.setTexture(textureName);
 }
 
 template void workshop::setSelectable<gui::IconButton>(const gui::Container&);

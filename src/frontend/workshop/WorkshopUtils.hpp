@@ -30,7 +30,7 @@ template<glm::length_t L, typename T>
 using vec_t = glm::vec<L, T, glm::defaultp>;
 
 inline const std::string NOT_SET = "[not set]";
-inline const std::string BLOCKS_PREVIEW_ATLAS = "block-previews";
+inline const std::string BLOCKS_PREVIEW_ATLAS = "blocks-preview";
 inline const std::string REMOVABLE_MARK = "removable";
 inline const std::string AABB_STR("aabbs");
 inline const std::string TETRAGON_STR("tetragons");
@@ -72,7 +72,7 @@ namespace workshop {
 
 	extern const std::unordered_map<std::string, UIElementInfo> uiElementsArgs;
 
-	extern Atlas* getAtlas(Assets* assets, const std::string& fullName, const std::string& delimiter = ":");
+	extern Atlas* getAtlas(const Assets* const assets, const std::string& fullName, const std::string& delimiter = ":");
 
 	extern std::string getTexName(const std::string& fullName, const std::string& delimiter = ":");
 	extern std::string getAtlasName(const std::string& fullName, const std::string& delimiter = ":");
@@ -93,7 +93,7 @@ namespace workshop {
 
 	extern std::vector<glm::vec3> aabb2tetragons(const glm::vec3& a, const glm::vec3& b);
 
-	extern void formatTextureImage(gui::Image& image, Texture* const texture, float height, const UVRegion& region);
+	extern void formatTextureImage(gui::Image& image, const std::string& textureName, float height, const Assets* const assets);
 	template<typename T>
 	extern void setSelectable(const gui::Container& panel);
 	extern void setSelected(gui::UINode& node);
@@ -124,5 +124,9 @@ namespace workshop {
 	extern T incrementEnumClass(T& enumClass, int factor) {
 		enumClass = static_cast<T>(static_cast<int>(enumClass) + factor);
 		return enumClass;
+	}
+	template <typename Container>
+	bool contains(Container const& c, typename Container::const_reference v) {
+		return std::find(c.begin(), c.end(), v) != c.end();
 	}
 }
