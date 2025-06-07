@@ -99,6 +99,7 @@ void WorkShopScreen::update(float delta) {
 		preview->update(delta, settings.previewSensitivity);
 		preview->lockedKeyboardInput = false;
 	}
+	textureAnimator->update(delta);
 }
 
 void WorkShopScreen::draw(float delta) {
@@ -174,6 +175,8 @@ bool WorkShopScreen::initialize() {
 	itemsAtlas = assets->get<Atlas>("items");
 	blocksAtlas = assets->get<Atlas>("blocks");
 	preview.reset(new Preview(engine, *cache));
+	textureAnimator.reset(new TextureAnimator());
+	textureAnimator->addAnimations(assets->getAnimations());
 	// force load all models and textures
 	AssetsLoader loader(assets, engine.getResPaths());
 	loader.add(AssetType::TEXTURE, "textures/gui/circle", "gui/circle");
@@ -227,6 +230,7 @@ void WorkShopScreen::createNavigationPanel() {
 	panel << new gui::Button(L"Entities", glm::vec4(10.f), [this](gui::GUI*) { createEntitiesList(); });
 	panel << new gui::Button(L"Skeletons", glm::vec4(10.f), [this](gui::GUI*) { createSkeletonList(); });
 	panel << new gui::Button(L"Textures", glm::vec4(10.f), [this](gui::GUI*) { createTextureList(50.f); });
+	panel << new gui::Button(L"Textures Animations", glm::vec4(10.f), [this](gui::GUI*) { createTextureAnimationList(); });
 	panel << new gui::Button(L"Models", glm::vec4(10.f), [this](gui::GUI*) { createModelsList(); });
 	panel << new gui::Button(L"Sounds", glm::vec4(10.f), [this](gui::GUI*) { createSoundList(); });
 	panel << new gui::Button(L"Scripts", glm::vec4(10.f), [this](gui::GUI*) { createScriptList(); });
@@ -753,10 +757,16 @@ void WorkShopScreen::createTextureInfoPanel(const std::string& texName, ContentT
 		imageContainer << image;
 		panel << imageContainer;
 
+		auto bool2str = [](bool b) -> std::wstring {
+			return (b ? L"true" : L"false");
+		};
+
 		const glm::ivec2 size((uv.u2 - uv.u1) * texture->getWidth(), (uv.v2 - uv.v1) * texture->getHeight());
 		panel << new gui::Label(L"Width: " + std::to_wstring(size.x));
 		panel << new gui::Label(L"Height: " + std::to_wstring(size.y));
 		panel << new gui::Label(L"Texture type: " + util::str2wstr_utf8(getDefName(type)));
+		panel << new gui::Label(L"Animated: " + bool2str(assets->get<Atlas>(getAtlasName(texName) + '/' +
+			getTexName(texName) + "_animation") != nullptr));
 		panel << new gui::Button(L"Delete", glm::vec4(10.f), [this, texName, type](gui::GUI*) {
 			showUnsaved([this, texName, type]() {
 				const std::string delimiter(type == ContentType::ENTITY ? "/" : ":");
@@ -1126,6 +1136,14 @@ bool workshop::WorkShopScreen::showUnsaved(const std::function<void()>& callback
 }
 
 void workshop::WorkShopScreen::updateIcons() {
+	//std::vector<TextureAnimation> animations = assets->getAnimations();
+	//for (TextureAnimation& animation : animations){
+	//	animation.currentFrame = std::max(0, static_cast<int>(animation.frames.size()) - 2);
+	//	animation.timer = animation.frames.back().duration;
+	//}
+	//textureAnimator.reset(new TextureAnimator());
+	//textureAnimator->addAnimations(animations);
+	//textureAnimator->update(0.f);
 	previewAtlas = BlocksPreview::build(*cache, *assets, *content->getIndices()).release();
 	assets->store(std::unique_ptr<Atlas>(previewAtlas), BLOCKS_PREVIEW_ATLAS);
 	Window::viewport(0, 0, Window::width, Window::height);

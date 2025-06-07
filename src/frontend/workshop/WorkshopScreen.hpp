@@ -16,6 +16,7 @@ class Camera;
 class Content;
 class ContentIndices;
 class ContentGfxCache;
+class TextureAnimator;
 struct ItemDef;
 struct EntityDef;
 struct BlockMaterial;
@@ -64,6 +65,7 @@ namespace workshop {
 
 		void createTextureList(float iconSize, unsigned int column = 1, std::vector<ContentType> types = { ContentType::BLOCK, ContentType::ITEM, ContentType::ENTITY, ContentType::PARTICLE },
 			float posX = PANEL_POSITION_AUTO, bool showAll = false, const std::function<void(const std::string&)>& callback = 0);
+		void createTextureAnimationList();
 		void createTextureInfoPanel(const std::string& texName, ContentType type, unsigned int column = 2);
 		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string* textures, BlockModel model, const std::function<void()>& callback = 0);
 		void createTexturesPanel(gui::Panel& panel, float iconSize, std::string& texture, ItemIconType iconType);
@@ -153,5 +155,6 @@ namespace workshop {
 		} settings;
 
 		std::unique_ptr<Preview> preview;
+		std::unique_ptr<TextureAnimator> textureAnimator;
 	};
 }

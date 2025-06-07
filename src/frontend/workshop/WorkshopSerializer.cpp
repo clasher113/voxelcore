@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <map>
 
-static const std::string INDENT("    ");
+static const std::string INDENT("\t");
 
 static std::string to_string(const glm::vec3& vector, char delimiter = ','){
 	return std::to_string(vector.x) + delimiter + std::to_string(vector.y) + delimiter + std::to_string(vector.z);
@@ -105,9 +105,6 @@ std::string workshop::stringify(const Block& block, const Block* const parent, c
 		}
 	}
 
-	auto isElementsEqual = [](const std::vector<std::string>& arr, size_t offset, size_t numElements) {
-		return std::all_of(std::cbegin(arr) + offset, std::cbegin(arr) + offset + numElements, [&r = arr[offset]](const std::string& value) {return value == r; });
-	};
 	if (block.model == BlockModel::custom) {
 		if (json::stringify(master.customModelRaw, false) != json::stringify(block.customModelRaw, false)) {
 			dv::value& primitives = root["model-primitives"] = block.customModelRaw;
@@ -117,6 +114,7 @@ std::string workshop::stringify(const Block& block, const Block* const parent, c
 						primitive.multiline = false;
 					};
 				}
+				if (primitives[primitiveId].empty()) primitives.erase(primitiveId);
 			}
 		}
 	}
@@ -297,19 +295,19 @@ void workshop::saveBlock(const Block& block, const fs::path& packFolder, const B
 }
 
 void workshop::saveItem(const ItemDef& item, const fs::path& packFolder, const ItemDef* const currentParent, const std::string& newParent) {
-	fs::path path = packFolder / ContentPack::ITEMS_FOLDER;
+	const fs::path path = packFolder / ContentPack::ITEMS_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
 	files::write_string(path / fs::path(getDefName(item.name) + ".json"), stringify(item, currentParent, newParent));
 }
 
 void workshop::saveEntity(const EntityDef& entity, const std::filesystem::path& packFolder, const EntityDef* const currentParent, const std::string& newParent) {
-	fs::path path = packFolder / ContentPack::ENTITIES_FOLDER;
+	const fs::path path = packFolder / ContentPack::ENTITIES_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
 	files::write_string(path / fs::path(getDefName(entity.name) + ".json"), stringify(entity, currentParent, newParent));
 }
 
 void workshop::saveSkeleton(const rigging::Bone& root, const std::filesystem::path& packFolder, const std::string& actualName) {
-	fs::path path = packFolder / SKELETONS_FOLDER;
+	const fs::path path = packFolder / SKELETONS_FOLDER;
 	if (!fs::is_directory(path)) fs::create_directories(path);
 	files::write_string(path / fs::path(actualName + ".json"), stringify(root));
 }

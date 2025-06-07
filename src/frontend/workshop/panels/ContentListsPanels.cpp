@@ -23,19 +23,19 @@ struct ListButtonInfo {
 	std::string fullName;
 	std::string displayName;
 	std::string texture;
-	static void sortAlphabetically(std::vector<ListButtonInfo>& list){
+	static void sortAlphabetically(std::vector<ListButtonInfo>& list) {
 		std::sort(list.begin(), list.end(), [](const ListButtonInfo& a, const ListButtonInfo& b) {
 			return a.displayName < b.displayName;
 		});
 	}
 };
 
-static void createList(const Assets* const assets, const std::vector<ListButtonInfo>& list, gui::Panel& dstPanel, 
+static void createList(const Assets* const assets, const std::vector<ListButtonInfo>& list, gui::Panel& dstPanel,
 	const std::function<void(const std::string&)>& callback = 0, float iconSize = 25.f)
 {
 	auto createList = [=, &dstPanel](const std::string& searchName) {
 		std::vector<ListButtonInfo> list_copy = list;
-		if (!searchName.empty()){
+		if (!searchName.empty()) {
 			list_copy.erase(std::remove_if(list_copy.begin(), list_copy.end(), [searchName](const ListButtonInfo& info) {
 				return info.displayName.find(searchName) == std::string::npos;
 			}), list_copy.end());
@@ -75,7 +75,7 @@ static void createList(const Assets* const assets, const std::vector<ListButtonI
 	createList("");
 }
 
-void workshop::WorkShopScreen::createContentList(ContentType type, bool showAll, unsigned int column, float posX, 
+void workshop::WorkShopScreen::createContentList(ContentType type, bool showAll, unsigned int column, float posX,
 	const std::function<void(const std::string&)>& callback)
 {
 	createPanel([this, type, showAll, callback]() {
@@ -125,7 +125,7 @@ void workshop::WorkShopScreen::createContentList(ContentType type, bool showAll,
 		createList(assets, list, panel, [this, type, callback](const std::string& string) {
 			if (callback) callback(string);
 			else {
-				if (type == ContentType::BLOCK) 
+				if (type == ContentType::BLOCK)
 					createBlockEditor(*content->blocks.getDefs().at(string));
 				else if (type == ContentType::ITEM)
 					createItemEditor(*content->items.getDefs().at(string));
@@ -163,7 +163,7 @@ void WorkShopScreen::createTextureList(float iconSize, unsigned int column, std:
 					if (type == ContentType::ENTITY) textureName = getDefFolder(type) + '/' + file;
 					else textureName = getDefFolder(type) + ':' + file;
 
-					list.emplace_back(ListButtonInfo{ std::to_string(static_cast<int>(type)) + ';' + file, file, textureName});
+					list.emplace_back(ListButtonInfo{ std::to_string(static_cast<int>(type)) + ';' + file, file, textureName });
 				}
 			}
 		}
@@ -173,7 +173,7 @@ void WorkShopScreen::createTextureList(float iconSize, unsigned int column, std:
 			});
 		}
 
-		createList(assets, list, panel, [this, callback](const std::string& string){
+		createList(assets, list, panel, [this, callback](const std::string& string) {
 			std::vector<std::string> split = util::split(string, ';');
 			const ContentType type = static_cast<ContentType>(stoi(split[0]));
 			if (callback) callback(getDefFolder(type) + ':' + split[1]);
@@ -291,7 +291,7 @@ void WorkShopScreen::createUILayoutList(bool showAll, unsigned int column, float
 		return std::ref(panel);
 	}, column, posX);
 }
-void workshop::WorkShopScreen::createEntitiesList(bool showAll, unsigned int column, float posX, 
+void workshop::WorkShopScreen::createEntitiesList(bool showAll, unsigned int column, float posX,
 	const std::function<void(const std::string&)>& callback)
 {
 	createPanel([this, showAll, callback]() {
@@ -318,7 +318,7 @@ void workshop::WorkShopScreen::createEntitiesList(bool showAll, unsigned int col
 	}, column, posX);
 }
 
-void workshop::WorkShopScreen::createSkeletonList(bool showAll, unsigned int column, float posX, 
+void workshop::WorkShopScreen::createSkeletonList(bool showAll, unsigned int column, float posX,
 	const std::function<void(const std::string&)>& callback)
 {
 	createPanel([this, showAll, callback]() {
@@ -332,7 +332,7 @@ void workshop::WorkShopScreen::createSkeletonList(bool showAll, unsigned int col
 		std::vector<ListButtonInfo> list;
 		if (showAll) list.emplace_back(ListButtonInfo{ "", NOT_SET });
 
-		for (const auto& [name, skeleton] : content->getSkeletons()){
+		for (const auto& [name, skeleton] : content->getSkeletons()) {
 			if (!showAll && name.find(currentPackId) != 0) continue;
 			list.emplace_back(ListButtonInfo{ name, showAll ? name : getDefName(name) });
 		}
@@ -347,7 +347,7 @@ void workshop::WorkShopScreen::createSkeletonList(bool showAll, unsigned int col
 	}, column, posX);
 }
 
-void workshop::WorkShopScreen::createModelsList(bool showAll, unsigned int column, float posX, 
+void workshop::WorkShopScreen::createModelsList(bool showAll, unsigned int column, float posX,
 	const std::function<void(const std::string&)>& callback)
 {
 	createPanel([this, showAll, callback]() {
@@ -382,4 +382,31 @@ void workshop::WorkShopScreen::createModelsList(bool showAll, unsigned int colum
 
 		return std::ref(panel);
 	}, column, posX);
+}
+
+void workshop::WorkShopScreen::createTextureAnimationList() {
+	createPanel([this]() {
+		gui::Panel& panel = *new gui::Panel(glm::vec2(settings.contentListWidth));
+
+		std::vector<ListButtonInfo> list;
+		const std::vector<TextureAnimation>& animations = assets->getAnimations();
+		const auto atlases = assets->getMap<Atlas>().value();
+
+		for (const ContentType type : { ContentType::BLOCK, ContentType::ITEM }) {
+			const fs::path path = fs::path(TEXTURES_FOLDER) / getDefFolder(type) / "animation";
+			if (!fs::exists(currentPack.folder/path)) continue;
+			for (const auto& entry : engine.getResPaths()->listdir(path.string())) {
+				const std::string entryName = entry.stem().string();
+				const auto& animationAtlas = atlases->find(getDefFolder(type) + '/' + entryName + "_animation");
+				if (animationAtlas == atlases->end()) continue;
+				list.emplace_back(ListButtonInfo{"", entryName, getDefFolder(type) + ':' + entryName });
+			}
+		}
+
+		createList(assets, list, panel, [this](const std::string& string) {
+
+		}, 50.f);
+
+		return std::ref(panel);
+	}, 1);
 }
