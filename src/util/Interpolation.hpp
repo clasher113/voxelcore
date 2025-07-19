@@ -3,43 +3,34 @@
 #include <limits>
 #include <glm/glm.hpp>
 
-const float INTERPOLATION_DURATION = 0.15f; // seconds
-
 namespace util {
-    template<int N, typename T, bool angular = false>
+    template<int N, typename T, bool angular=false>
     class VecInterpolation {
         bool enabled;
-        glm::vec<N, T> prevPos{ std::numeric_limits<T>::quiet_NaN() };
-        glm::vec<N, T> nextPos{};
-        mutable glm::vec<N, T> interpolationStep{};
+        glm::vec<N, T> prevPos {std::numeric_limits<T>::quiet_NaN()};
+        glm::vec<N, T> nextPos {};
+        T refreshInterval = 0.0;
         T timer = 0.0;
-        glm::vec<N, T> currentDuration{ INTERPOLATION_DURATION };
+        T intervalUpdateFactor = 0.1;
     public:
         VecInterpolation(bool enabled) : enabled(enabled) {}
 
         void refresh(const glm::vec<N, T>& position) {
-            prevPos = getCurrent();
+            auto current = getCurrent();
+            prevPos = current;
             nextPos = position;
+            refreshInterval = timer * intervalUpdateFactor +
+                              refreshInterval * (1.0 - intervalUpdateFactor);
+            timer = 0.0;
 
             if constexpr (angular) {
                 for (int i = 0; i < N; i++) {
-                    const float shortestAngle = std::fmod((std::fmod((nextPos[i] - prevPos[i]), 360.f) + 540.f), 360.f) - 180.f;
-                    if (std::abs(interpolationStep[i]) > 90.0f) {
-                        currentDuration[i] = INTERPOLATION_DURATION * (1.f - std::abs(shortestAngle) / 180.f);
-                    }
-                    else {
-                        currentDuration[i] = INTERPOLATION_DURATION;
-                    }
-                    interpolationStep[i] = shortestAngle / currentDuration[i];
-                    if (glm::abs(nextPos[i]) > 180.0f) {
-                        nextPos[i] += (nextPos[i] > 0.0f ? -360.0f : 360.0f);
+                    T diff = nextPos[i] - prevPos[i];
+                    if (glm::abs(diff) > 180.0f) {
+                        nextPos[i] += (diff > 0.0f ? -360.0f : 360.0f);
                     }
                 }
             }
-            else {
-                interpolationStep = (nextPos - prevPos) / currentDuration.x;
-            }
-            timer = 0.0;
         }
 
         void updateTimer(T delta) {
@@ -47,14 +38,15 @@ namespace util {
         }
 
         glm::vec<N, T> getCurrent() const {
-            glm::vec<N, T> interpolated = prevPos + interpolationStep * timer;
-            for (size_t i = 0; i < N; i++) {
-                if (timer >= currentDuration[i] || std::isnan(prevPos[i])) {
-                    interpolated[i] = nextPos[i];
-                    interpolationStep[i] = 0.f;
-                }
+            if (refreshInterval < 0.001 || std::isnan(prevPos.x)) {
+                return nextPos;
             }
-            return interpolated;
+            T t = timer / refreshInterval;
+            return nextPos * t + prevPos * (1.0f - t);
+        }
+
+        T getRefreshInterval() const {
+            return refreshInterval;
         }
 
         bool isEnabled() const {
