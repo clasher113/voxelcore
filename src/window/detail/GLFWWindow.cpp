@@ -2,6 +2,11 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#ifdef _WIN32
+#define NOMINMAX
+#include <Windows.h>
+#undef DELETE
+#endif // _WIN32
 #include <unordered_set>
 
 #include <chrono>
@@ -410,7 +415,7 @@ public:
     
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    
+
         if (input.isCursorLocked()){
             input.toggleCursor();
         }
@@ -418,7 +423,7 @@ public:
         if (fullscreen) {
             glfwGetWindowPos(window, &posX, &posY);
             glfwSetWindowMonitor(
-                window, monitor, 0, 0, mode->width, mode->height, GLFW_DONT_CARE
+                window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate
             );
         } else {
             glfwSetWindowMonitor(
@@ -532,7 +537,18 @@ public:
 
     void setFramerate(int framerate) override {
         if ((framerate != -1) != (this->framerate != -1)) {
+#ifdef _WIN32
+            // Turn on vertical screen sync under Windows.
+            // (I.e. it uses the WGL_EXT_swap_control extension)
+            typedef BOOL(WINAPI* PFNWGLSWAPINTERVALEXTPROC)(int interval);
+            PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = NULL;
+            wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
+            if (wglSwapIntervalEXT)
+                wglSwapIntervalEXT(framerate == -1);
+            else glfwSwapInterval(framerate == -1);
+#else
             glfwSwapInterval(framerate == -1);
+#endif
         }
         this->framerate = framerate;
     }
@@ -596,6 +612,17 @@ static void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
     handler->input.setCursorPosition(xpos, ypos);
 }
 
+static void iconify_callback(GLFWwindow* window, int iconified) {
+    auto handler = static_cast<GLFWWindow*>(glfwGetWindowUserPointer(window));
+    if (handler->isFullscreen() && iconified == 0){
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        glfwSetWindowMonitor(
+            window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate
+        );
+    }
+}
+
 static void create_standard_cursors() {
     for (int i = 0; i <= static_cast<int>(CursorShape::LAST); i++) {
         int cursor = GLFW_ARROW_CURSOR + i;
@@ -615,6 +642,7 @@ static void setup_callbacks(GLFWwindow* window) {
     glfwSetWindowSizeCallback(window, window_size_callback);
     glfwSetCharCallback(window, character_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetWindowIconifyCallback(window, iconify_callback);
 }
 
 std::tuple<
@@ -653,6 +681,16 @@ std::tuple<
         return {nullptr, nullptr};
     }
     glfwMakeContextCurrent(window);
+
+#ifdef _WIN32
+    // Turn on vertical screen sync under Windows.
+    // (I.e. it uses the WGL_EXT_swap_control extension)
+    typedef BOOL(WINAPI* PFNWGLSWAPINTERVALEXTPROC)(int interval);
+    PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = NULL;
+    wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
+    if (wglSwapIntervalEXT)
+        wglSwapIntervalEXT(1);
+#endif
 
     glewExperimental = GL_TRUE;
 
