@@ -2,7 +2,7 @@
 
 #include "debug/Logger.hpp"
 #include "engine/Engine.hpp"
-#include "files/files.hpp"
+#include "io/io.hpp"
 #include "frontend/hud.hpp"
 #include "frontend/UiDocument.hpp"
 #include "graphics/render/WorldRenderer.hpp"
@@ -19,11 +19,11 @@ Hud* scripting::hud = nullptr;
 WorldRenderer* scripting::renderer = nullptr;
 
 static void load_script(const std::string& name) {
-    auto file = engine->getPaths().getResourcesFolder() / "scripts" / name;
-    std::string src = files::read_string(file);
-    logger.info() << "loading script " << file.u8string();
+    auto file = io::path("res:scripts") / name;
+    std::string src = io::read_string(file);
+    logger.info() << "loading script " << file.string();
 
-    lua::execute(lua::get_main_state(), 0, src, file.u8string());
+    lua::execute(lua::get_main_state(), 0, src, file.string());
 }
 
 void scripting::on_frontend_init(Hud* hud, WorldRenderer* renderer) {
@@ -35,6 +35,7 @@ void scripting::on_frontend_init(Hud* hud, WorldRenderer* renderer) {
     lua::openlib(L, "hud", hudlib);
     lua::openlib(L, "gfx", "blockwraps", blockwrapslib);
     lua::openlib(L, "gfx", "particles", particleslib);
+    lua::openlib(L, "gfx", "weather", weatherlib);
     lua::openlib(L, "gfx", "text3d", text3dlib);
 
     load_script("hud_classes.lua");
@@ -87,12 +88,12 @@ void scripting::on_frontend_close() {
 void scripting::load_hud_script(
     const scriptenv& senv,
     const std::string& packid,
-    const fs::path& file,
+    const io::path& file,
     const std::string& fileName
 ) {
     int env = *senv;
-    std::string src = files::read_string(file);
-    logger.info() << "loading script " << file.u8string();
+    std::string src = io::read_string(file);
+    logger.info() << "loading script " << file.string();
 
     lua::execute(lua::get_main_state(), env, src, fileName);
 

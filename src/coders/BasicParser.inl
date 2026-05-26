@@ -6,7 +6,7 @@
 #include "util/stringutil.hpp"
 
 namespace {
-    int is_box(int c) {
+    inline int is_box(int c) {
         switch (c) {
             case 'B':
             case 'b':
@@ -21,7 +21,7 @@ namespace {
         return 10;
     }
 
-    double power(double base, int64_t power) {
+    inline double power(double base, int64_t power) {
         double result = 1.0;
         for (int64_t i = 0; i < power; i++) {
             result *= base;
@@ -397,7 +397,7 @@ std::basic_string<CharT> BasicParser<CharT>::parseString(
                 ss << (char)parseSimpleInt(8);
                 continue;
             }
-            if (c == 'u') {
+            if (c == 'u' || c == 'x') {
                 int codepoint = parseSimpleInt(16);
                 ubyte bytes[4];
                 int size = util::encode_utf8(codepoint, bytes);
@@ -414,6 +414,7 @@ std::basic_string<CharT> BasicParser<CharT>::parseString(
                 case 'b': ss << '\b'; break;
                 case 't': ss << '\t'; break;
                 case 'f': ss << '\f'; break;
+                case 'v': ss << '\v'; break;
                 case '\'': ss << '\''; break;
                 case '"': ss << '"'; break;
                 case '\\': ss << '\\'; break;

@@ -6,7 +6,6 @@
 #include "directx/util/DebugUtil.hpp"
 #include "directx/util/TextureUtil.hpp"
 
-uint Texture::MAX_RESOLUTION = 16384;
 constexpr UINT MAX_MIP_LEVEL = 3U;
 
 static UINT GetNumMipLevels(UINT width, UINT height) {
@@ -107,12 +106,12 @@ void Texture::reload(const ImageData& image) {
 	reload(image.getData());
 }
 
-void Texture::setMipMapping(bool flag) {
+void Texture::setMipMapping(bool flag, bool pixelated) {
 	std::unique_ptr<ImageData> data = readData(false);
 
 	m_p_texture->Release();
 	m_p_resourceView->Release();
-
+	
 	if (flag){
 		m_description.MiscFlags |= D3D11_RESOURCE_MISC_GENERATE_MIPS;
 		m_description.BindFlags |= D3D11_BIND_RENDER_TARGET;
@@ -145,7 +144,7 @@ std::unique_ptr<ImageData> Texture::readData(bool flipY) {
 	TextureUtil::readPixels(staged, data.get(), flipY);
 	staged->Release();
 	return std::make_unique<ImageData>(
-		ImageFormat::rgba8888, m_description.Width, m_description.Height, data.release()
+		ImageFormat::rgba8888, m_description.Width, m_description.Height, std::move(data)
 	);
 }
 

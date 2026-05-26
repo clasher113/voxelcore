@@ -4,7 +4,7 @@
 
 #include "debug/Logger.hpp"
 #include "engine/Engine.hpp"
-#include "files/WorldFiles.hpp"
+#include "world/files/WorldFiles.hpp"
 #include "maths/voxmaths.hpp"
 #include "objects/Entities.hpp"
 #include "objects/Players.hpp"
@@ -77,8 +77,8 @@ void LevelController::update(float delta, bool pause) {
         player->updateEntity();
         glm::vec3 position = player->getPosition();
         player->chunks->configure(
-            position.x,
-            position.z,
+            glm::floor(position.x),
+            glm::floor(position.z),
             settings.chunks.loadDistance.get() + settings.chunks.padding.get()
         );
         chunks->update(

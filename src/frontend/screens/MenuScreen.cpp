@@ -15,6 +15,7 @@
 #include "graphics/core/Shader.hpp"
 #include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
+
 MenuScreen::MenuScreen(Engine& engine) : Screen(engine) {
     engine.resetContent();
     

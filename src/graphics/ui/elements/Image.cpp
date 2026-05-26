@@ -4,10 +4,15 @@
 
 #include "graphics/core/DrawContext.hpp"
 #include "graphics/core/Batch2D.hpp"
-#include "graphics/core/Texture.hpp"
 #include "graphics/core/Atlas.hpp"
 #include "assets/Assets.hpp"
 #include "maths/UVRegion.hpp"
+
+#ifdef USE_DIRECTX
+#include "directx/graphics/DXTexture.hpp"
+#elif USE_OPENGL
+#include "graphics/core/Texture.hpp"
+#endif // USE_DIRECTX
 
 using namespace gui;
 

@@ -111,11 +111,11 @@ bool UINode::isInside(glm::vec2 point) {
             point.x < pos.x + size.x && point.y < pos.y + size.y);
 }
 
-std::shared_ptr<UINode> UINode::getAt(const glm::vec2& point, const std::shared_ptr<UINode>& self) {
+std::shared_ptr<UINode> UINode::getAt(const glm::vec2& point) {
     if (!isInteractive() || !enabled) {
         return nullptr;
     }
-    return isInside(point) ? self : nullptr;
+    return isInside(point) ? shared_from_this() : nullptr;
 }
 
 bool UINode::isInteractive() const {
@@ -160,9 +160,9 @@ CursorShape UINode::getCursor() const {
 
 glm::vec2 UINode::calcPos() const {
     if (parent) {
-        return pos + parent->calcPos() + parent->getContentOffset();
+        return glm::ivec2(pos + parent->calcPos() + parent->getContentOffset());
     }
-    return pos;
+    return glm::ivec2(pos);
 }
 
 void UINode::scrolled(int value) {
@@ -266,7 +266,7 @@ void UINode::moveInto(
 ) {
     auto parent = node->getParent();
     if (auto container = dynamic_cast<Container*>(parent)) {
-        container->remove(node);
+        container->remove(node.get());
     }
     if (parent) {
         parent->scrolled(0);
@@ -300,10 +300,16 @@ const std::string& UINode::getId() const {
 
 void UINode::reposition() {
     if (sizefunc) {
-        auto newSize = sizefunc();
+        glm::ivec2 newSize = sizefunc();
+        glm::ivec2 defsize = newSize;
+        if (parent) {
+            defsize = parent->getSize();
+        }
+        newSize.x = newSize.x == 0 ? size.x : newSize.x;
+        newSize.y = newSize.y == 0 ? size.y : newSize.y;
         setSize(
-            {newSize.x < 0 ? size.x : newSize.x,
-             newSize.y < 0 ? size.y : newSize.y}
+            {newSize.x < 0 ? defsize.x + (newSize.x + 1) : newSize.x,
+             newSize.y < 0 ? defsize.y + (newSize.y + 1) : newSize.y}
         );
     }
     if (positionfunc) {

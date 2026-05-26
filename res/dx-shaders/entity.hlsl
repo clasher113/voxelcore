@@ -11,7 +11,7 @@ struct PSInput {
     float4 position : SV_POSITION;
     float4 color : COLOR0;
     float2 texCoord : TEXCOORD0;
-    float distance : DISTANCE0;
+    float fog : FOG0;
     float3 dir : DIR0;
 };
 
@@ -26,6 +26,10 @@ cbuffer CBuff : register(b0) {
     float3 u_fogColor;
     float u_fogFactor;
     float u_fogCurve;
+    float u_opacity;
+    float u_weatherFogOpacity;
+    float u_weatherFogDencity;
+    float u_weatherFogCurve;
     bool u_alphaClip;
 }
 
@@ -53,7 +57,13 @@ PSInput VShader(VSInput input) {
     float3 skyLightColor = pick_sky_color(my_textureCube, my_sampler);
     
     output.color.rgb = max(output.color.rgb, skyLightColor.rgb * decomp_light.a) * input.color;
-    output.distance = length(mul(float4(pos3d * FOG_POS_SCALE, 0.f), mul(u_model, u_view)));
+    output.color.a = u_opacity;
+    
+    float dist = length(mul(float4(pos3d * FOG_POS_SCALE, 0.f), mul(u_model, u_view)));
+    float depth = dist / 256.f;
+    output.fog = min(1.0, max(pow(abs(depth * u_fogFactor), u_fogCurve),
+                              min(pow(abs(depth * u_weatherFogDencity), u_weatherFogCurve), u_weatherFogOpacity)));
+    
     output.position = mul(modelpos, mul(u_view, u_proj));
     
     return output;
@@ -62,9 +72,10 @@ PSInput VShader(VSInput input) {
 float4 PShader(PSInput input) : SV_TARGET {
     float3 fogColor = my_textureCube.SampleLevel(my_samplerLinear, input.dir, 0).rgb;
     float4 tex_color = my_texture.Sample(my_sampler, input.texCoord);
-    float depth = (input.distance / 256.f);
     float alpha = input.color.a * tex_color.a;
-    if (alpha < (u_alphaClip ? 0.5f : 0.2f))
+    
+    if (alpha < (u_alphaClip ? 0.5f : 0.15f))
         discard;
-    return float4(lerp(input.color * tex_color, float4(fogColor, 1.0), min(1.0, pow(abs(depth * u_fogFactor), u_fogCurve))).rgb, alpha);
+    
+    return float4(lerp(input.color * tex_color, float4(fogColor, 1.f), input.fog).rgb, alpha);
 }

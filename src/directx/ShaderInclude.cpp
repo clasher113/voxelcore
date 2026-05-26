@@ -1,8 +1,10 @@
+#ifdef USE_DIRECTX
 #include "ShaderInclude.hpp"
-#include "../files/files.hpp"
+#include "io/io.hpp"
 
 #include <filesystem>
 #include <cassert>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -33,9 +35,17 @@ HRESULT __stdcall ShaderInclude::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFile
                 assert(0);
         }
 
-        std::string file = files::read_string(finalPath);
+        const std::ifstream fileBytes(finalPath, std::ios::binary);
 
-        uint32_t fileSize = file.size();
+        if (!fileBytes.is_open()) {
+            throw std::runtime_error("Error reading file " + finalPath.string());
+        }
+
+        std::stringstream buffer;
+        buffer << fileBytes.rdbuf();
+
+        const std::string file(buffer.str());
+        const uint32_t fileSize = file.size();
 
         if (fileSize) {
             *pBytes = fileSize;
@@ -61,3 +71,5 @@ HRESULT __stdcall ShaderInclude::Close(LPCVOID pData) {
     }
     return S_OK;
 }
+
+#endif // USE_DIRECTX

@@ -7,7 +7,7 @@
 #include <sstream>
 
 #include "data/setting.hpp"
-#include "files/settings_io.hpp"
+#include "io/settings_io.hpp"
 #include "util/stringutil.hpp"
 #include "BasicParser.hpp"
 
@@ -30,7 +30,6 @@ class TomlReader : BasicParser<char> {
     // todo: extract common part
     std::string parseMultilineString() {
         pos += 2;
-        char next = peek();
 
         std::stringstream ss;
         while (hasNext()) {

@@ -29,7 +29,7 @@ public:
 	void bind(unsigned int shaderType = ShaderType::PIXEL, UINT startSlot = 0u) const;
 	void reload(ubyte* data);
 	void reload(const ImageData& image);
-	void setMipMapping(bool flag);
+	void setMipMapping(bool flag, bool pixelated);
 
 	virtual std::unique_ptr<ImageData> readData(bool flipY = true);
 	virtual ID3D11Texture2D* getId() const;
@@ -41,7 +41,7 @@ public:
 
 	static std::unique_ptr<Texture> from(const ImageData* image);
 
-	static uint MAX_RESOLUTION;
+	constexpr inline static uint MAX_RESOLUTION = 16384;
 private:
 	D3D11_TEXTURE2D_DESC m_description;
 	D3D11_SHADER_RESOURCE_VIEW_DESC m_srvDescription;

@@ -2,13 +2,12 @@
 
 #include <queue>
 #include <sstream>
-#include <algorithm>
 
 #include "util/listutil.hpp"
 
 PacksManager::PacksManager() = default;
 
-void PacksManager::setSources(std::vector<std::pair<std::string, fs::path>> sources) {
+void PacksManager::setSources(std::vector<std::pair<std::string, io::path>> sources) {
     this->sources = std::move(sources);
 }
 
@@ -43,7 +42,7 @@ std::vector<ContentPack> PacksManager::getAll(
     for (auto& name : names) {
         auto found = packs.find(name);
         if (found == packs.end()) {
-            throw contentpack_error(name, fs::path(""), "pack not found");
+            throw contentpack_error(name, io::path(), "pack not found");
         }
         packsList.push_back(found->second);
     }
@@ -93,7 +92,7 @@ static bool resolve_dependencies(
         bool exists = found != packs.end();
         if (!exists && dep.level == DependencyLevel::required) {
             throw contentpack_error(
-                dep.id, fs::path(), "dependency of '" + pack->id + "'"
+                dep.id, io::path(), "dependency of '" + pack->id + "'"
             );
         }
         if (!exists) {
@@ -125,12 +124,10 @@ std::vector<std::string> PacksManager::assemble(
     std::queue<const ContentPack*> queue;
     std::queue<const ContentPack*> queue2;
 
-    std::sort(allNames.begin(), allNames.end());
-
-    for (auto& name : allNames) {
+    for (auto& name : names) {
         auto found = packs.find(name);
         if (found == packs.end()) {
-            throw contentpack_error(name, fs::path(""), "pack not found");
+            throw contentpack_error(name, io::path(), "pack not found");
         }
         queue.push(&found->second);
     }

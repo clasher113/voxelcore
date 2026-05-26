@@ -3,11 +3,17 @@
 #include <glm/gtc/random.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/norm.hpp>
+#include <glm/ext/scalar_constants.hpp>
 
 #include "window/Camera.hpp"
-#include "graphics/core/Texture.hpp"
 #include "objects/Entities.hpp"
 #include "world/Level.hpp"
+
+#ifdef USE_DIRECTX
+#include "directx/graphics/DXTexture.hpp"
+#elif USE_OPENGL
+#include "graphics/core/Texture.hpp"
+#endif // USE_DIRECTX
 
 Emitter::Emitter(
     const Level& level,
@@ -19,7 +25,7 @@ Emitter::Emitter(
 )
     : level(level),
       origin(std::move(origin)),
-      prototype({this, 0, {}, preset.velocity, preset.lifetime, region}),
+      prototype({this, 0, {}, preset.velocity, preset.lifetime, region, 0, 0}),
       texture(texture),
       count(count),
       preset(std::move(preset)) {

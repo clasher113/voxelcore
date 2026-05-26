@@ -9,6 +9,7 @@
 #include "graphics/core/Font.hpp"
 #include "graphics/core/Batch3D.hpp"
 #include "presets/NotePreset.hpp"
+#include "constants.hpp"
 
 #ifdef USE_DIRECTX
 #include "directx/graphics/DXShader.hpp"
@@ -49,7 +50,7 @@ void TextsRenderer::renderNote(
         }
         opacity = preset.xrayOpacity;
     }
-    const auto& font = assets.require<Font>("normal");
+    const auto& font = assets.require<Font>(FONT_DEFAULT);
 
     glm::vec3 xvec = note.getAxisX();
     glm::vec3 yvec = note.getAxisY();

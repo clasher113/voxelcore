@@ -46,7 +46,7 @@ void guiutil::alert(
 
     auto menuPtr = engine.getGUI()->getMenu();
     auto& menu = *menuPtr;
-    runnable on_hidden_final = [on_hidden, &menu, &engine]() {
+    runnable on_hidden_final = [on_hidden, &menu]() {
         menu.removePage("<alert>");
         if (on_hidden) {
             on_hidden();
@@ -91,7 +91,11 @@ void guiutil::confirm(
     if (yestext.empty()) yestext = langs::get(L"Yes");
     if (notext.empty()) notext = langs::get(L"No");
 
+    auto container = std::make_shared<Container>(glm::vec2(5000, 5000));
+    container->setColor(glm::vec4(0.05f, 0.05f, 0.05f, 0.7f));
     auto panel = std::make_shared<Panel>(glm::vec2(600, 200), glm::vec4(8.0f), 8.0f);
+    panel->setGravity(Gravity::center_center);
+    container->add(panel);
     panel->setColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.5f));
     panel->add(std::make_shared<Label>(text));
     auto subpanel = std::make_shared<Panel>(glm::vec2(600, 53));
@@ -99,21 +103,21 @@ void guiutil::confirm(
 
     auto menu = engine.getGUI()->getMenu();
 
-    runnable on_confirm_final = [on_confirm, menu, &engine]() {
+    runnable on_confirm_final = [on_confirm, menu]() {
         menu->removePage("<confirm>");
         if (on_confirm) {
             on_confirm();
-        } else {
-            menu->back();
+        } else if (!menu->back()) {
+            menu->reset();
         }
     };
 
-    runnable on_deny_final = [on_deny, menu, &engine]() {
+    runnable on_deny_final = [on_deny, menu]() {
         menu->removePage("<confirm>");
         if (on_deny) {
             on_deny();
-        } else {
-            menu->back();
+        } else if (!menu->back()) {
+            menu->reset();
         }
     };
 
@@ -136,7 +140,7 @@ void guiutil::confirm(
     }));
 
     panel->refresh();
-    menu->addPage("<confirm>", panel, true);
+    menu->addPage("<confirm>", container, true);
     menu->setPage("<confirm>");
 }
 

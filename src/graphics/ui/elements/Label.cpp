@@ -1,12 +1,13 @@
 #include "Label.hpp"
 
 #include <utility>
+
+#include "assets/Assets.hpp"
 #include "graphics/core/DrawContext.hpp"
 #include "graphics/core/Batch2D.hpp"
 #include "graphics/core/Font.hpp"
-#include "assets/Assets.hpp"
+#include "graphics/ui/markdown.hpp"
 #include "util/stringutil.hpp"
-#include "../markdown.hpp"
 
 using namespace gui;
 
@@ -35,7 +36,7 @@ uint LabelCache::getLineByTextIndex(size_t index) const {
     return lines.size()-1;
 }
 
-void LabelCache::update(const std::wstring& text, bool multiline, bool wrap) {
+void LabelCache::update(std::wstring_view text, bool multiline, bool wrap) {
     resetFlag = false;
     lines.clear();
     lines.push_back(LineScheme {0, false});
@@ -50,7 +51,7 @@ void LabelCache::update(const std::wstring& text, bool multiline, bool wrap) {
             if (text[i] == L'\n') {
                 lines.push_back(LineScheme {i+1, false});
                 len = 0;
-            } else if (i > 0 && wrap && text[i+1] != L'\n') {
+            } else if (i > 0 && i+1 < text.length() && wrap && text[i+1] != L'\n') {
                 size_t width = font->calcWidth(text, i-len-1, i-(i-len)+2);
                 if (width >= wrapWidth) {
                     // starting a fake line
@@ -59,11 +60,31 @@ void LabelCache::update(const std::wstring& text, bool multiline, bool wrap) {
                 }
             }
         }
+        if (font != nullptr) {
+            int maxWidth = 0;
+            for (int i = 0; i < lines.size() - 1; i++) {
+                const auto& next = lines[i + 1];
+                const auto& cur = lines[i];
+                maxWidth = std::max(
+                    font->calcWidth(
+                        text.substr(cur.offset, next.offset - cur.offset)
+                    ),
+                    maxWidth
+                );
+            }
+            maxWidth = std::max(
+                font->calcWidth(
+                    text.substr(lines[lines.size() - 1].offset)
+                ),
+                maxWidth
+            );
+            multilineWidth = maxWidth;
+        }
     }
 }
 
 Label::Label(const std::string& text, std::string fontName)
-  : UINode(glm::vec2(text.length() * 8, 15)),
+  : UINode(glm::vec2(text.length() * 8, 16)),
     text(util::str2wstr_utf8(text)), 
     fontName(std::move(fontName))
 {
@@ -73,7 +94,7 @@ Label::Label(const std::string& text, std::string fontName)
 
 
 Label::Label(const std::wstring& text, std::string fontName)
-  : UINode(glm::vec2(text.length() * 8, 15)), 
+  : UINode(glm::vec2(text.length() * 8, 16)), 
     text(text), 
     fontName(std::move(fontName))
 {
@@ -89,8 +110,15 @@ glm::vec2 Label::calcSize() {
     if (cache.lines.size() > 1) {
         lineHeight *= lineInterval;
     }
+    auto view = std::wstring_view(text);
+    if (multiline) {
+        return glm::vec2(
+            cache.multilineWidth,
+            lineHeight * cache.lines.size() + font->getYOffset()
+        );
+    }
     return glm::vec2 (
-        cache.font->calcWidth(text), 
+        cache.font->calcWidth(view), 
         lineHeight * cache.lines.size() + font->getYOffset()
     );
 }
@@ -209,15 +237,30 @@ void Label::draw(const DrawContext& pctx, const Assets& assets) {
     textYOffset = pos.y-calcPos().y;
     totalLineHeight = lineHeight;
 
+    auto& viewport = pctx.getViewport();
+    glm::vec4 bounds {0, 0, viewport.getWidth(), viewport.getHeight()};
+    if (parent) {
+        auto ppos = parent->calcPos();
+        auto psize = parent->getSize();
+        bounds.x = std::max(bounds.x, ppos.x);
+        bounds.y = std::max(bounds.y, ppos.y);
+        bounds.z = std::min(bounds.z, ppos.x + psize.x);
+        bounds.w = std::min(bounds.w, ppos.y + psize.y);
+    }
     if (multiline) {
+        // todo: reduce loop range to the actual area
         for (size_t i = 0; i < cache.lines.size(); i++) {
+            float y = pos.y + i * totalLineHeight;
+            if (y + totalLineHeight < bounds.y || y > bounds.w) {
+                continue;
+            }
             auto& line = cache.lines[i];
             size_t offset = line.offset;
             std::wstring_view view(text.c_str()+offset, text.length()-offset);
             if (i < cache.lines.size()-1) {
                 view = std::wstring_view(text.c_str()+offset, cache.lines.at(i+1).offset-offset);
             }
-            font->draw(*batch, view, pos.x, pos.y + i * totalLineHeight, styles.get(), offset);
+            font->draw(*batch, view, pos.x, y, styles.get(), offset);
         }
     } else {
         font->draw(*batch, text, pos.x, pos.y, styles.get(), 0);
