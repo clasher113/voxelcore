@@ -2,7 +2,10 @@
 #include "Framebuffer.hpp"
 
 #include <GL/glew.h>
-#include "GLTexture.hpp"
+#include "Texture.hpp"
+#include "debug/Logger.hpp"
+
+static debug::Logger logger("gl-framebuffer");
 
 Framebuffer::Framebuffer(uint fbo, uint depth, std::unique_ptr<Texture> texture)
   : fbo(fbo), depth(depth), texture(std::move(texture)) 
@@ -26,10 +29,10 @@ static std::unique_ptr<Texture> create_texture(int width, int height, int format
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
-    return std::make_unique<GLTexture>(tex, width, height);
+    return std::make_unique<Texture>(tex, width, height);
 }
 
-Framebuffer::Framebuffer(uint width, uint height, bool alpha)
+Framebuffer::Framebuffer(uint width, uint height, bool alpha) 
   : width(width), height(height)
 {
     glGenFramebuffers(1, &fbo);
@@ -39,12 +42,17 @@ Framebuffer::Framebuffer(uint width, uint height, bool alpha)
 
     // Setup color attachment (texture)
     texture = create_texture(width, height, format);
-    
+
     // Setup depth attachment
     glGenRenderbuffers(1, &depth);
     glBindRenderbuffer(GL_RENDERBUFFER, depth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        logger.error() << "framebuffer is not complete!";
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -68,11 +76,12 @@ void Framebuffer::resize(uint width, uint height) {
     this->width = width;
     this->height = height;
 
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
     glBindRenderbuffer(GL_RENDERBUFFER, depth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     texture = create_texture(width, height, format);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -87,6 +96,10 @@ uint Framebuffer::getWidth() const {
 
 uint Framebuffer::getHeight() const {
     return height;
+}
+
+uint Framebuffer::getFBO() const {
+    return fbo;   
 }
 
 #endif // USE_OPENGL

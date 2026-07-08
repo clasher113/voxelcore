@@ -1,19 +1,18 @@
 #include "LineBatch.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXLine.hpp"
-#include "directx/graphics/DXMesh.hpp"
+#include "directx/graphics/LineRenderer.hpp"
+#include "directx/graphics/Mesh.hpp"
 #elif USE_OPENGL
 #include "Mesh.hpp"
 #include <GL/glew.h>
 #endif // USE_DIRECTX
 
-inline constexpr uint LB_VERTEX_SIZE = (3+4);
 
 LineBatch::LineBatch(size_t capacity) : capacity(capacity) {
-    const VertexAttribute attrs[] = { {3},{4}, {0} };
-    buffer = std::make_unique<float[]>(capacity * LB_VERTEX_SIZE * 2);
-    mesh = std::make_unique<Mesh>(buffer.get(), 0, attrs);
+
+    buffer = std::make_unique<LineVertex[]>(capacity * 2);
+    mesh = std::make_unique<Mesh<LineVertex>>(buffer.get(), 0);
     index = 0;
 }
 
@@ -21,31 +20,21 @@ LineBatch::~LineBatch(){
 }
 
 void LineBatch::line(
-    float x1, float y1, 
-    float z1, float x2, 
+    float x1, float y1,
+    float z1, float x2,
     float y2, float z2,
     float r, float g, float b, float a
 ) {
-    if (index + LB_VERTEX_SIZE * 2 >= capacity) {
+    if (index + 2 >= capacity) {
         flush();
     }
-    buffer[index] = x1;
-    buffer[index+1] = y1;
-    buffer[index+2] = z1;
-    buffer[index+3] = r;
-    buffer[index+4] = g;
-    buffer[index+5] = b;
-    buffer[index+6] = a;
-    index += LB_VERTEX_SIZE;
+    buffer[index].position = {x1,y1,z1};
+    buffer[index].color = {r,g,b,a};
+    index++;
 
-    buffer[index] = x2;
-    buffer[index+1] = y2;
-    buffer[index+2] = z2;
-    buffer[index+3] = r;
-    buffer[index+4] = g;
-    buffer[index+5] = b;
-    buffer[index+6] = a;
-    index += LB_VERTEX_SIZE;
+    buffer[index].position = {x2,y2,z2};
+    buffer[index].color = {r,g,b,a};
+    index++;
 }
 
 void LineBatch::box(float x, float y, float z, float w, float h, float d,
@@ -73,9 +62,9 @@ void LineBatch::box(float x, float y, float z, float w, float h, float d,
 void LineBatch::flush(){
     if (index == 0)
         return;
-    mesh->reload(buffer.get(), index / LB_VERTEX_SIZE);
+    mesh->reload(buffer.get(), index);
 #ifdef USE_DIRECTX
-    DXLine::draw(mesh.get());
+    LineRenderer::draw(*mesh);
 #elif USE_OPENGL
     mesh->draw(GL_LINES);
 #endif // USE_DIRECTX
@@ -84,7 +73,7 @@ void LineBatch::flush(){
 
 void LineBatch::lineWidth(float width) {
 #ifdef USE_DIRECTX
-    DXLine::setWidth(width);
+    LineRenderer::setWidth(width);
 #elif USE_OPENGL
     glLineWidth(width);
 #endif // USE_DIRECTX

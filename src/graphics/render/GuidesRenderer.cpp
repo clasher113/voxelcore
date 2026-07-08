@@ -9,7 +9,7 @@
 #include "constants.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXShader.hpp"
+#include "directx/graphics/Shader.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Shader.hpp"
 #endif // USE_DIRECTX
@@ -69,8 +69,6 @@ void GuidesRenderer::renderDebugLines(
 ) {
     DrawContext ctx = pctx.sub(&batch);
     const auto& viewport = ctx.getViewport();
-    uint displayWidth = viewport.getWidth();
-    uint displayHeight = viewport.getHeight();
 
     ctx.setDepthTest(true);
 
@@ -99,15 +97,15 @@ void GuidesRenderer::renderDebugLines(
     }
 
     float length = 40.f;
-    glm::vec3 tsl(displayWidth / 2, displayHeight / 2, 0.f);
+    glm::vec3 tsl(viewport.x / 2, viewport.y / 2, 0.f);
     glm::mat4 model(glm::translate(glm::mat4(1.f), tsl));
     linesShader.uniformMatrix(
         "u_projview",
         glm::ortho(
             0.f,
-            static_cast<float>(displayWidth),
+            static_cast<float>(viewport.x),
             0.f,
-            static_cast<float>(displayHeight),
+            static_cast<float>(viewport.y),
             -length,
             length
         ) * model *

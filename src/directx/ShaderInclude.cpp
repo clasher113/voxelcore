@@ -1,14 +1,17 @@
 #ifdef USE_DIRECTX
 #include "ShaderInclude.hpp"
-#include "io/io.hpp"
 
-#include <filesystem>
+#include "io/io.hpp"
+#include "io/engine_paths.hpp"
+#include "constants.hpp"
+
 #include <cassert>
-#include <sstream>
 
 namespace fs = std::filesystem;
 
-ShaderInclude::ShaderInclude(const fs::path& rootDir) : m_rootDir(rootDir) {
+static ResPaths const* p_paths = nullptr;
+
+ShaderInclude::ShaderInclude() {
 
 }
 
@@ -17,39 +20,35 @@ HRESULT __stdcall ShaderInclude::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFile
     m_includeTypeStack.push(IncludeType);
 
     try {
-        fs::path finalPath;
+        const std::string fileName = pFileName;
+        std::string finalPath;
+
         switch (IncludeType) {
             case D3D_INCLUDE_LOCAL:  // #include "FILE"
-                finalPath = std::filesystem::absolute(m_rootDir);
+                finalPath = SHADERS_FOLDER;
                 if (!m_directoryStack.empty() && !m_directoryStack.top().empty()) {
-                    finalPath = finalPath / (m_directoryStack.top());
+                    finalPath += '/' + m_directoryStack.top();
                 }
-                finalPath.append(pFileName);
+                finalPath.append("/"); finalPath.append(pFileName);
 
-                m_directoryStack.push(fs::relative(finalPath, m_rootDir).parent_path());
+                m_directoryStack.push(fs::path(fileName).parent_path().string());
                 break;
             case D3D_INCLUDE_SYSTEM:  // #include <FILE>
-                finalPath = std::filesystem::absolute(m_rootDir) / pFileName;
+                finalPath = SHADERS_FOLDER + '/' + fileName;
                 break;
             default:
                 assert(0);
         }
 
-        const std::ifstream fileBytes(finalPath, std::ios::binary);
-
-        if (!fileBytes.is_open()) {
-            throw std::runtime_error("Error reading file " + finalPath.string());
-        }
-
-        std::stringstream buffer;
-        buffer << fileBytes.rdbuf();
-
-        const std::string file(buffer.str());
+        const std::string file = io::read_string(p_paths->find(finalPath));
         const uint32_t fileSize = file.size();
 
         if (fileSize) {
             *pBytes = fileSize;
             uint8_t* data = reinterpret_cast<uint8_t*>(std::malloc(*pBytes));
+            if (data == nullptr) {
+                return E_OUTOFMEMORY;
+            }
             memcpy(data, file.data(), fileSize);
             *ppData = data;
         } else {
@@ -70,6 +69,19 @@ HRESULT __stdcall ShaderInclude::Close(LPCVOID pData) {
         m_includeTypeStack.pop();
     }
     return S_OK;
+}
+
+void ShaderInclude::setDefined(const std::string& macro, bool defined) {
+    if (defined) {
+        s_m_macros[macro] = "TRUE";
+    }
+    else {
+        s_m_macros.erase(macro);
+    }
+}
+
+void ShaderInclude::setPaths(const ResPaths* paths) {
+    p_paths = paths;
 }
 
 #endif // USE_DIRECTX

@@ -1,5 +1,4 @@
-#ifndef ADAPTER_READER_HPP
-#define ADAPTER_READER_HPP
+#pragma once
 
 #include <vector> 
 #include <string>
@@ -20,5 +19,3 @@ public:
 private:
 	static inline std::vector<AdapterData> s_m_adapters;
 };
-
-#endif // !ADAPTER_READER_HPPw

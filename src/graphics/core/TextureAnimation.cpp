@@ -1,8 +1,8 @@
 #include "TextureAnimation.hpp"
 
 #ifdef USE_DIRECTX
-#include "../../directx/graphics/DXTexture.hpp"
-#include "../../directx/window/DXDevice.hpp"
+#include "directx/graphics/Texture.hpp"
+#include "directx/window/Device.hpp"
 #elif USE_OPENGL
 #include "Texture.hpp"
 #include "Framebuffer.hpp"
@@ -36,7 +36,7 @@ void TextureAnimator::addAnimations(const std::vector<TextureAnimation>& animati
 void TextureAnimator::update(float delta) {
 #ifdef USE_DIRECTX
     std::unordered_set<ID3D11ShaderResourceView*> changedTextures;
-    ID3D11DeviceContext* const context = DXDevice::getContext();
+    ID3D11DeviceContext* const context = Device::getContext();
 #elif USE_OPENGL
     std::unordered_set<uint> changedTextures;
 #endif // USE_DIRECTX

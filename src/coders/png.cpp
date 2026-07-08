@@ -1,7 +1,6 @@
 #include "png.hpp"
 
 #include <png.h>
-#include <GL/glew.h>
 
 #include <iostream>
 
@@ -10,12 +9,10 @@
 #include "graphics/core/ImageData.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXTexture.hpp"
+#include "directx/graphics/Texture.hpp"
 #elif USE_OPENGL
-#include "graphics/core/GLTexture.hpp"
+#include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
-
-#include <iostream>
 
 static debug::Logger logger("png-coder");
 
@@ -213,11 +210,7 @@ std::unique_ptr<ImageData> png::load_image(const ubyte* bytes, size_t size) {
 
 std::unique_ptr<Texture> png::load_texture(const ubyte* bytes, size_t size) {
     auto image = load_image(bytes, size);
-#ifdef USE_DIRECTX
     auto texture = Texture::from(image.get());
-#elif USE_OPENGL
-    auto texture = GLTexture::from(image.get());
-#endif // USE_DIRECTX
     texture->setNearestFilter();
     return texture;
 }

@@ -6,29 +6,32 @@ struct VSInput {
 
 struct PSInput {
     float4 position : SV_POSITION;
-    float2 texCoord : TEXCOORD;
-    float4 color : COLOR;
+    float2 texCoord : TEXCOORD0;
+    float4 color : COLOR0;
 };
 
-cbuffer CBuff : register(b0) {
+cbuffer UI3DCBuff : register(b0) {
     float4x4 u_projview;
     float4x4 u_apply;
 }
 
 PSInput VShader(VSInput input) {
     PSInput output;
+    
     output.texCoord = input.texCoord;
     output.color = input.color;
-    output.position = mul(float4(input.position, 1.f), mul(u_projview, u_apply));
+    output.position = mul(u_apply, mul(u_projview, float4(input.position, 1.f)));
+    
     return output;
 }
 
-Texture2D my_texture;
-SamplerState my_sampler;
+Texture2D mainTexture : register(t0);
+SamplerState samplerPointWrap : register(s0);
 
 float4 PShader(PSInput input) : SV_TARGET {
-    float4 outColor = input.color * my_texture.Sample(my_sampler, input.texCoord);
+    float4 outColor = input.color * mainTexture.Sample(samplerPointWrap, input.texCoord);
     if (outColor.a == 0.f)
         discard;
+    
     return outColor;
 }

@@ -12,18 +12,14 @@
 #include "settings.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXMesh.hpp"
-#include "directx/graphics/DXTexture.hpp"
-#include "directx/graphics/DXShader.hpp"
+#include "directx/graphics/Mesh.hpp"
+#include "directx/graphics/Texture.hpp"
+#include "directx/graphics/Shader.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Mesh.hpp"
 #include "graphics/core/Texture.hpp"
 #include "graphics/core/Shader.hpp"
 #endif // USE_DIRECTX
-
-#include <iostream>
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
 
 static debug::Logger logger("chunks-render");
 
@@ -85,7 +81,7 @@ ChunksRenderer::ChunksRenderer(
               if (!result.cancelled) {
                   auto meshData = std::move(result.meshData);
                   meshes[result.key] = ChunkMesh {
-                      std::make_unique<Mesh>(meshData.mesh),
+                      std::make_unique<Mesh<ChunkVertex>>(meshData.mesh),
                       std::move(meshData.sortingMesh)};
               }
               inwork.erase(result.key);
@@ -98,12 +94,14 @@ ChunksRenderer::ChunksRenderer(
         level->content, cache, settings
     );
     logger.info() << "created " << threadPool.getWorkersCount() << " workers";
+    logger.info() << "memory consumption is " 
+        << renderer->getMemoryConsumption() * threadPool.getWorkersCount()
+        << " B";
 }
 
-ChunksRenderer::~ChunksRenderer() {
-}
+ChunksRenderer::~ChunksRenderer() = default;
 
-const Mesh* ChunksRenderer::render(
+const Mesh<ChunkVertex>* ChunksRenderer::render(
     const std::shared_ptr<Chunk>& chunk, bool important
 ) {
     chunk->flags.modified = false;
@@ -136,7 +134,7 @@ void ChunksRenderer::clear() {
     threadPool.clearQueue();
 }
 
-const Mesh* ChunksRenderer::getOrRender(
+const Mesh<ChunkVertex>* ChunksRenderer::getOrRender(
     const std::shared_ptr<Chunk>& chunk, bool important
 ) {
     auto found = meshes.find(glm::ivec2(chunk->x, chunk->z));
@@ -153,8 +151,8 @@ void ChunksRenderer::update() {
     threadPool.update();
 }
 
-const Mesh* ChunksRenderer::retrieveChunk(
-    size_t index, const Camera& camera, Shader& shader, bool culling
+const Mesh<ChunkVertex>* ChunksRenderer::retrieveChunk(
+    size_t index, const Camera& camera, bool culling
 ) {
     auto chunk = chunks.getChunks()[index];
     if (chunk == nullptr) {
@@ -193,13 +191,64 @@ const Mesh* ChunksRenderer::retrieveChunk(
     return mesh;
 }
 
+void ChunksRenderer::drawChunksShadowsPass(
+    const Camera& camera, Shader& shader, const Camera& playerCamera
+) {
+    Frustum frustum;
+    frustum.update(camera.getProjView());
+
+    const auto& atlas = assets.require<Atlas>("blocks");
+
+    atlas.getTexture()->bind();
+
+    auto denseDistance = settings.graphics.denseRenderDistance.get();
+    auto denseDistance2 = denseDistance * denseDistance;
+
+    for (const auto& chunk : chunks.getChunks()) {
+        if (chunk == nullptr) {
+            continue;
+        }
+        glm::ivec2 pos {chunk->x, chunk->z};
+        const auto& found = meshes.find({chunk->x, chunk->z});
+        if (found == meshes.end()) {
+            continue;
+        }
+
+        glm::vec3 coord(
+            pos.x * CHUNK_W + 0.5f, 0.5f, pos.y * CHUNK_D + 0.5f
+        );
+
+        glm::vec3 min(chunk->x * CHUNK_W, chunk->bottom, chunk->z * CHUNK_D);
+        glm::vec3 max(
+            chunk->x * CHUNK_W + CHUNK_W,
+            chunk->top,
+            chunk->z * CHUNK_D + CHUNK_D
+        );
+
+        if (!frustum.isBoxVisible(min, max)) {
+            continue;
+        }
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), coord);
+        shader.uniformMatrix("u_model", model);
+#ifdef USE_DIRECTX
+        shader.applyChanges();
+        found->second.mesh->draw(D3D_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+            glm::distance2(playerCamera.position * glm::vec3(1, 0, 1), 
+                           (min + max) * 0.5f * glm::vec3(1, 0, 1)) < denseDistance2);
+#elif USE_OPENGL
+        found->second.mesh->draw(GL_TRIANGLES, 
+            glm::distance2(playerCamera.position * glm::vec3(1, 0, 1), 
+                           (min + max) * 0.5f * glm::vec3(1, 0, 1)) < denseDistance2);
+#endif // USE_DIRECTX
+    }
+}
+
 void ChunksRenderer::drawChunks(
     const Camera& camera, Shader& shader
 ) {
     const auto& atlas = assets.require<Atlas>("blocks");
 
     atlas.getTexture()->bind();
-    update();
 
     // [warning] this whole method is not thread-safe for chunks
 
@@ -227,10 +276,13 @@ void ChunksRenderer::drawChunks(
     visibleChunks = 0;
     shader.uniform1i("u_alphaClip", true);
 
+    auto denseDistance = settings.graphics.denseRenderDistance.get();
+    auto denseDistance2 = denseDistance * denseDistance;
+
     // TODO: minimize draw calls number
     for (int i = indices.size()-1; i >= 0; i--) {
         auto& chunk = chunks.getChunks()[indices[i].index];
-        auto mesh = retrieveChunk(indices[i].index, camera, shader, culling);
+        auto mesh = retrieveChunk(indices[i].index, camera, culling);
 
         if (mesh) {
             glm::vec3 coord(
@@ -240,22 +292,26 @@ void ChunksRenderer::drawChunks(
             shader.uniformMatrix("u_model", model);
 #ifdef USE_DIRECTX
             shader.applyChanges();
+            mesh->draw(D3D_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST, glm::distance2(camera.position * glm::vec3(1, 0, 1),
+                (coord + glm::vec3(CHUNK_W * 0.5f, 0.0f, CHUNK_D * 0.5f))) < denseDistance2);
+#elif USE_OPENGL
+            mesh->draw(GL_TRIANGLES, glm::distance2(camera.position * glm::vec3(1, 0, 1), 
+                (coord + glm::vec3(CHUNK_W * 0.5f, 0.0f, CHUNK_D * 0.5f))) < denseDistance2);
 #endif // USE_DIRECTX
-            mesh->draw();
             visibleChunks++;
         }
     }
 }
 
 static inline void write_sorting_mesh_entries(
-    float* buffer, const std::vector<SortingMeshEntry>& chunkEntries
+    ChunkVertex* buffer, const std::vector<SortingMeshEntry>& chunkEntries
 ) {
     for (const auto& entry : chunkEntries) {
         const auto& vertexData = entry.vertexData;
         std::memcpy(
             buffer,
             vertexData.data(),
-            vertexData.size() * sizeof(float)
+            vertexData.size() * sizeof(ChunkVertex)
         );
         buffer += vertexData.size();
     }
@@ -305,10 +361,8 @@ void ChunksRenderer::drawSortedMeshes(const Camera& camera, Shader& shader) {
         if (chunkEntries.size() == 1) {
             auto& entry = chunkEntries.at(0);
             if (found->second.sortedMesh == nullptr) {
-                found->second.sortedMesh = std::make_unique<Mesh>(
-                    entry.vertexData.data(),
-                    entry.vertexData.size() / CHUNK_VERTEX_SIZE,
-                    CHUNK_VATTRS
+                found->second.sortedMesh = std::make_unique<Mesh<ChunkVertex>>(
+                    entry.vertexData.data(), entry.vertexData.size()
                 );
             }
             found->second.sortedMesh->draw();
@@ -327,13 +381,13 @@ void ChunksRenderer::drawSortedMeshes(const Camera& camera, Shader& shader) {
                 size += entry.vertexData.size();
             }
 
-            static util::Buffer<float> buffer;
+            static util::Buffer<ChunkVertex> buffer;
             if (buffer.size() < size) {
-                buffer = util::Buffer<float>(size);
+                buffer = util::Buffer<ChunkVertex>(size);
             }
             write_sorting_mesh_entries(buffer.data(), chunkEntries);
-            found->second.sortedMesh = std::make_unique<Mesh>(
-                buffer.data(), size / CHUNK_VERTEX_SIZE, CHUNK_VATTRS
+            found->second.sortedMesh = std::make_unique<Mesh<ChunkVertex>>(
+                buffer.data(), size
             );
         }
         found->second.sortedMesh->draw();

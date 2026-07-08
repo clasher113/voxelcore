@@ -4,12 +4,13 @@
 #include "graphics/core/DrawContext.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXTexture.hpp"
+#include "directx/graphics/Texture.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
 
-gui::Canvas::Canvas(ImageFormat inFormat, glm::uvec2 inSize) : UINode(inSize) {
+gui::Canvas::Canvas(GUI& gui, ImageFormat inFormat, glm::uvec2 inSize)
+    : UINode(gui, inSize) {
     auto data = std::make_shared<ImageData>(inFormat, inSize.x, inSize.y);
     mTexture = Texture::from(data.get());
     mData = std::move(data);

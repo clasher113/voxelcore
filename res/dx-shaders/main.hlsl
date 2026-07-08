@@ -1,20 +1,34 @@
-#include "lib/common.hlsl"
+#include "lib/commons.hlsl"
 
 struct VSInput {
     float3 position : POSITION0;
     float2 texCoord : TEXCOORD0;
-    float light : LIGHT0;
+    float4 light : LIGHT0_int8_unorm;
+    float4 normal : NORMAL0_int8_unorm;
 };
 
 struct PSInput {
     float4 position : SV_POSITION;
-    float4 color : COLOR0;
+    float3 pos : POS0;
     float2 texCoord : TEXCOORD0;
     float3 dir : DIRECTION0;
     float fog : FOG0;
+    float3 normal : NORMAL0;
+    float3 realNormal : REALNORMAL0;
+    float4 torchLight : TORCHLIGHT0;
+    float3 skyLight : SKYLIGHT0;
+    float distance : DISTANCE0;
+    float emission : EMISSION0;
 };
 
-cbuffer CBuff : register(b0) {
+struct PSOutput {
+    float4 color : SV_Target0;
+    float4 position : SV_Target1;
+    float4 normal : SV_Target2;
+    float4 emission : SV_Target3;
+};
+
+cbuffer MainCBuff : register(b0) {
     float4x4 u_model;
     float4x4 u_proj;
     float4x4 u_view;
@@ -22,61 +36,83 @@ cbuffer CBuff : register(b0) {
     float u_gamma;
     float3 u_torchlightColor;
     float u_torchlightDistance;
-    float u_fogFactor;
-    float u_fogCurve;
-    float u_weatherFogOpacity;
-    float u_weatherFogDencity;
-    float u_weatherFogCurve;
-    float u_timer;
     bool u_alphaClip;
+    bool u_debugLights;
+    bool u_debugNormals;
 }
 
-Texture2D my_texture : register(t0);
-TextureCube my_textureCube : register(t1);
-SamplerState my_sampler : register(s0);
-SamplerState my_samplerLinear : register(s1);
+Texture2D blocksTexture : register(t0);
+TextureCube skyboxTexture : register(t1);
+SamplerState samplerPointWrap : register(s0);
+SamplerState samplerLinearClamp : register(s3);
+
+#include "lib/lighting.hlsl"
+#include "lib/fog.hlsl"
+#include "lib/sky.hlsl"
 
 PSInput VShader(VSInput input) {
     PSInput output;
 	
-    float4 modelpos = mul(float4(input.position, 1.f), u_model);
+    float4 modelpos = mul(u_model, float4(input.position, 1.f));
     float3 pos3d = modelpos.xyz - u_cameraPos;
-    modelpos.xyz = apply_planet_curvature(modelpos.xyz, pos3d);
-	
-    float4 decomp_light = decompress_light(input.light);
-    float3 light = decomp_light.rgb;
-    float torchlight = max(0.f, 1.f - distance(u_cameraPos, modelpos.xyz) / u_torchlightDistance);
-    light += torchlight * u_torchlightColor;
-	
-    output.color = float4(pow(abs(light), float3(u_gamma, u_gamma, u_gamma)), 1.f);
+        
+    output.realNormal = input.normal.xyz * 2.f - 1.f;
+    output.normal = calc_screen_normal(output.realNormal);
+        
+    output.torchLight = float4(calc_torch_light(
+        input.light.rgb, output.realNormal, modelpos.xyz, u_torchlightColor, u_gamma
+    ), 1.f);
     output.texCoord = input.texCoord;
+	
     output.dir = modelpos.xyz - u_cameraPos;
-	
-    float3 skyLightColor = pick_sky_color(my_textureCube, my_sampler);
-	
-    output.color.rgb = max(output.color.rgb, skyLightColor.rgb * decomp_light.a);
-    float distance = length(mul(float4(pos3d * FOG_POS_SCALE, 0.f), mul(u_model, u_view)));
-    float depth = distance / 256.f;
-    output.fog = min(1.f, max(pow(abs(depth * u_fogFactor), u_fogCurve),
-                              min(pow(abs(depth * u_weatherFogDencity), u_weatherFogCurve), u_weatherFogOpacity)));
-    output.position = mul(modelpos, mul(u_view, u_proj));
-	
+    float3 skyLightColor = pick_sky_color(skyboxTexture, samplerLinearClamp);
+    output.skyLight = skyLightColor.rgb * input.light.a;
+    
+    float4x4 viewmodel = mul(u_view, u_model);
+    output.distance = length(mul(viewmodel, float4(pos3d, 0.f)));
+    
+#ifndef ADVANCED_RENDER
+    output.fog = calc_fog(length(mul(viewmodel, float4(pos3d * FOG_POS_SCALE, 0.f))) / 256.f);
+#else
+    output.fog = 0.f;
+#endif
+    output.emission = input.normal.w;
+    
+    float4 viewmodelpos = mul(u_view, modelpos);
+    output.pos = viewmodelpos.xyz;
+    output.position = mul(u_proj, viewmodelpos);
+    
     return output;
 }
 
-float4 PShader(PSInput input) : SV_TARGET {
-    float3 fogColor = my_textureCube.SampleLevel(my_samplerLinear, input.dir, 0).rgb;
-    float4 tex_color = my_texture.Sample(my_sampler, input.texCoord);
-    float alpha = input.color.a * tex_color.a;
+PSOutput PShader(PSInput input) {
+    PSOutput output;
     
+    float4 texColor = blocksTexture.Sample(samplerPointWrap, input.texCoord);
+    float alpha = texColor.a;
     if (u_alphaClip) {
         if (alpha < 0.2f)
             discard;
-        alpha = 1.0; }
-    else {
+        alpha = 1.f;
+    } else {
         if (alpha < 0.002f)
             discard;
     }
-       
-    return float4(lerp(input.color * tex_color, float4(fogColor, 1.0), input.fog).rgb, alpha);
+    if (u_debugLights) {
+        texColor.rgb = u_debugNormals ? (input.normal * 0.5f + 0.5f) : 1.f.rrr;
+    }
+    
+    output.color = texColor;
+    output.color.rgb *= min(1.f.rrr, input.torchLight.rgb + input.skyLight);
+    
+#ifndef ADVANCED_RENDER
+    float3 fogColor = skyboxTexture.SampleLevel(samplerLinearClamp, input.dir, 0).rgb;
+    output.color = lerp(output.color, float4(fogColor, 1.f), input.fog);
+#endif
+    output.color.a = alpha;
+    output.position = float4(input.pos, 1.f);
+    output.normal = float4(input.normal, 1.f);
+    output.emission = float4(input.emission.xxx, 1.f);
+    
+    return output;
 }

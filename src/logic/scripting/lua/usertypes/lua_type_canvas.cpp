@@ -7,7 +7,7 @@
 #include "assets/Assets.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXTexture.hpp"
+#include "directx/graphics/Texture.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX

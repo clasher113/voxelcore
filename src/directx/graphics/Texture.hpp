@@ -1,0 +1,52 @@
+#pragma once
+
+#include "typedefs.hpp"
+#include "graphics/core/ImageData.hpp"
+#include "directx/ShaderTypes.hpp"
+#include "maths/UVRegion.hpp"
+
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+
+#include <d3d11_1.h>
+#undef near
+#undef far
+#include <memory>
+
+struct ID3D11Texture2D;
+struct ID3D11ShaderResourceView;
+
+class Texture {
+public:
+	Texture(ID3D11Texture2D* texture);
+	Texture(ubyte* data, uint width, uint height, ImageFormat format);
+	~Texture();
+
+	UINT getWidth() const { return m_description.Width; };
+	UINT getHeight() const { return m_description.Height; };
+
+	void setNearestFilter();
+
+	virtual void bind(ShaderType shaderType = ShaderType::PIXEL, UINT startSlot = 0u) const;
+	virtual void unbind(ShaderType shaderType = ShaderType::PIXEL, UINT startSlot = 0u) const;
+	void reload(ubyte* data);
+	void reload(const ImageData& image);
+	void setMipMapping(bool flag, bool pixelated);
+
+	virtual std::unique_ptr<ImageData> readData(bool flipY = true);
+	virtual ID3D11Texture2D* getId() const;
+	ID3D11ShaderResourceView* getResourceView() const;
+
+	UVRegion getUVRegion() const {
+        return UVRegion(0.0f, 0.0f, 1.0f, 1.0f);
+    }
+
+	static std::unique_ptr<Texture> from(const ImageData* image);
+
+	constexpr inline static uint MAX_RESOLUTION = 16384;
+protected:
+	D3D11_TEXTURE2D_DESC m_description;
+	D3D11_SHADER_RESOURCE_VIEW_DESC m_srvDescription;
+	ID3D11Texture2D* m_p_texture;
+	ID3D11ShaderResourceView* m_p_resourceView;
+};

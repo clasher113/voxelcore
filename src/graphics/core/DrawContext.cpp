@@ -3,9 +3,9 @@
 #include <utility>
 
 #ifdef USE_DIRECTX
-#include "directx/window/DXDevice.hpp"
-#include "directx/graphics/DXFramebuffer.hpp"
-#include "directx/graphics/DXLine.hpp"
+#include "directx/window/Device.hpp"
+#include "directx/graphics/Framebuffer.hpp"
+#include "directx/graphics/LineRenderer.hpp"
 #elif USE_OPENGL
 #include <GL/glew.h>
 #include "Framebuffer.hpp"
@@ -18,15 +18,15 @@ static void set_blend_mode(BlendMode mode) {
     switch (mode) {
 #ifdef USE_DIRECTX
     case BlendMode::normal:
-        DXDevice::setBlendFunc(D3D11_BLEND::D3D11_BLEND_SRC_ALPHA, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
+        Device::setBlendFunc(D3D11_BLEND::D3D11_BLEND_SRC_ALPHA, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
             D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD);
         break;
     case BlendMode::addition:
-        DXDevice::setBlendFunc(D3D11_BLEND::D3D11_BLEND_SRC_ALPHA, D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
+        Device::setBlendFunc(D3D11_BLEND::D3D11_BLEND_SRC_ALPHA, D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
             D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD);
         break;
     case BlendMode::inversion:
-        DXDevice::setBlendFunc(D3D11_BLEND::D3D11_BLEND_INV_DEST_COLOR, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
+        Device::setBlendFunc(D3D11_BLEND::D3D11_BLEND_INV_DEST_COLOR, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD,
             D3D11_BLEND::D3D11_BLEND_ONE, D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP::D3D11_BLEND_OP_ADD);
         break;
 #elif USE_OPENGL
@@ -46,10 +46,11 @@ static void set_blend_mode(BlendMode mode) {
 
 DrawContext::DrawContext(
     const DrawContext* parent, 
-    Viewport  viewport,
+    Window& window,
     Batch2D* g2d
-) : parent(parent), 
-    viewport(std::move(viewport)),
+) : window(window),
+    parent(parent), 
+    viewport(window.getSize()),
     g2d(g2d),
     flushable(g2d)
 {}
@@ -60,7 +61,7 @@ DrawContext::~DrawContext() {
     }
 
     while (scissorsCount--) {
-        Window::popScissor();
+        window.popScissor();
     }
 
     if (parent == nullptr)
@@ -74,23 +75,22 @@ DrawContext::~DrawContext() {
             parent->fbo->bind();
         }
     }
-
-    Window::viewport(
-        0, 0,
-        parent->viewport.getWidth(), 
-        parent->viewport.getHeight()
-    );
+#ifdef USE_DIRECTX
+    Device::resizeViewPort(0, 0, parent->viewport.x, parent->viewport.y);
+#elif USE_OPENGL
+    glViewport(0, 0, parent->viewport.x, parent->viewport.y);
+#endif // USE_DIRECTX
 
     if (depthMask != parent->depthMask) {
 #ifdef USE_DIRECTX
-        DXDevice::setWriteDepthEnabled(parent->depthMask);
+        Device::setWriteDepthEnabled(parent->depthMask);
 #elif USE_OPENGL
         glDepthMask(parent->depthMask);
 #endif // USE_DIRECTX
     }
     if (depthTest != parent->depthTest) {
 #ifdef USE_DIRECTX
-        DXDevice::setDepthTest(!depthTest);
+        Device::setDepthTest(!depthTest);
 #elif USE_OPENGL
         if (depthTest) glDisable(GL_DEPTH_TEST);
         else glEnable(GL_DEPTH_TEST);
@@ -98,7 +98,7 @@ DrawContext::~DrawContext() {
     }
     if (cullFace != parent->cullFace) {
 #ifdef USE_DIRECTX
-        DXDevice::setCullFace(!cullFace);
+        Device::setCullFace(!cullFace);
 #elif USE_OPENGL
         if (cullFace) glDisable(GL_CULL_FACE);
         else glEnable(GL_CULL_FACE);
@@ -109,14 +109,14 @@ DrawContext::~DrawContext() {
     }
     if (lineWidth != parent->lineWidth) {
 #ifdef USE_DIRECTX
-        DXLine::setWidth(parent->lineWidth);
+        LineRenderer::setWidth(parent->lineWidth);
 #elif USE_OPENGL
         glLineWidth(parent->lineWidth);
 #endif  // USE_DIRECTX
     }
 }
 
-const Viewport& DrawContext::getViewport() const {
+const glm::uvec2& DrawContext::getViewport() const {
     return viewport;
 }
 
@@ -135,16 +135,16 @@ DrawContext DrawContext::sub(Flushable* flushable) const {
     return ctx;
 }
 
-void DrawContext::setViewport(const Viewport& viewport) {
+void DrawContext::setViewport(const glm::uvec2& viewport) {
     this->viewport = viewport;
-    Window::viewport(
-        0, 0,
-        viewport.getWidth(),
-        viewport.getHeight()
-    );
+#ifdef USE_DIRECTX
+    Device::resizeViewPort(0, 0, viewport.x, viewport.y);
+#elif USE_OPENGL
+    glViewport(0, 0, viewport.x, viewport.y);
+#endif // USE_DIRECTX
 }
 
-void DrawContext::setFramebuffer(Framebuffer* fbo) {
+void DrawContext::setFramebuffer(Bindable* fbo) {
     if (this->fbo == fbo)
         return;
     this->fbo = fbo;
@@ -158,7 +158,7 @@ void DrawContext::setDepthMask(bool flag) {
         return;
     depthMask = flag;
 #ifdef USE_DIRECTX
-    DXDevice::setWriteDepthEnabled(flag);
+    Device::setWriteDepthEnabled(flag);
 #elif USE_OPENGL
     glDepthMask(GL_FALSE + flag);
 #endif // USE_DIRECTX
@@ -169,7 +169,7 @@ void DrawContext::setDepthTest(bool flag) {
         return;
     depthTest = flag;
 #ifdef USE_DIRECTX
-	DXDevice::setDepthTest(depthTest);
+	Device::setDepthTest(depthTest);
 #elif USE_OPENGL
 	if (depthTest) {
 		glEnable(GL_DEPTH_TEST);
@@ -185,7 +185,7 @@ void DrawContext::setCullFace(bool flag) {
         return;
     cullFace = flag;
 #ifdef USE_DIRECTX
-	DXDevice::setCullFace(cullFace);
+	Device::setCullFace(cullFace);
 #elif USE_OPENGL
 	if (cullFace) {
 		glEnable(GL_CULL_FACE);
@@ -201,18 +201,17 @@ void DrawContext::setBlendMode(BlendMode mode) {
         return;
     blendMode = mode;
     set_blend_mode(mode);
-
 }
 
 void DrawContext::setScissors(const glm::vec4& area) {
-    Window::pushScissor(area);
+    window.pushScissor(area);
     scissorsCount++;
 }
 
 void DrawContext::setLineWidth(float width) {
     lineWidth = width;
 #ifdef USE_DIRECTX
-    DXLine::setWidth(width);
+    LineRenderer::setWidth(width);
 #elif USE_OPENGL
     glLineWidth(width);
 #endif  // USE_DIRECTX

@@ -10,21 +10,27 @@ struct PSInput {
     float2 texCoord : TEXCOORD;
 };
 
-cbuffer CBuff : register(b0) {
+cbuffer UICBuff : register(b0) {
     float4x4 u_projview;
 };
 
 PSInput VShader(VSInput input) {
     PSInput output;
+    
     output.texCoord = input.texCoord;
     output.color = input.color;
-    output.position = mul(float4(input.position, 1.f, 1.f), u_projview);
+    output.position = mul(u_projview, float4(input.position, 1.f, 1.f));
+    
     return output;
 }
 
-Texture2D my_texture : register(t0);
-SamplerState my_sampler : register(s0);
+Texture2D mainTexture : register(t0);
+SamplerState samplerPointWrap : register(s0);
 
 float4 PShader(PSInput input) : SV_TARGET {
-    return input.color * my_texture.Sample(my_sampler, input.texCoord);
+    float4 color = input.color * mainTexture.Sample(samplerPointWrap, input.texCoord);
+    if (color.a == 0.0) 
+        discard;
+    
+    return color;
 }

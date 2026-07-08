@@ -6,7 +6,7 @@
 #include <string>
 
 inline constexpr int ENGINE_VERSION_MAJOR = 0;
-inline constexpr int ENGINE_VERSION_MINOR = 27;
+inline constexpr int ENGINE_VERSION_MINOR = 28;
 
 #ifdef NDEBUG
 inline constexpr bool ENGINE_DEBUG_BUILD = false;
@@ -14,7 +14,7 @@ inline constexpr bool ENGINE_DEBUG_BUILD = false;
 inline constexpr bool ENGINE_DEBUG_BUILD = true;
 #endif // NDEBUG
 
-inline const std::string ENGINE_VERSION_STRING = "0.27";
+inline const std::string ENGINE_VERSION_STRING = "0.28";
 
 /// @brief world regions format version
 inline constexpr uint REGION_FORMAT_VERSION = 3;
@@ -63,8 +63,10 @@ inline constexpr int TRANSLUCENT_BLOCKS_SORT_INTERVAL = 8;
 
 #ifdef USE_DIRECTX
 inline const std::string SHADERS_FOLDER = "dx-shaders";
+inline const std::string POST_EFFECTS_FOLDER = "dx-shaders/effects";
 #elif USE_OPENGL
 inline const std::string SHADERS_FOLDER = "shaders";
+inline const std::string POST_EFFECTS_FOLDER = "shaders/effects";
 #endif // USE_DIRECTX
 inline const std::string TEXTURES_FOLDER = "textures";
 inline const std::string FONTS_FOLDER = "fonts";

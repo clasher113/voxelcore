@@ -8,7 +8,7 @@
 #define CURVATURE_FACTOR 0.002f
 
 // lighting
-#define SKY_LIGHT_MUL 2.5f
+#define SKY_LIGHT_MUL 2.9f
 #define SKY_LIGHT_TINT float3(0.9f, 0.8f, 1.0f)
 #define MIN_SKY_LIGHT float3(0.2f, 0.25f, 0.33f)
 // fog

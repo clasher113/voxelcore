@@ -10,11 +10,10 @@
 #include "objects/Player.hpp"
 #include "voxels/Block.hpp"
 #include "voxels/Chunks.hpp"
-#include "window/Window.hpp"
 #include "world/Level.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXShader.hpp"
+#include "directx/graphics/Shader.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Shader.hpp"
 #endif // USE_DIRECTX
@@ -53,8 +52,8 @@ void BlockWrapsRenderer::draw(const BlockWrapper& wrapper) {
     }
     if (vox->id != BLOCK_VOID) {
         const auto& def = level.content.getIndices()->blocks.require(vox->id);
-        switch (def.model) {
-            case BlockModel::block:
+        switch (def.getModel(vox->state.userbits).type) {
+            case BlockModelType::BLOCK:
                 batch->cube(
                     glm::vec3(wrapper.position) + glm::vec3(0.5f),
                     glm::vec3(1.01f),
@@ -63,7 +62,7 @@ void BlockWrapsRenderer::draw(const BlockWrapper& wrapper) {
                     false
                 );
                 break;
-            case BlockModel::aabb: {
+            case BlockModelType::AABB: {
                 const auto& aabb =
                     (def.rotatable ? def.rt.hitboxes[vox->state.rotation]
                                    : def.hitboxes)

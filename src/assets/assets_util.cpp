@@ -4,7 +4,7 @@
 #include "graphics/core/Atlas.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXTexture.hpp"
+#include "directx/graphics/Texture.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
@@ -14,7 +14,11 @@ util::TextureRegion util::get_texture_region(
 ) {
     size_t sep = name.find(':');
     if (sep == std::string::npos) {
-        return {assets.get<Texture>(name), UVRegion(0,0,1,1)};
+        auto texture = assets.get<Texture>(name);
+        if (texture == nullptr && !fallback.empty()) {
+            return util::get_texture_region(assets, fallback, "");
+        }
+        return {texture, UVRegion(0,0,1,1)};
     } else {
         auto atlas = assets.get<Atlas>(name.substr(0, sep));
         if (atlas) {

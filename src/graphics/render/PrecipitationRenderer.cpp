@@ -16,7 +16,7 @@
 #include "world/Level.hpp"
 
 #ifdef USE_DIRECTX
-#include "directx/graphics/DXTexture.hpp"
+#include "directx/graphics/Texture.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
@@ -151,9 +151,10 @@ void PrecipitationRenderer::render(
                     pos,
                     face.right,
                     {0, 1, 0},
+                    glm::cross(glm::vec3(0, 1, 0), face.right),
                     FACE_SIZE,
                     light_at(chunks, pos.x, y, pos.z),
-                    glm::vec3(1.0f),
+                    glm::vec3(2.0f),
                     calc_uv(pos, face.right, timer, weather)
                 );
             }

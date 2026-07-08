@@ -1,12 +1,11 @@
 #ifdef USE_DIRECTX
 #include "TextureUtil.hpp"
 
-#include "../window/DXDevice.hpp"
-#include "../../graphics/core/ImageData.hpp"
+#include "directx/window/Device.hpp"
 
-HRESULT TextureUtil::stageTexture(ID3D11Texture2D* src, ID3D11Texture2D** dst) {
-	ID3D11Device* const device = DXDevice::getDevice();
-	ID3D11DeviceContext* const context = DXDevice::getContext();
+bool TextureUtil::stageTexture(ID3D11Texture2D* src, ID3D11Texture2D** dst) {
+	ID3D11Device* const device = Device::getDevice();
+	ID3D11DeviceContext* const context = Device::getContext();
 
 	D3D11_TEXTURE2D_DESC desc{};
 	src->GetDesc(&desc);
@@ -18,24 +17,24 @@ HRESULT TextureUtil::stageTexture(ID3D11Texture2D* src, ID3D11Texture2D** dst) {
 	desc.BindFlags = 0U;
 	desc.MiscFlags = 0U;
 
-	HRESULT hr = device->CreateTexture2D(&desc, nullptr, dst);
-	if (FAILED(hr)) return hr;
+	if (device->CreateTexture2D(&desc, nullptr, dst) != S_OK) 
+		return false;
 
 	context->CopyResource(*dst, src);
 
-	return S_OK;
+	return true;
 }
 
-HRESULT TextureUtil::readPixels(ID3D11Texture2D* src, void* dst, bool flipY) {
-	ID3D11DeviceContext* const context = DXDevice::getContext();
+bool TextureUtil::readPixels(ID3D11Texture2D* src, void* dst, bool flipY) {
+	ID3D11DeviceContext* const context = Device::getContext();
 
 	D3D11_MAPPED_SUBRESOURCE resourceDesc{};
 	D3D11_TEXTURE2D_DESC textureDesc{};
 	src->GetDesc(&textureDesc);
 	if (textureDesc.Usage != D3D11_USAGE_STAGING || textureDesc.CPUAccessFlags != D3D11_CPU_ACCESS_READ) return S_FALSE;
 
-	HRESULT hr = context->Map(src, 0, D3D11_MAP_READ, 0, &resourceDesc);
-	if (FAILED(hr)) return hr;
+	if (context->Map(src, 0, D3D11_MAP_READ, 0, &resourceDesc) != S_OK)
+		return false;
 
 	unsigned int rowPitch = textureDesc.Width * 4;
 
@@ -53,14 +52,7 @@ HRESULT TextureUtil::readPixels(ID3D11Texture2D* src, void* dst, bool flipY) {
 	}
 	context->Unmap(src, 0);
 
-	return S_OK;
-}
-
-DXGI_FORMAT TextureUtil::toDXFormat(ImageFormat format) {
-	//switch (format) {
-	//case ImageFormat::rgb888:
-	//}
-	return DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+	return true;
 }
 
 #endif // USE_DIRECTX

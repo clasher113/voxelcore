@@ -6,25 +6,25 @@ struct VSInput {
 struct PSInput {
     float4 position : SV_POSITION;
     float4 color : COLOR0;
-    float2 texCoord : TEXCOORD;
 };
 
-cbuffer CBuff : register(b0) {
+cbuffer LinesCBuff : register(b0) {
     float4x4 u_projview;
 }
 
 PSInput VShader(VSInput input) {
     PSInput output;
+    
     output.color = input.color;
-    output.position = mul(float4(input.position, 1.f), u_projview);
-    output.texCoord = float2(0.f, 0.f);
+    output.position = mul(u_projview, float4(input.position, 1.f));
+
     return output;
 }
 
 static const float PI = 3.1415926f;
 static const float fRatio = 2.0f;
 
-cbuffer CBuff : register(b1) {
+cbuffer LineWidthCBuff : register(b1) {
     float c_lineWidth;
 }
 

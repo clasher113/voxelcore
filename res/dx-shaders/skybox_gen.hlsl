@@ -23,13 +23,13 @@ SOFTWARE.
 */
 
 // first, lets define some constants to use (planet radius, position, and scattering coefficients)
-#define PLANET_POS float3(0.f, 0.f, 0.f) /* the position of the planet */
+#define PLANET_POS 0.f.rrr /* the position of the planet */
 #define PLANET_RADIUS 6371e3 /* radius of the planet */
 #define ATMOS_RADIUS 6471e3 /* radius of the atmosphere */
 // scattering coeffs
 #define RAY_BETA float3(5.5e-6, 13.0e-6, 22.4e-6) /* rayleigh, affects the color of the sky */
-#define MIE_BETA float3(21e-6, 21e-6, 21e-6) /* mie, affects the color of the blob around the sun */
-#define AMBIENT_BETA float3(0.f, 0.f, 0.f) /* ambient, affects the scattering color when there is no lighting from the sun */
+#define MIE_BETA 21e-6.rrr /* mie, affects the color of the blob around the sun */
+#define AMBIENT_BETA 0.f.rrr /* ambient, affects the scattering color when there is no lighting from the sun */
 #define ABSORPTION_BETA float3(2.04e-5, 4.97e-5, 1.95e-6) /* what color gets absorbed by the atmosphere (Due to things like ozone) */
 #define G 0.9 /* mie scattering direction, or how big the blob around the sun is */
 // and the heights (how far to go up before the scattering has no effect)
@@ -102,11 +102,11 @@ float3 calculate_scattering(
     float ray_pos_i = ray_length.x + step_size_i * 0.5;
     
     // these are the values we use to gather all the scattered light
-    float3 total_ray = float3(0.0, 0.0, 0.0); // for rayleigh
-    float3 total_mie = float3(0.0, 0.0, 0.0); // for mie
+    float3 total_ray = 0.f.rrr; // for rayleigh
+    float3 total_mie = 0.f.rrr; // for mie
     
     // initialize the optical depth. This is used to calculate how much air was in the ray
-    float3 opt_i = float3(0.0, 0.0, 0.0);
+    float3 opt_i = 0.f.rrr;
     
     // also init the scale height, avoids some vec2's later on
     float2 scale_height = float2(height_ray, height_mie);
@@ -248,14 +248,15 @@ struct PSInput {
     float2 v_coord : V_COORD0;
 };
 
-cbuffer CBuff : register(b0) {
-    float3 c_xAxis;
-    float c_mie;
-    float3 c_yAxis;
-    float c_fog;
-    float3 c_zAxis;
-    int c_quality;
-    float3 c_lightDir;
+cbuffer SkyboxGenCBuff : register(b0) {
+    float3 u_xaxis;
+    float u_mie;
+    float3 u_yaxis;
+    float u_fog;
+    float3 u_zaxis;
+    int u_quality;
+    float3 u_lightDir;
+    float u_dayTime;
 }
 
 PSInput VShader(VSInput input) {
@@ -267,15 +268,15 @@ PSInput VShader(VSInput input) {
 
 float4 PShader(PSInput input) : SV_TARGET {
     float3 camera_position = float3(0.0f, PLANET_RADIUS + 1.0f, 0.0f);
-    float3 camera_vector = normalize(c_xAxis * input.v_coord.x * 1.005 +
-                                   c_yAxis * -input.v_coord.y * 1.005 -
-                                   c_zAxis);
+    float3 camera_vector = normalize(u_xaxis * input.v_coord.x * 1.005 +
+                                   u_yaxis * -input.v_coord.y * 1.005 -
+                                   u_zaxis);
 
-    camera_vector = lerp(camera_vector, float3(0, 1, 0), min(1.0, c_fog));
+    camera_vector = lerp(camera_vector, float3(0, 1, 0), min(1.0, u_fog));
 
-    float fog = 1.0f / (c_fog * 0.5 + 1.0);
+    float fog = 1.0f / (u_fog * 0.5 + 1.0);
     // hide darkness at horizon
-    camera_vector.y = max(0.01, camera_vector.y) * (1.0 - c_mie * 0.08) + 0.08 * c_mie;
+    camera_vector.y = max(0.01, camera_vector.y) * (1.0 - u_mie * 0.08) + 0.08 * u_mie;
     //camera_vector = normalize(camera_vector);
 
     // the color of this pixel
@@ -286,7 +287,7 @@ float4 PShader(PSInput input) : SV_TARGET {
         camera_vector,              // the camera vector (ray direction of this pixel)
         1e12f,                      // max dist, essentially the scene depth
         0.f,                        // scene color, the color of the current pixel being rendered
-        c_lightDir,                 // light direction
+        float3(u_lightDir.x, pow(u_lightDir.y, 3.0f), u_lightDir.z),    // light direction
         40.0 * fog,                 // light intensity, 40 looks nice
         PLANET_POS,                 // position of the planet
         PLANET_RADIUS,              // radius of the planet in meters
@@ -297,17 +298,17 @@ float4 PShader(PSInput input) : SV_TARGET {
         AMBIENT_BETA,               // ambient scattering, turned off for now. This causes the air to glow a bit when no light reaches it
         G * fog*0.7,                // Mie preferred scattering direction
         HEIGHT_RAY,                 // Rayleigh scale height
-        HEIGHT_MIE * c_mie * c_mie, // Mie scale height
+        HEIGHT_MIE * u_mie * u_mie, // Mie scale height
         HEIGHT_ABSORPTION,          // the height at which the most absorption happens
         ABSORPTION_FALLOFF,         // how fast the absorption falls off from the absorption height 
-        PRIMARY_STEPS * c_quality,  // steps in the ray direction 
-        LIGHT_STEPS * c_quality     // steps in the light direction
+        PRIMARY_STEPS * u_quality,  // steps in the ray direction 
+        LIGHT_STEPS * u_quality     // steps in the light direction
     );
         
     // apply exposure, removing this makes the brighter colors look ugly
     // you can play around with removing this
     col = 1.0 - exp(-col);
-    col = min(col, float3(1.f, 1.f, 1.f));
+    col = min(col, 1.f.rrr);
     // Output to screen
     return float4(col, 1.0);
 }

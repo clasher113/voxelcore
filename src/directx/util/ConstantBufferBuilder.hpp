@@ -1,15 +1,18 @@
-#ifndef CONSTANT_BUFFER_BUILDER_HPP
-#define CONSTANT_BUFFER_BUILDER_HPP
+#pragma once
 
-#include "../ConstantBuffer.hpp"
+#include "directx/ConstantBuffer.hpp"
+#include "graphics/core/PostEffect.hpp"
+
+struct ID3D10Blob;
 
 class ConstantBufferBuilder {
 public:
-	void build(ID3D10Blob* shader, unsigned int shaderType);
+	using ParamsMap = std::unordered_map<std::string, PostEffect::Param>;
+
+	void build(ID3D10Blob* shader, ShaderType shaderType);
+	static ParamsMap parseParams(ID3D10Blob* shader);
 
 	ConstantBufferData getData();
 private:
 	ConstantBufferData m_data;
 };
-
-#endif // CONSTANT_BUFFER_BUILDER_HPP

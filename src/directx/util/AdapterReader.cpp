@@ -1,6 +1,7 @@
 #ifdef USE_DIRECTX
 #include "AdapterReader.hpp"
-#include "DXError.hpp"
+
+#include "Error.hpp"
 
 const std::vector<AdapterData>& AdapterReader::GetAdapters() {
 	if (!s_m_adapters.empty()) //If already initialized
