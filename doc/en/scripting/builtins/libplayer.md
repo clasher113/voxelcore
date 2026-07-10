@@ -113,6 +113,18 @@ player.get_name(playerid: int) -> str
 Player name setter and getter
 
 ```lua
+player.get_camera(playerid: int) -> int
+```
+
+Returns the index of the player's current camera.
+
+```lua
+player.set_camera(playerid: int, camera_index: int)
+```
+
+Switches the player's camera. See [cameras](libcameras.md).
+
+```lua
 player.set_selected_slot(playerid: int, slotid: int)
 ```
 

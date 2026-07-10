@@ -9,7 +9,7 @@
 
 // lighting
 #define SKY_LIGHT_MUL 2.9f
-#define SKY_LIGHT_TINT float3(0.9f, 0.8f, 1.0f)
+#define SKY_LIGHT_TINT (float3(1.0, 0.95, 0.9) * 2.0)
 #define MIN_SKY_LIGHT float3(0.2f, 0.25f, 0.33f)
 // fog
 #define FOG_POS_SCALE float3(1.f, 0.2f, 1.f)

@@ -288,6 +288,7 @@ void ContentLoader::loadContent(const dv::value& root) {
             item.iconType = ItemIconType::BLOCK;
             item.icon = def.name;
             item.placingBlock = def.name;
+            item.tags = def.tags;
     
             for (uint j = 0; j < 4; j++) {
                 item.emission[j] = def.emission[j];
@@ -411,6 +412,25 @@ void ContentLoader::load() {
     auto contentFile = pack->getContentFile();
     if (io::exists(contentFile)) {
         loadContent(io::read_json(contentFile));
+    }
+
+    // Load attached tags
+    io::path tagsFile = folder / "tags.toml";
+    if (io::exists(tagsFile)) {
+        auto tagsMap = io::read_object(tagsFile);
+        for (const auto& [key, list] : tagsMap.asObject()) {
+            for (const auto& id : list) {
+                const auto& stringId = id.asString();
+                if (auto block = builder.blocks.get(stringId)) {
+                    block->tags.push_back(key);
+                    if (auto item = builder.items.get(stringId + BLOCK_ITEM_SUFFIX)) {
+                        item->tags.push_back(key);
+                    }
+                } else if (auto item = builder.items.get(stringId)) {
+                    item->tags.push_back(key);
+                }
+            }
+        }
     }
 }
 

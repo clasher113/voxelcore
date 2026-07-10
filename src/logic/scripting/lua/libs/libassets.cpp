@@ -23,6 +23,9 @@ static void load_texture(
 }
 
 static int l_load_texture(lua::State* L) {
+    if (lua::isstring(L, 3) && lua::require_lstring(L, 3) != "png") {
+        throw std::runtime_error("unsupportd image format");
+    }
     if (lua::istable(L, 1)) {
         lua::pushvalue(L, 1);
         size_t size = lua::objlen(L, 1);
@@ -52,7 +55,9 @@ static int l_parse_model(lua::State* L) {
     auto name = lua::require_string(L, 3);
     
     if (format == "xml" || format == "vcm") {
-        engine->getAssets()->store(vcm::parse(name, string), name);
+        engine->getAssets()->store(
+            vcm::parse(name, string, format == "xml"), name
+        );
     } else {
         throw std::runtime_error("unknown format " + util::quote(std::string(format)));
     }

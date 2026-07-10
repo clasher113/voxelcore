@@ -43,8 +43,8 @@ void Shader::use() {
 	used = this;
 }
 
-void Shader::recompile() {
-	std::unique_ptr<Shader> recompiled = loadShader("<runtime>", m_sourceCode);
+void Shader::recompile(const std::vector<std::string>& defines) {
+	std::unique_ptr<Shader> recompiled = loadShader("<runtime>", m_sourceCode, defines);
 
 	if (recompiled) {
 		static auto toHex = [](void* ptr) {
@@ -60,7 +60,7 @@ void Shader::recompile() {
 	}
 }
 
-ID3D10Blob* Shader::compileShader(const std::string& shaderSource, ShaderType shaderType) {
+ID3D10Blob* Shader::compileShader(const std::string& shaderSource, ShaderType shaderType, const std::vector<std::string>& defines) {
 	UINT flag1 = 0U, flag2 = 0U;
 #ifdef _DEBUG
 	flag1 = D3DCOMPILE_DEBUG;
@@ -87,13 +87,13 @@ ID3D10Blob* Shader::compileShader(const std::string& shaderSource, ShaderType sh
 		return nullptr;
 	}
 
-	std::vector<D3D_SHADER_MACRO> _macros;
+	std::vector<D3D_SHADER_MACRO> macros;
 
-	if (!ShaderInclude::s_m_macros.empty()) {
-		for (const auto& [name, definition] : ShaderInclude::s_m_macros) {
-			_macros.emplace_back(D3D_SHADER_MACRO{ name.c_str(), definition.c_str() });
+	if (!defines.empty()) {
+		for (const auto& name : defines) {
+			macros.emplace_back(D3D_SHADER_MACRO{ name.c_str(), "" });
 		}
-		_macros.emplace_back(D3D_SHADER_MACRO{ NULL, NULL });
+		macros.emplace_back(D3D_SHADER_MACRO{ NULL, NULL });
 	}
 
 	Microsoft::WRL::ComPtr<ID3D10Blob> errorMsg = nullptr;
@@ -104,7 +104,7 @@ ID3D10Blob* Shader::compileShader(const std::string& shaderSource, ShaderType sh
 	
 	ID3D10Blob* shaderByteCode = nullptr;
 	errorCode = D3DCompile(shaderSource.data(), shaderSource.size(), util::wstr2str_utf8(name).c_str(), 
-		_macros.empty() ? NULL : _macros.data(), &include, entryPoint, target, flag1, flag2, &shaderByteCode, errorMsg.GetAddressOf());
+		macros.empty() ? NULL : macros.data(), &include, entryPoint, target, flag1, flag2, &shaderByteCode, errorMsg.GetAddressOf());
 
 	if (errorMsg != nullptr) {
 		CHECK_ERROR2(errorCode, L"Failed to compile " + name + L" shader:\n" + util::str2wstr_utf8((char*)errorMsg->GetBufferPointer()));
@@ -115,10 +115,12 @@ ID3D10Blob* Shader::compileShader(const std::string& shaderSource, ShaderType sh
 	return shaderByteCode;
 }
 
-std::unique_ptr<Shader> Shader::loadShader(const std::string& fileName, const std::string& shaderSource) {
+std::unique_ptr<Shader> Shader::loadShader(const std::string& fileName, const std::string& shaderSource,
+	const std::vector<std::string>& defines)
+{
 
-	ID3DBlob* vertexByteCode = compileShader(shaderSource, ShaderType::VERTEX);
-	ID3DBlob* pixelByteCode = compileShader(shaderSource, ShaderType::PIXEL);
+	ID3DBlob* vertexByteCode = compileShader(shaderSource, ShaderType::VERTEX, defines);
+	ID3DBlob* pixelByteCode = compileShader(shaderSource, ShaderType::PIXEL, defines);
 
 	ID3D11Device* const device = Device::getDevice();
 

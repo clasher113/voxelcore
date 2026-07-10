@@ -47,6 +47,13 @@ function on_blocks_tick(tps: int)
 Called tps (20) times per second. Use 1/tps instead of `time.delta()`.
 
 ```lua
+function on_block_tick(x, y, z, tps: number)
+```
+
+Called tps (20 / tick-interval) times per second for a block.
+Use 1/tps instead of `time.delta()`.
+
+```lua
 function on_player_tick(playerid: int, tps: int)
 ```
 
@@ -182,6 +189,12 @@ function on_hud_open(playerid: int)
 ```
 
 Called after world open.
+
+```lua
+function on_hud_render()
+```
+
+Called every frame. Used for client-side tasks such as animation and camera control.
 
 ```lua
 function on_hud_close(playerid: int)

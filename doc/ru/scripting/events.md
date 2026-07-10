@@ -47,6 +47,13 @@ function on_blocks_tick(tps: int)
 Вызывается tps (20) раз в секунду. Используйте 1/tps вместо `time.delta()`.
 
 ```lua
+function on_block_tick(x, y, z, tps: number)
+```
+
+Вызывается tps (20 / tick-interval) раз в секунду для конкретного блока.
+Используйте 1/tps вместо `time.delta()`.
+
+```lua
 function on_player_tick(playerid: int, tps: int)
 ```
 
@@ -182,6 +189,12 @@ function on_hud_open(playerid: int)
 ```
 
 Вызывается после входа в мир, когда становится доступна библиотека hud. Здесь на экран добавляются постоянные элементы.
+
+```lua
+function on_hud_render()
+```
+
+Вызывается каждый кадр. Используется для клиентских задач, таких как анимация, управление камерой.
 
 ```lua
 function on_hud_close(playerid: int)

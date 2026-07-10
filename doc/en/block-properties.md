@@ -98,6 +98,32 @@ Properties available for variance:
 
 Variants are managed via `block.set_variant(x, y, z, index)`.
 
+### Custom model variants (geometry switching)
+
+You can use different custom models for different variants. Provide a separate `model-name` for each variant that needs different geometry. The renderer caches geometry per (block id, variant).
+
+The base model (specified in root) becomes variant 0. The variants array maps to indices 1+.
+
+Example (default + two custom variants):
+```json
+{
+    "model": "custom",
+    "model-name": "stairs_middle",
+    "state-based": {
+        "bits": 4,
+        "variants": [
+            { "model": "custom", "model-name": "stairs_left" },
+            { "model": "custom", "model-name": "stairs_right" }
+        ]
+    }
+}
+```
+
+In this example:
+- Variant 0 = `stairs_middle` (from root)
+- Variant 1 = `stairs_left` (from variants[0])
+- Variant 2 = `stairs_right` (from variants[1])
+
 ## Lighting
 
 ### *emission*
@@ -297,3 +323,29 @@ Methods are used to manage the overwriting of properties when extending a block 
 ### `property_name@append`
 
 Adds elements to the end of the list instead of completely overwriting it.
+
+## Tags
+
+Tags allow you to designate general properties of blocks. Names should be formatted as `prefix:tag_name`.
+The prefix is ​​optional, but helps avoid unwanted logical collisions. Example:
+
+```json
+{
+    "tags": [
+        "core:ore",
+        "base_survival:food",
+    ]
+}
+```
+
+Block tags can also be added from other packs using the `your_pack:tags.toml` file. Example:
+
+```toml
+"prefix:tag_name" = [
+    "random_pack:some_block",
+    "another_pack:item",
+]
+"other_prefix:other_tag_name" = [
+    # ...
+]
+``

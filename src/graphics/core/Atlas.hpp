@@ -54,7 +54,7 @@ public:
 
     /// @brief Build atlas from all added images
     /// @param extrusion textures extrusion pixels 
-    /// (greather is less mip-mapping artifacts)
+    /// (greater is less mip-mapping artifacts)
     /// @param prepare generate atlas texture (calls .prepare()) 
     /// @param maxResolution max atlas resolution
     std::unique_ptr<Atlas> build(uint extrusion, bool prepare=true, uint maxResolution=0);

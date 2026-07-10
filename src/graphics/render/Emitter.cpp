@@ -1,12 +1,15 @@
 #include "Emitter.hpp"
 
 #include <glm/gtc/random.hpp>
+#include <glm/gtc/constants.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/norm.hpp>
 #include <glm/ext/scalar_constants.hpp>
 
 #include "window/Camera.hpp"
 #include "objects/Entities.hpp"
+#include "objects/Entity.hpp"
 #include "world/Level.hpp"
 
 #ifdef USE_DIRECTX

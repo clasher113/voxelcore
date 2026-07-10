@@ -22,7 +22,7 @@ public:
 	~Shader();
 
 	void use();
-	void recompile();
+	void recompile(const std::vector<std::string>& defines);
 private:
 	std::string m_sourceCode;
 
@@ -32,7 +32,8 @@ private:
 
 	static Shader* used;
 public:
-	static ID3D10Blob* compileShader(const std::string& shaderSource, ShaderType shaderType);
-	static std::unique_ptr<Shader> loadShader(const std::string& fileName, const std::string& shaderSource);
+	static ID3D10Blob* compileShader(const std::string& shaderSource, ShaderType shaderType, const std::vector<std::string>& defines = {});
+	static std::unique_ptr<Shader> loadShader(const std::string& fileName, const std::string& shaderSource,
+		const std::vector<std::string>& defines = {});
 	static Shader& getUsed();
 };

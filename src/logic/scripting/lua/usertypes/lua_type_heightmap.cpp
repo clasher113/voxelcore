@@ -272,7 +272,7 @@ static int l_meta_meta_call(lua::State* L) {
     auto width = tointeger(L, 2);
     auto height = tointeger(L, 3);
     if (width <= 0 || height <= 0) {
-        throw std::runtime_error("width and height must be greather than 0");
+        throw std::runtime_error("width and height must be greater than 0");
     }
     return newuserdata<LuaHeightmap>(
         L, static_cast<uint>(width), static_cast<uint>(height)

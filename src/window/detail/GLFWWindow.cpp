@@ -31,6 +31,7 @@
 
 static debug::Logger logger("window");
 
+static void window_size_callback(GLFWwindow* window, int width, int height);
 #ifdef USE_OPENGL
 static std::unordered_set<std::string> supported_gl_extensions;
 
@@ -437,7 +438,7 @@ public:
         if (fullscreen) {
             glfwGetWindowPos(window, &posX, &posY);
             glfwSetWindowMonitor(
-                window, monitor, 0, 0, mode->width, mode->height, GLFW_DONT_CARE
+                window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate
             );
         } else {
             glfwSetWindowMonitor(
@@ -449,6 +450,7 @@ public:
                 settings->height.get(),
                 GLFW_DONT_CARE
             );
+            window_size_callback(window, settings->width.get(), settings->height.get());
         }
     
         double xPos, yPos;
@@ -672,6 +674,17 @@ static void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
     handler->input.setCursorPosition(xpos, ypos);
 }
 
+static void iconify_callback(GLFWwindow* window, int iconified) {
+    auto handler = static_cast<GLFWWindow*>(glfwGetWindowUserPointer(window));
+    if (handler->isFullscreen() && iconified == 0) {
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        glfwSetWindowMonitor(
+            window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate
+        );
+    }
+}
+
 static void create_standard_cursors() {
     for (int i = 0; i <= static_cast<int>(CursorShape::LAST); i++) {
         int cursor = GLFW_ARROW_CURSOR + i;
@@ -691,6 +704,7 @@ static void setup_callbacks(GLFWwindow* window) {
     glfwSetWindowSizeCallback(window, window_size_callback);
     glfwSetCharCallback(window, character_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetWindowIconifyCallback(window, iconify_callback);
 }
 
 std::tuple<

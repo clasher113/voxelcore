@@ -42,7 +42,7 @@ float calc_shadow(Texture2D shadowsMap, float4x4 shadowMatrix, float4 modelPos, 
 
 float calc_shadow(float4 modelPos, float3 realnormal, float distance) {
 #ifdef ENABLE_SHADOWS
-    float s = pow(abs(cos(u_dayTime * PI2)), 0.25f) * u_shadowsOpacity;
+    float s = u_shadowsOpacity;
     float3 normalOffset = realnormal * (distance > 64.f ? 0.2 : 0.04f);
     
     float shadow = (distance < 80)

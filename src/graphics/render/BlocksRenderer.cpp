@@ -313,7 +313,7 @@ void BlocksRenderer::blockCustomModel(
         Z = orient.axes[2];
     }
 
-    const auto& model = cache.getModel(block.rt.id);
+    const auto& model = cache.getModel(block.rt.id, block.getVariantIndex(states.userbits));
     for (const auto& mesh : model.meshes) {
         if (vertexCount + mesh.vertices.size() >= capacity) {
             overflow = true;

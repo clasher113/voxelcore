@@ -83,7 +83,7 @@ std::unique_ptr<ImageData> BlocksPreview::draw(
 #ifdef USE_DIRECTX
             shader.applyChanges();
 #endif // USE_DIRECTX
-            const auto& model = cache.getModel(def.rt.id);
+            const auto& model = cache.getModel(def.rt.id, 0);
             
             for (const auto& mesh : model.meshes) {
                 for (const auto& vertex : mesh.vertices) {
