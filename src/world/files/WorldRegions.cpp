@@ -175,11 +175,11 @@ void WorldRegions::put(Chunk* chunk, std::vector<ubyte> entitiesData) {
         CHUNK_DATA_LEN);
 
     // Writing lights cache
-    if (doWriteLights && chunk->flags.lighted) {
+    if (doWriteLights && chunk->flags.lighted && chunk->lightmap) {
         put(chunk->x,
             chunk->z,
             REGION_LAYER_LIGHTS,
-            chunk->lightmap.encode(),
+            chunk->lightmap->encode(),
             LIGHTMAP_DATA_LEN);
     }
     // Writing block inventories

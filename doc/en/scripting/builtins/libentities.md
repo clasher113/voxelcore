@@ -36,6 +36,15 @@ entities.def_index(name: str) -> int
 -- Returns number of available entity definitions
 entities.defs_count() -> int
 
+```
+
+> [!NOTE]
+> The following functions for retrieving multiple entities return tables with integer keys (uid).
+> For iteration, use `pairs`, and for calculating the table size, use `table.count_pairs`.
+> Using `ipairs` will yield incorrect results, since the returned table is not an array.
+
+```lua
+
 -- Returns a table of all loaded entities
 entities.get_all() -> table
 

@@ -15,9 +15,9 @@
 #include "ContentPack.hpp"
 
 ContentIndices::ContentIndices(
-    ContentUnitIndices<Block> blocks,
-    ContentUnitIndices<ItemDef> items,
-    ContentUnitIndices<EntityDef> entities
+    ContentUnitIndices<Block, blockid_t> blocks,
+    ContentUnitIndices<ItemDef, itemid_t> items,
+    ContentUnitIndices<EntityDef, entitydefid_t> entities
 )
     : blocks(std::move(blocks)),
       items(std::move(items)),

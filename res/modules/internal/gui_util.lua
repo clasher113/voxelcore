@@ -3,8 +3,8 @@ local gui_util = {
 }
 
 --- Parse `pagename?arg1=value1&arg2=value2` queries
---- @param query page query string
---- @return page_name, args_table
+--- @param query string page query string
+--- @return string, string -> page_name, args_table
 function gui_util.parse_query(query)
     local args = {}
     local name
@@ -23,8 +23,7 @@ function gui_util.parse_query(query)
     return name, args
 end
 
---- @param query page query string
---- @return document_id
+--- @param query string page query string
 function gui_util.load_page(query)
     local name, args = gui_util.parse_query(query)
     for i = #gui_util.local_dispatchers, 1, -1 do
@@ -115,5 +114,53 @@ setmetatable(RadioGroup, RadioGroup)
 gui_util.Document = Document
 gui_util.Element = Element
 gui_util.RadioGroup = RadioGroup
+
+function gui.show_message(text, actual_callback)
+    local id = "dialog_"..random.uuid()
+
+    local callback = function()
+        gui.root[id]:destruct()
+        if actual_callback then
+            actual_callback()
+        end
+    end
+    gui.root.root:add(string.format([[
+        <container id='%s' color='#00000080' size-func='-1,-1' z-index='10'>
+            <panel color='#507090E0' size='300' padding='16'
+                   gravity='center-center' interval='4'>
+                <label>%s</label>
+                <button onclick='DATA.callback()'>@OK</button>
+            </panel>
+        </container>
+    ]], id, string.escape_xml(text)), {callback=callback})
+    input.add_callback("key:escape", callback, gui.root[id])
+end
+
+function gui.ask(text, on_yes, on_no)
+    on_yes = on_yes or function() end
+    on_no = on_no or function() end
+
+    local id = "dialog_"..random.uuid()
+
+    local yes_callback = function()
+        gui.root[id]:destruct()
+        on_yes()
+    end
+    local no_callback = function()
+        gui.root[id]:destruct()
+        on_no()
+    end
+    gui.root.root:add(string.format([[
+        <container id='%s' color='#00000080' size-func='-1,-1' z-index='10'>
+            <panel color='#507090E0' size='300' padding='16'
+                   gravity='center-center' interval='4'>
+                <label margin='4'>%s</label>
+                <button onclick='DATA.on_yes()'>@Yes</button>
+                <button onclick='DATA.on_no()'>@No</button>
+            </panel>
+        </container>
+    ]], id, string.escape_xml(text)), {on_yes=yes_callback, on_no=no_callback})
+    input.add_callback("key:escape", no_callback, gui.root[id])
+end
 
 return gui_util

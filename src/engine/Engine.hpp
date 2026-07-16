@@ -1,25 +1,27 @@
 #pragma once
 
-#include "delegates.hpp"
-#include "typedefs.hpp"
-#include "settings.hpp"
-
-#include "io/engine_paths.hpp"
-#include "io/settings_io.hpp"
-#include "util/ObjectsKeeper.hpp"
+#include "CoreParameters.hpp"
 #include "PostRunnables.hpp"
 #include "Time.hpp"
+#include "delegates.hpp"
+#include "settings.hpp"
+#include "typedefs.hpp"
+#include "util/ObjectsKeeper.hpp"
 
 #include <memory>
 #include <string>
 
-class Window;
 class Assets;
-class Level;
-class Screen;
 class ContentControl;
 class EngineController;
+class EnginePaths;
 class Input;
+class Level;
+class ResPaths;
+class Screen;
+class SettingsHandler;
+class Window;
+class WindowControl;
 struct Project;
 
 namespace gui {
@@ -36,6 +38,7 @@ namespace network {
 
 namespace devtools {
     class Editor;
+    class DebuggingServer;
 }
 
 class initialize_error : public std::runtime_error {
@@ -43,22 +46,12 @@ public:
     initialize_error(const std::string& message) : std::runtime_error(message) {}
 };
 
-struct CoreParameters {
-    bool headless = false;
-    bool testMode = false;
-    std::filesystem::path resFolder = "res";
-    std::filesystem::path userFolder = ".";
-    std::filesystem::path scriptFile;
-    std::filesystem::path projectFolder;
-};
-
 using OnWorldOpen = std::function<void(std::unique_ptr<Level>, int64_t)>;
 
 class Engine : public util::ObjectsKeeper {
     CoreParameters params;
     EngineSettings settings;
-    EnginePaths paths;
-
+    std::unique_ptr<EnginePaths> paths;
     std::unique_ptr<Project> project;
     std::unique_ptr<SettingsHandler> settingsHandler;
     std::unique_ptr<Assets> assets;
@@ -71,6 +64,8 @@ class Engine : public util::ObjectsKeeper {
     std::unique_ptr<Input> input;
     std::unique_ptr<gui::GUI> gui;
     std::unique_ptr<devtools::Editor> editor;
+    std::unique_ptr<devtools::DebuggingServer> debuggingServer;
+    std::unique_ptr<WindowControl> windowControl;
     PostRunnables postRunnables;
     Time time;
     OnWorldOpen levelConsumer;
@@ -101,9 +96,11 @@ public:
 
     void postUpdate();
 
+    void applicationTick();
     void updateFrontend();
     void renderFrame();
-    void nextFrame();
+    void nextFrame(bool waitForRefresh);
+    void startPauseLoop();
     
     /// @brief Set screen (scene).
     /// nullptr may be used to delete previous screen before creating new one,
@@ -137,8 +134,6 @@ public:
     void postRunnable(const runnable& callback) {
         postRunnables.postRunnable(callback);
     }
-
-    void saveScreenshot();
 
     EngineController* getController();
 
@@ -181,4 +176,10 @@ public:
     const Project& getProject() {
         return *project;
     }
+
+    devtools::DebuggingServer* getDebuggingServer() {
+        return debuggingServer.get();
+    }
+
+    void detachDebugger();
 };

@@ -1,6 +1,6 @@
-# 0.29 - 2025.09.20
+# 0.30 - 2025.11.27
 
-[Documentation](https://github.com/MihailRis/VoxelEngine-Cpp/tree/release-0.29/doc/en/main-page.md) for 0.29
+[Documentation](https://github.com/MihailRis/VoxelEngine-Cpp/tree/release-0.30/doc/en/main-page.md) for 0.30
 
 Table of contents:
 
@@ -11,121 +11,132 @@ Table of contents:
 
 ## Added
 
-- pathfinding
-- components:
-    - core:pathfinding
-    - core:player
-    - core:mob
+- audio recording
+- in-memory filesystems
+- `:block` placement (generator)
+- `on_block_present`, `on_block_removed` events
+- debugging server
+- `rotate` and `origin` vcm modifiers (rotation)
+- custom audio streams in lua (audio.PCMStream class)
+- add I16view, I32view, U16view, I32view lua classes
 - libraries:
-    - random
-    - gfx.skeletons
-    - (documented) assets
-- udp support
-- schedules
-- events:
-    - on_physics_update (components)
-    - on_block_tick(x, y, z, tps) (blocks)
-- custom hand controller
-- http headers
-- named pipes
-- optimizations:
-    - speed up block.set
-    - speed up vectors
-- items description
-- item properties methods
-- tab + shift+tab
-- blocks, items tags
-- pack dependencies versions
-- ~~allow to disable autospawn position~~ use player.set_spawnpoint
-- entity.spawn command
-- project script
-- gui.root document
-- time.schedules.world.common: Schedule
+    - compression
+    - audio.input
+- editing atlas textures feature
+- add non_reset_packs argument to app.reset_content
+- freeze debug panel values on cursor unlock
+- project:content content source
+- project start application script
+- uinode.exists property
+- uinode events:
+    - `onrightclick`
+    - `onmouseover`
+    - `onmouseout`
+- frameless window mode
+- settings:
+    - `display.adaptive-menu-fps` experimental flag
+    - `graphics.soft-lighting`
+- command-line arguments:
+    - `--tps` command line argument for headless mode
+    - `--dbg-server` command line argument
+- added error callback argument to network.tcp_connect
+- go back in menu on Escape pressed
+- publish `hud.exchange-slot` element
+- add `istoplevel` argument to input.add_callback
+- engine pause mode (debugging)
+- rebuild mip-maps on texture reload
+- documentation:
+    - documented player.set_camera and related
+    - documented `on_hud_render` event
+    - update app library docs
+    - updated content-packs docs (added full pack structure)
 
 ### Changes
 
-- app.sleep_until - added 'timeout argument'
-- network.get / post - added 'data' argument to error callback
-- autorefresh model preview
-- move player controls to lua
-- move hand control to lua
+- optimization:
+    - fixed major chunks loading performance issue
+    - reduced headless mode chunks memory consumption
+    - vecn functions optimization is not experimental now
+- pass pack environment to menu page script
+- canvas element autoresize
+- disable mouse camera control if non-standard camera used
+- events without prefix are forbidden now
+- player.* functions now throw exception in headless mode if player id not specified
 
 ### Functions
 
-- block.model_name
-- block.has_tag
-- item.has_tag
-- item.description
-- base64.encode_urlsafe
-- base64.decode_urlsafe
-- vec2.rotate
-- vecn.distance
-- vecn.mix
-- rigidbody:get_vdamping
-- rigidbody:set_vdamping
-- entity:require_component
-- network.udp_connect
-- random.random
-- random.bytes
-- random.uuid
-- Random:random
-- Random:seed
-- hud.hand_controller
-- inventory.get_caption
-- inventory.set_caption
-- inventory.get_description
-- inventory.set_description
-- pathfinding.create_agent
-- pathfinding.remove_agent
-- pathfinding.set_enabled
-- pathfinding.is_enabled
-- pathfinding.make_route
-- pathfinding.make_route_async
-- pathfinding.pull_route
-- pathfinding.set_max_visited
-- pathfinding.avoid_tag
-- gfx.skeletons.get
-- Skeleton:index
-- Skeleton:get_model
-- Skeleton:set_model
-- Skeleton:get_matrix
-- Skeleton:set_matrix
-- Skeleton:get_texture
-- Skeleton:set_texture
-- Skeleton:is_visible
-- Skeleton:set_visible
-- Skeleton:get_color
-- Skeleton:set_color
-- Schedule:set_timeout(time_ms, callback)
-- Schedule:set_interval(interval_ms, callback, [optional] repetions): int
-- Schedule:remove_interval(id)
-- ScheduleGroup:publish(schedule: Schedule)
+- app.create_memory_device
+- app.focus
+- app.get_content_sources
+- app.open_url
+- app.set_content_sources
+- app.start_debug_instance
+- assets.to_canvas
+- audio.get_all_input_devices_names
+- audio.get_input_info
+- audio.input.fetch
+- audio.input.request_open
+- canvas:add
+- canvas:encode
+- canvas:get_data
+- canvas:mul
+- canvas:rect
+- canvas:sub
+- canvas:unbind_texture
+- Canvas.decode
+- compression.decode
+- compression.encode
+- debug.get_pack_by_frame
+- file.create_memory_device
+- gui.ask
+- gui.set_syntax_styles
+- gui.show_message
+- hud.is_open
+- input.get_mouse_delta
+- network.find_free_port
+- PCMStream:create_sound
+- PCMStream:feed
+- PCMStream:share
+- player.get_all
+- player.get_all_in_radius
+- player.get_dir
+- player.get_interaction_distance
+- player.get_nearest
+- player.set_interaction_distance
+- socket:is_nodelay
+- socket:recv_async
+- socket:set_nodelay
+- string.escape_xml
+- textbox:indexByPos
+- textbox:lineY
+- utf8.escape_xml
 
 ## Fixes
 
-- fix 3d text position / culling
-- fix fragment:place rotation (#593)
-- fix server socket creation in macos
-- fix: base packs not scanned for app scripts
-- fix lua::getfield and events registering
-- fix UIDocument::rebuildIndices
-- fix input library in headless mode
-- fix rigidbody:set_gravity_scale
-- fix extended blocks destruction particles spawn spread, offset
-- fix shaders recompiling
-- fix: C++ vecn functions precision loss
-- fix coroutines errors handling
-- fix: viewport size on toggle fullscreen
-- fix: fullscreen monitor refresh rate
-- fix: content menu panel height
-- fix generation.create_fragment (#596)
-- fix bytearray:insert (#594)
-- fix: script overriding
-- fix: hud.close after hud.show_overlay bug
-- fix: 'cannot resume dead coroutine' (#569)
-- fix: skybox is not visible behind translucent blocks
-- fix: sampler arrays inbdexed with non-constant / uniform-based expressions are forbidden
-- fix initial weather intensity
-- fix drop count (560)
-- fix BasicParser::parseNumber() out of range (560)
-- fix rotation interpolation (#557)
+- [fix: "Bytearray expected, got function"](https://github.com/MihailRis/voxelcore/commit/2d1c69ee7e7248d8e86e00c4a2f5cead490cd278)
+- [fix zero frames texture animation fatal error](https://github.com/MihailRis/voxelcore/commit/e9222976efa67e2fe541962aabb6485363a12354)
+- [fix non-local players interpolation and head direction](https://github.com/MihailRis/voxelcore/commit/75ef603df0b1958e0c9eb95c2474dc7f3ec34057)
+- [fix std::bad_alloc caused by corrupted regions](https://github.com/MihailRis/voxelcore/commit/47cdc0213723c74be3e41b39702b656a2db0448d)
+- [fix 'align' ui property reading](https://github.com/MihailRis/voxelcore/commit/c8ba5b5dbb7980a6576444fed9f7ea66ae1ed32a)
+- [fix incorrect textbox horizontal scroll](https://github.com/MihailRis/voxelcore/commit/bc86a3d8da4301ea6ce94c52715bd7cf863b0c37)
+- [fix: wrong environment used in modules imported by require(...)](https://github.com/MihailRis/voxelcore/commit/5626163f17a252212607dc63bfcd726df44bf290)
+- [fix: some container attributes not available in panel](https://github.com/MihailRis/voxelcore/commit/8a858beeb421495247a8dfae064672bcf6eb4190)
+- [fix generation.load_fragment](https://github.com/MihailRis/voxelcore/commit/b4ba2da95524025991f07be87b61ecc015f12656)
+- [fix: byteutil.unpack 'b' is equivalent of 'B'](https://github.com/MihailRis/voxelcore/commit/2a9507b54e58f852b558d7bc9b2cc88397d37a34)
+- [fix: missing yaml null literals](https://github.com/MihailRis/voxelcore/commit/5755c616f35cc1c1fc5e94ecbc9c38a5a7f52275)
+- [fix yaml array parsing](https://github.com/MihailRis/voxelcore/commit/026ae756cf4ad4a4febbef58ce2f007b2a0fc974)
+- [fix mouse click textbox caret set](https://github.com/MihailRis/voxelcore/commit/a1f0c2c2527b91d3a1d4f47eb2c043ebdef60119)
+- [fix wrapped textbox selection render](https://github.com/MihailRis/voxelcore/commit/76b54a890c35b6edb6d5018078c865f31e966965)
+- [fix broken dependencies management](https://github.com/MihailRis/voxelcore/commit/ee6f006b797d1a560baa9e333c99ee0181f548b6)
+- [fix assets.parse_model with 'xml' format](https://github.com/MihailRis/voxelcore/commit/ec94abccbc4604e5d945d2bb8d1a63561797092b)
+- [fix correct line generation algorithm and bounds calculation](https://github.com/MihailRis/voxelcore/commit/ed9cf8800aea07c169719a3efddae7020e6be7e9)
+- [fix enable per-variant custom model caching](https://github.com/MihailRis/voxelcore/commit/2a1d2f9354ee2ab623aca9d0059c0a676395d6d0)
+- [fix: stream stops and dies on underflow](https://github.com/MihailRis/voxelcore/commit/cf561e78a81810fcb70975c7b785938af37b4b64)
+- [fix Schedule:set_timeout](https://github.com/MihailRis/voxelcore/commit/1e16ab5464b80d258fd955cf0485ebf596298ab3)
+- [fix major chunks loading performance issue](https://github.com/MihailRis/voxelcore/commit/957f9f59983790583fb57c9e9a3661631f380153)
+- [fix: undo/redo also available when textbox is not editable](https://github.com/MihailRis/voxelcore/commit/0df5684adf3117f4018e4b34868f6c41ee7125e3)
+- [fix player library docs](https://github.com/MihailRis/voxelcore/commit/51f07450d89781ce35bd630e07ea8cf33b912b93)
+- [fix: root node id overriding](https://github.com/MihailRis/voxelcore/commit/91cb5ab7d8ca5376d87e1ad69b8f2cb05278d73d)
+- [fix extended block placement across chunk borders](https://github.com/MihailRis/voxelcore/commit/b85c5e367a2adea57ab0c3111e3d3b0cc924322b)
+- [fix modelviewer fbo creation](https://github.com/MihailRis/voxelcore/commit/be6710bc831f700bd9099860c704b3571d1d90fa)
+- [fix: panel width differs to size specified in xml](https://github.com/MihailRis/voxelcore/commit/8cc51a107e27e1cb5ae8343fa0151db9c9a66852)

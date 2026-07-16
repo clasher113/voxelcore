@@ -198,7 +198,7 @@ Hud::Hud(Engine& engine, LevelFrontend& frontend, Player& player)
     gui.add(contentAccessPanel);
 
     auto dplotter = std::make_shared<Plotter>(gui, 350, 250, 2000, 16);
-    dplotter->setGravity(Gravity::bottom_right);
+    dplotter->setGravity(Gravity::BOTTOM_RIGHT);
     dplotter->setInteractive(false);
     add(HudElement(HudElementMode::PERMANENT, nullptr, dplotter, true));
 
@@ -475,6 +475,7 @@ void Hud::showExchangeSlot() {
         gui,
         SlotLayout(-1, glm::vec2(), false, false, nullptr, nullptr, nullptr)
     );
+    exchangeSlot->setId("hud.exchange-slot");
     exchangeSlot->bind(exchangeSlotInv->getId(), exchangeSlotInv->getSlot(0), &content);
     exchangeSlot->setColor(glm::vec4());
     exchangeSlot->setInteractive(false);
@@ -761,4 +762,14 @@ void Hud::setAllowPause(bool flag) {
         menu.setPage("pause", true);
     }
     allowPause = flag;
+}
+
+bool Hud::isOpen(const std::string& layoutid) const {
+    for (const auto& element : elements) {
+        auto doc = element.getDocument();
+        if (doc && doc->getId() == layoutid) {
+            return true;
+        }
+    }
+    return false;
 }

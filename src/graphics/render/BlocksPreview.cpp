@@ -158,5 +158,5 @@ std::unique_ptr<Atlas> BlocksPreview::build(
         builder.add(def.name, draw(cache, shader, fbo, batch, def, iconSize));
     }
     fbo.unbind();
-    return builder.build(2);
+    return builder.build(ATLAS_EXTRUSION);
 }

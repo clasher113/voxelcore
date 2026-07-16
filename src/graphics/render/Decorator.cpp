@@ -19,6 +19,7 @@
 #include "logic/LevelController.hpp"
 #include "util/stringutil.hpp"
 #include "engine/Engine.hpp"
+#include "engine/EnginePaths.hpp"
 #include "io/io.hpp"
 #include "audio/audio.hpp"
 #include "maths/util.hpp"

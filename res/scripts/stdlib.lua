@@ -47,6 +47,7 @@ local function complete_app_lib(app)
     end
     app.reset_content = core.reset_content
     app.is_content_loaded = core.is_content_loaded
+    app.set_title = core.set_title
     
     function app.config_packs(packs_list)
         -- Check if packs are valid and add dependencies to the configuration
@@ -105,87 +106,32 @@ elseif __vc_app then
     complete_app_lib(__vc_app)
 end
 
-function inventory.get_uses(invid, slot)
-    local uses = inventory.get_data(invid, slot, "uses")
-    if uses == nil then
-        return item.uses(inventory.get(invid, slot))
-    end
-    return uses
-end
-
-function inventory.use(invid, slot)
-    local itemid, count = inventory.get(invid, slot)
-    if itemid == nil then
-        return
-    end
-    local item_uses = inventory.get_uses(invid, slot)
-    if item_uses == nil then
-        return
-    end
-    if item_uses == 1 then
-        inventory.set(invid, slot, itemid, count - 1)
-    elseif item_uses > 1 then
-        inventory.set_data(invid, slot, "uses", item_uses - 1)
-    end
-end
-
-function inventory.decrement(invid, slot, count)
-    count = count or 1
-    local itemid, itemcount = inventory.get(invid, slot)
-    if itemcount <= count then
-        inventory.set(invid, slot, 0)
-    else
-        inventory.set_count(invid, slot, itemcount - count)
-    end
-end
-
-function inventory.get_caption(invid, slot)
-    local item_id, count = inventory.get(invid, slot)
-    local caption = inventory.get_data(invid, slot, "caption")
-    if not caption then return item.caption(item_id) end
-
-    return caption
-end
-
-function inventory.set_caption(invid, slot, caption)
-    local itemid, itemcount = inventory.get(invid, slot)
-    if itemid == 0 then
-        return
-    end
-    if caption == nil or type(caption) ~= "string" then
-        caption = ""
-    end
-    inventory.set_data(invid, slot, "caption", caption)
-end
-
-function inventory.get_description(invid, slot)
-    local item_id, count = inventory.get(invid, slot)
-    local description = inventory.get_data(invid, slot, "description")
-    if not description then return item.description(item_id) end
-
-    return description
-end
-
-function inventory.set_description(invid, slot, description)
-    local itemid, itemcount = inventory.get(invid, slot)
-    if itemid == 0 then
-        return
-    end
-    if description == nil or type(description) ~= "string" then
-        description = ""
-    end
-    inventory.set_data(invid, slot, "description", description)
-end
-
-if enable_experimental then
-    require "core:internal/maths_inline"
-end
-
+require "core:internal/maths_inline"
+require "core:internal/debugging"
+require "core:internal/audio_input"
+require "core:internal/extensions/inventory"
 asserts = require "core:internal/asserts"
 events = require "core:internal/events"
 
 function pack.unload(prefix)
     events.remove_by_prefix(prefix)
+end
+
+function __vc_start_app_script(path, name)
+    debug.log("starting application script "..path)
+
+    local code = file.read(path)
+    local chunk, err = loadstring(code, path)
+    if chunk == nil then
+        error(err)
+    end
+    local script_env = setmetatable({app = app or __vc_app}, {__index=_G})
+    chunk = setfenv(chunk, script_env)
+    if name then
+        return start_coroutine(chunk, name)
+    else
+        return __vc_start_coroutine(chunk)
+    end
 end
 
 gui_util = require "core:internal/gui_util"
@@ -203,6 +149,18 @@ _GUI_ROOT = Document.new("core:root")
 _MENU = _GUI_ROOT.menu
 menu = _MENU
 gui.root = _GUI_ROOT
+
+do
+    local status, err = pcall(function()
+        local default_styles = toml.parse(file.read(
+            "res:devtools/default_syntax_scheme.toml"
+        ))
+        gui.set_syntax_styles(default_styles)
+    end)
+    if not status then
+        debug.error("could not to load default syntax scheme: "..err)
+    end
+end
 
 ---  Console library extension ---
 console.cheats = {}
@@ -223,6 +181,42 @@ function console.log(...)
         text = '\n'..text
     end
     log_element:paste(text)
+end
+
+local console_add_command = console.__add_command
+console.__add_command = nil
+
+function console.add_command(scheme, description, handler, is_cheat)
+    console_add_command(scheme, description, handler)
+    if not is_cheat then return end
+
+    local name = string.match(scheme, "^(%S+)")
+    if not name then
+        error("Incorrect command syntax, command name not found")
+    end
+
+    table.insert_unique(console.cheats, name)
+end
+
+function console.is_cheat(name)
+    if not table.has(console.get_commands_list(), name) then
+        error(string.format("command \"%s\" not found", name))
+    end
+
+    return table.has(console.cheats, name)
+end
+
+function console.set_cheat(name, status)
+    local is_cheat = console.is_cheat(name)
+    if status and not is_cheat then
+        table.insert(console.cheats, name)
+        return true
+    elseif not status and is_cheat then
+        table.remove_value(console.cheats, name)
+        return true
+    end
+
+    return false
 end
 
 function console.chat(...)
@@ -283,11 +277,6 @@ entities.get_all = function(uids)
     end
 end
 
-local bytearray = require "core:internal/bytearray"
-Bytearray = bytearray.FFIBytearray
-Bytearray_as_string = bytearray.FFIBytearray_as_string
-Bytearray_construct = function(...) return Bytearray(...) end
-
 __vc_scripts_registry = require "core:internal/scripts_registry"
 
 file.open = require "core:internal/stream_providers/file"
@@ -307,86 +296,20 @@ else
     os.pid = ffi.C.getpid()
 end
 
-ffi = nil
-__vc_lock_internal_modules()
-
 math.randomseed(time.uptime() * 1536227939)
 
-rules = {nexid = 1, rules = {}}
+rules = require "core:internal/rules"
 local _rules = rules
 
-function _rules.get_rule(name)
-    local rule = _rules.rules[name]
-    if rule == nil then
-        rule = {listeners={}}
-        _rules.rules[name] = rule
-    end
-    return rule
-end
-
-function _rules.get(name)
-    local rule = _rules.rules[name]
-    if rule == nil then
-        return nil
-    end
-    return rule.value
-end
-
-function _rules.set(name, value)
-    local rule = _rules.get_rule(name)
-    rule.value = value
-    for _, handler in pairs(rule.listeners) do
-        handler(value)
-    end
-end
-
-function _rules.reset(name)
-    local rule = _rules.get_rule(name)
-    _rules.set(rule.default)
-end
-
-function _rules.listen(name, handler)
-    local rule = _rules.get_rule(name)
-    local id = _rules.nexid
-    _rules.nextid = _rules.nexid + 1
-    rule.listeners[utf8.encode(id)] = handler
-    return id
-end
-
-function _rules.create(name, value, handler)
-    local rule = _rules.get_rule(name)
-    rule.default = value
-
-    local handlerid
-    if handler ~= nil then
-        handlerid = _rules.listen(name, handler)
-    end
-    if _rules.get(name) == nil then
-        _rules.set(name, value)
-    elseif handler then
-        handler(_rules.get(name))
-    end
-    return handlerid
-end
-
-function _rules.unlisten(name, id)
-    local rule = _rules.rules[name]
-    if rule == nil then
-        return
-    end
-    rule.listeners[utf8.encode(id)] = nil
-end
-
-function _rules.clear()
-    _rules.rules = {}
-    _rules.nextid = 1
-end
-
 function __vc_on_hud_open()
+    local _hud_is_content_access = hud._is_content_access
+    local _hud_set_content_access = hud._set_content_access
+    local _hud_set_debug_cheats = hud._set_debug_cheats
+
     _rules.create("allow-cheats", true)
 
-    _rules.create("allow-content-access", hud._is_content_access(), function(value)
-        hud._set_content_access(value)
+    _rules.create("allow-content-access", _hud_is_content_access(), function(value)
+        _hud_set_content_access(value)
     end)
     _rules.create("allow-flight", true, function(value)
         input.set_enabled("player.flight", value)
@@ -407,7 +330,7 @@ function __vc_on_hud_open()
         input.set_enabled("player.fast_interaction", value)
     end)
     _rules.create("allow-debug-cheats", true, function(value)
-        hud._set_debug_cheats(value)
+        _hud_set_debug_cheats(value)
     end)
     input.add_callback("devtools.console", function()
         if menu.page ~= "" then
@@ -427,7 +350,9 @@ function __vc_on_hud_open()
     end)
     input.add_callback("key:escape", function()
         if menu.page ~= "" then
-            menu:reset()
+            if not menu:back() then
+                menu:reset()
+            end
         elseif hud.is_inventory_open() then
             hud.close_inventory()
         else
@@ -483,6 +408,10 @@ end
 
 function __vc_on_world_tick(tps)
     time.schedules.world:tick(1.0 / tps)
+end
+
+function __vc_process_before_quit()
+    block.__process_register_events()
 end
 
 function __vc_on_world_save()
@@ -562,6 +491,10 @@ end
 
 local __post_runnables = {}
 
+local fn_audio_reset_fetch_buffer = audio.__reset_fetch_buffer
+audio.__reset_fetch_buffer = nil
+core.get_core_token = audio.input.__get_core_token
+
 function __process_post_runnables()
     if #__post_runnables then
         for _, func in ipairs(__post_runnables) do
@@ -587,9 +520,13 @@ function __process_post_runnables()
         __vc_named_coroutines[name] = nil
     end
 
+    fn_audio_reset_fetch_buffer()
+    debug.pull_events()
     network.__process_events()
-    block.__process_register_events()
-    block.__perform_ticks(time.delta())
+    if not hud or not hud.is_paused() then
+        block.__process_register_events()
+        block.__perform_ticks(time.delta())
+    end
 end
 
 function time.post_runnable(runnable)
@@ -605,6 +542,7 @@ local _getinfo = debug.getinfo
 for i, name in ipairs(removed_names) do
     debug[name] = nil
 end
+
 debug.getinfo = function(lvl, fields)
     if type(lvl) == "number" then
         lvl = lvl + 1
@@ -614,51 +552,7 @@ debug.getinfo = function(lvl, fields)
     return debuginfo
 end
 
--- --------- Deprecated functions ------ --
-local function wrap_deprecated(func, name, alternatives)
-    return function (...)
-        on_deprecated_call(name, alternatives)
-        return func(...)
-    end
-end
+require "core:internal/deprecated"
 
-block_index = wrap_deprecated(block.index, "block_index", "block.index")
-block_name = wrap_deprecated(block.name, "block_name", "block.name")
-blocks_count = wrap_deprecated(block.defs_count, "blocks_count", "block.defs_count")
-is_solid_at = wrap_deprecated(block.is_solid_at, "is_solid_at", "block.is_solid_at")
-is_replaceable_at = wrap_deprecated(block.is_replaceable_at, "is_replaceable_at", "block.is_replaceable_at")
-set_block = wrap_deprecated(block.set, "set_block", "block.set")
-get_block = wrap_deprecated(block.get, "get_block", "block.get")
-get_block_X = wrap_deprecated(block.get_X, "get_block_X", "block.get_X")
-get_block_Y = wrap_deprecated(block.get_Y, "get_block_Y", "block.get_Y")
-get_block_Z = wrap_deprecated(block.get_Z, "get_block_Z", "block.get_Z")
-get_block_states = wrap_deprecated(block.get_states, "get_block_states", "block.get_states")
-set_block_states = wrap_deprecated(block.set_states, "set_block_states", "block.set_states")
-get_block_rotation = wrap_deprecated(block.get_rotation, "get_block_rotation", "block.get_rotation")
-set_block_rotation = wrap_deprecated(block.set_rotation, "set_block_rotation", "block.set_rotation")
-get_block_user_bits = wrap_deprecated(block.get_user_bits, "get_block_user_bits", "block.get_user_bits")
-set_block_user_bits = wrap_deprecated(block.set_user_bits, "set_block_user_bits", "block.set_user_bits")
-
-function load_script(path, nocache)
-    on_deprecated_call("load_script", "require or loadstring")
-    return __load_script(path, nocache)
-end
-
-_dofile = dofile
--- Replaces dofile('*/content/packid/*') with load_script('packid:*') 
-function dofile(path)
-    on_deprecated_call("dofile", "require or loadstring")
-    local index = string.find(path, "/content/")
-    if index then
-        local newpath = string.sub(path, index+9)
-        index = string.find(newpath, "/")
-        if index then
-            local label = string.sub(newpath, 1, index-1)
-            newpath = label..':'..string.sub(newpath, index+1)
-            if file.isfile(newpath) then
-                return __load_script(newpath, true)
-            end
-        end
-    end
-    return _dofile(path)
-end
+ffi = nil
+__vc_lock_internal_modules()

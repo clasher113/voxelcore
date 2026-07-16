@@ -6,7 +6,6 @@
 #include <unordered_map>
 
 #include "data/dv.hpp"
-#include "lua_custom_types.hpp"
 #include "lua_wrapper.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
@@ -249,7 +248,7 @@ namespace lua {
     inline lua::Number tonumber(lua::State* L, int idx) {
 #ifndef NDEBUG
         if (lua_type(L, idx) != LUA_TNUMBER && !lua_isnoneornil(L, idx)) {
-            throw std::runtime_error("integer expected");
+            throw std::runtime_error("number expected");
         }
 #endif
         return lua_tonumber(L, idx);
@@ -614,10 +613,13 @@ namespace lua {
         return 0;
     }
     int create_environment(lua::State*, int parent);
+    int restore_pack_environment(lua::State*, const std::string& packid);
     void remove_environment(lua::State*, int id);
 
     inline void close(lua::State* L) {
-        lua_close(L);
+        if (L) {
+            lua_close(L);
+        }
     }
 
     inline void addfunc(

@@ -9,6 +9,7 @@
 #include "graphics/ui/elements/TextBox.hpp"
 #include "graphics/ui/elements/TrackBar.hpp"
 #include "graphics/ui/elements/InputBindBox.hpp"
+#include "graphics/ui/GUI.hpp"
 #include "graphics/render/WorldRenderer.hpp"
 #include "graphics/render/ParticlesRenderer.hpp"
 #include "graphics/render/ChunksRenderer.hpp"
@@ -43,7 +44,12 @@ static std::shared_ptr<Label> create_label(GUI& gui, wstringsupplier supplier) {
     return label;
 }
 
+static bool should_keep_previous(GUI& gui) {
+    return !gui.getInput().isCursorLocked();
+}
+
 // TODO: move to xml
+// TODO: move to xml finally
 // TODO: move to xml finally
 // TODO: move to xml finally
 // TODO: move to xml finally
@@ -135,7 +141,16 @@ std::shared_ptr<UINode> create_debug_panel(
                std::to_wstring(player.getId());
     }));
     panel->add(create_label(gui, [&]() -> std::wstring {
-        const auto& vox = player.selection.vox;
+        // TODO: move to xml finally
+        static voxel prevVox = {BLOCK_VOID, {}};
+
+        auto vox = player.selection.vox;
+        if (vox.id == BLOCK_VOID && should_keep_previous(gui)) {
+            vox = prevVox;
+        } else {
+            prevVox = vox;
+        }
+
         std::wstringstream stream;
         stream << "r:" << vox.state.rotation << " s:"
                 << std::bitset<3>(vox.state.segment) << " u:"
@@ -148,8 +163,17 @@ std::shared_ptr<UINode> create_debug_panel(
         }
     }));
     panel->add(create_label(gui, [&]() -> std::wstring {
-        const auto& selection = player.selection;
+        // TODO: move to xml finally
+        static CursorSelection prevSelection {};
+
+        auto selection = player.selection;
         const auto& vox = selection.vox;
+        if (vox.id == BLOCK_VOID && should_keep_previous(gui)) {
+            selection = prevSelection;
+        } else {
+            prevSelection = selection;
+        }
+
         if (vox.id == BLOCK_VOID) {
             return L"x: - y: - z: -";
         }
@@ -158,7 +182,16 @@ std::shared_ptr<UINode> create_debug_panel(
                L" z: " + std::to_wstring(selection.actualPosition.z);
     }));
     panel->add(create_label(gui, [&]() {
+        // TODO: move to xml finally
+        static entityid_t prevEid = ENTITY_NONE;
+
         auto eid = player.getSelectedEntity();
+        if (eid == ENTITY_NONE && should_keep_previous(gui)) {
+            eid = prevEid;
+        } else {
+            prevEid = eid;
+        }
+
         if (eid == ENTITY_NONE) {
             return std::wstring {L"entity: -"};
         } else if (auto entity = level.entities->get(eid)) {

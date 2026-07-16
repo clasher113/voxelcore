@@ -537,14 +537,14 @@ void InventoryView::setSelected(int index) {
     }
 }
 
-void InventoryView::setPos(glm::vec2 pos) {
+void InventoryView::setPos(const glm::vec2& pos) {
     Container::setPos(pos - origin);
 }
 
-void InventoryView::setOrigin(glm::vec2 origin) {
+void InventoryView::setOrigin(const glm::vec2& origin) {
     this->origin = origin;
 }
 
-glm::vec2 InventoryView::getOrigin() const {
+const glm::vec2& InventoryView::getOrigin() const {
     return origin;
 }

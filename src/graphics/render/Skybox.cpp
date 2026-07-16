@@ -152,19 +152,19 @@ void Skybox::draw(
     DrawContext ctx = pctx.sub();
     ctx.setBlendMode(BlendMode::addition);
 
-    auto p_shader = assets.get<Shader>("ui3d");
-    p_shader->use();
-    p_shader->uniformMatrix("u_projview", camera.getProjView(false));
-    p_shader->uniformMatrix("u_apply", glm::mat4(1.0f));
+    auto shader = assets.get<Shader>("ui3d");
+    shader->use();
+    shader->uniformMatrix("u_projview", camera.getProjView(false));
+    shader->uniformMatrix("u_apply", glm::mat4(1.0f));
 #ifdef USE_DIRECTX
-    p_shader->applyChanges();
+    shader->applyChanges();
 #endif // USE_DIRECTX
     batch3d->begin();
 
     float angle = daytime * glm::pi<float>() * 2.0f;
     float opacity = glm::pow(1.0f - fog, 7.0f);
 
-    float depthScale = 1e3;
+    float depthScale = 2e3;
     for (auto& sprite : sprites) {
         batch3d->texture(assets.get<Texture>(sprite.texture));
 

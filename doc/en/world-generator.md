@@ -427,6 +427,22 @@ Where:
 - point_a, point_b - vec3, vec3 positions of the start and end of the tunnel.
 - radius - radius of the tunnel in blocks
 
+Single block:
+```lua
+{":block", block_id, position, [rotation], [priority]}
+```
+
+Where:
+- block_id: numeric runtime id of the block to place.
+- position: vec3 world position in blocks, relative to the current chunk start.
+- rotation: 0–3, rotation around the Y axis. Default: 0. For extended blocks (size > 1), all segments use this rotation.
+- priority: integer order. Higher values are placed later and overwrite lower‑priority placements.
+
+Notes:
+- `:block` automatically expands extended blocks into all their segments and replaces any voxels occupying those cells.
+- Placement is chunk‑border safe: the engine distributes the placement to all affected chunk prototypes based on the block’s size/AABB.
+- Use `:block` for single blocks; use `:line` for tunnels or continuous lines.
+
 ### Small structures placement
 
 ```lua

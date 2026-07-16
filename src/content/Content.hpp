@@ -36,48 +36,57 @@ public:
     }
 };
 
-template <class T>
+template <class T, typename IdType>
 class ContentUnitIndices {
     std::vector<T*> defs;
 public:
     ContentUnitIndices(std::vector<T*> defs) : defs(std::move(defs)) {
     }
 
-    inline const T* get(blockid_t id) const {
+    const T* get(IdType id) const {
         if (id >= defs.size()) {
             return nullptr;
         }
         return defs[id];
     }
 
-    inline const T& require(blockid_t id) const {
-        return *defs.at(id);
+    const T& require(IdType id) const {
+        if (id >= defs.size()) {
+            invalidId(id);
+        }
+        return *defs[id];
     }
 
-    inline size_t count() const {
+    size_t count() const {
         return defs.size();
     }
 
-    inline const auto& getIterable() const {
+    const auto& getIterable() const {
         return defs;
     }
  
-    inline const T* const* getDefs() const {
+    const T* const* getDefs() const {
         return defs.data();
+    }
+private:
+    void invalidId(IdType id) const {
+        throw std::runtime_error(
+            "invalid content unit id: " + std::to_string(id)
+        );
     }
 };
 
 /// @brief Runtime defs cache: indices
 class ContentIndices {
 public:
-    ContentUnitIndices<Block> blocks;
-    ContentUnitIndices<ItemDef> items;
-    ContentUnitIndices<EntityDef> entities;
+    ContentUnitIndices<Block, blockid_t> blocks;
+    ContentUnitIndices<ItemDef, itemid_t> items;
+    ContentUnitIndices<EntityDef, entitydefid_t> entities;
 
     ContentIndices(
-        ContentUnitIndices<Block> blocks,
-        ContentUnitIndices<ItemDef> items,
-        ContentUnitIndices<EntityDef> entities
+        ContentUnitIndices<Block, blockid_t> blocks,
+        ContentUnitIndices<ItemDef, itemid_t> items,
+        ContentUnitIndices<EntityDef, entitydefid_t> entities
     );
 };
 

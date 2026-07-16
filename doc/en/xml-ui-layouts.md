@@ -42,6 +42,8 @@ Examples:
 - `ondoubleclick` - lua function called when you double click on an element.
 - `onfocus` - lua function called when focusing on an element.
 - `ondefocus` - lua function called when the element loses focus.
+- `onmouseover` - lua function called when the cursor enters an element.
+- `onmouseover` - lua function called when the cursor exits an element.
 - `tooltip` - tooltip text
 - `tooltip-delay` - tooltip show-up delay
 - `gravity` - automatic positioning of the element in the container. (Does not work in automatic containers like panel). Values: *top-left, top-center, top-right, center-left, center-center, center-right, bottom-left, bottom-center, bottom-right*.
@@ -136,6 +138,7 @@ The key code for comparison can be obtained via `input.keycode("key_name")`
 - `text-wrap` - allows automatic text wrapping (works only with multiline: "true")
 - `editable` - determines whether the text can be edited.
 - `line-numbers` - enables line numbers display.
+- `keep-line-selection` - keep showing selected line after defocus.
 - `error-color` - color when entering incorrect data (the text does not pass the validator check). Type: RGBA color.
 - `text-color` - text color. Type: RGBA color.
 - `validator` - lua function that checks text for correctness. Takes a string as input, returns true if the text is correct.

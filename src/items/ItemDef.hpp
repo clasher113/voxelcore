@@ -37,7 +37,7 @@ struct ItemDef {
     std::string caption;
 
     /// @brief Item description will shown in inventory
-    std::string description;
+    std::string description = "";
 
     dv::value properties = nullptr;
 
@@ -60,7 +60,7 @@ struct ItemDef {
     std::string icon = "blocks:notfound";
 
     std::string placingBlock = "core:air";
-    std::string scriptName = name.substr(name.find(':') + 1);
+    std::string scriptName;
 
     std::string modelName = name + ".model";
 

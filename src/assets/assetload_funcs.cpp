@@ -15,7 +15,7 @@
 #include "coders/vec3.hpp"
 #include "constants.hpp"
 #include "debug/Logger.hpp"
-#include "io/engine_paths.hpp"
+#include "engine/EnginePaths.hpp"
 #include "io/io.hpp"
 #include "frontend/UiDocument.hpp"
 #include "graphics/core/Atlas.hpp"
@@ -229,7 +229,7 @@ assetload::postfunc assetload::atlas(
         if (!append_atlas(builder, file)) continue;
     }
     std::set<std::string> names = builder.getNames();
-    Atlas* atlas = builder.build(2, false).release();
+    Atlas* atlas = builder.build(ATLAS_EXTRUSION, false).release();
     return [=](auto assets) {
         atlas->prepare();
         assets->store(std::unique_ptr<Atlas>(atlas), name);
@@ -546,7 +546,7 @@ static bool load_animation(
             }
             if (!append_atlas(builder, file)) continue;
         }
-        auto srcAtlas = builder.build(2, true);
+        auto srcAtlas = builder.build(ATLAS_EXTRUSION, true);
         if (frameList.empty()) {
             for (const auto& frameName : builder.getNames()) {
                 frameList.emplace_back(frameName, 0);

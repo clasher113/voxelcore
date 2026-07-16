@@ -129,5 +129,5 @@ mat4.look_at(eye: vec3, center: vec3, up: vec3, dst: matrix)
 -- возвращает строку представляющую содержимое матрицы
 mat4.tostring(m: matrix)
 -- возвращает строку представляющую содержимое матрицы, многострочную, если multiline = true
-mat4.tostring(m: matrix, multiline: bool)
+mat4.tostring(m: matrix, multiline: boolean)
 ```

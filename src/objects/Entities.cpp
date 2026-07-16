@@ -302,6 +302,7 @@ void Entities::updatePhysics(float delta) {
         hitbox.friction = glm::abs(hitbox.gravityScale <= 1e-7f)
                               ? 8.0f
                               : (!grounded ? 2.0f : 10.0f);
+        hitbox.scale = transform.size;
         transform.setPos(hitbox.position);
         if (hitbox.grounded && !grounded) {
             scripting::on_entity_grounded(
@@ -358,7 +359,9 @@ void Entities::renderDebug(
             if (frustum && !frustum->isBoxVisible(pos - size, pos + size)) {
                 continue;
             }
-            batch.box(hitbox.position, hitbox.halfsize * 2.0f, glm::vec4(1.0f));
+            batch.box(
+                hitbox.position, hitbox.getHalfSize() * 2.0f, glm::vec4(1.0f)
+            );
 
             for (auto& sensor : rigidbody.sensors) {
                 if (sensor.type != SensorType::AABB) continue;
@@ -410,10 +413,14 @@ void Entities::render(
         }
         const auto& pos = transform.pos;
         const auto& size = transform.size;
-        if (!frustum || frustum->isBoxVisible(pos - size, pos + size)) {
-            const auto* rigConfig = skeleton.config;
-            rigConfig->render(assets, batch, skeleton, transform.rot, pos);
+        if (frustum && !frustum->isBoxVisible(pos - size, pos + size)) {
+            continue;
         }
+
+        const auto* rigConfig = skeleton.config;
+        rigConfig->render(
+            assets, batch, skeleton, transform.rot, pos, size
+        );
     }
 }
 

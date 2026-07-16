@@ -5,11 +5,12 @@
 #include <utility>
 
 #include "coders/imageio.hpp"
+#include "coders/commons.hpp"
 #include "constants.hpp"
 #include "content/Content.hpp"
 #include "content/ContentPack.hpp"
 #include "debug/Logger.hpp"
-#include "io/engine_paths.hpp"
+#include "engine/EnginePaths.hpp"
 #include "io/io.hpp"
 #include "logic/scripting/scripting.hpp"
 #include "objects/rigging.hpp"
@@ -76,20 +77,26 @@ aloader_func AssetsLoader::getLoader(AssetType tag) {
 void AssetsLoader::loadNext() {
     const aloader_entry& entry = entries.front();
     logger.info() << "loading " << entry.filename << " as " << entry.alias;
+
+    std::string error {};
     try {
         aloader_func loader = getLoader(entry.tag);
         auto postfunc =
             loader(this, paths, entry.filename, entry.alias, entry.config);
         postfunc(&assets);
-        entries.pop();
-    } catch (std::runtime_error& err) {
-        logger.error() << err.what();
-        auto type = entry.tag;
-        std::string filename = entry.filename;
-        std::string reason = err.what();
-        entries.pop();
-        throw assetload::error(type, std::move(filename), std::move(reason));
+    } catch (const parsing_error& err) {
+        error = err.errorLog();
+    } catch (const std::runtime_error& err) {
+        error = err.what();
     }
+    if (!error.empty()) {
+        logger.error() << error;
+        auto tag = entry.tag;
+        auto filename = entry.filename;
+        entries.pop();
+        throw assetload::error(tag, std::move(filename), std::move(error));
+    }
+    entries.pop();
 }
 
 static void add_layouts(

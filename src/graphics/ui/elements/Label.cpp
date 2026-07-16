@@ -230,14 +230,14 @@ void Label::draw(const DrawContext& pctx, const Assets& assets) {
 
     glm::vec2 pos = calcPos();
     switch (align) {
-        case Align::left: break;
-        case Align::center: pos.x += (size.x-newsize.x)*0.5f; break;
-        case Align::right: pos.x += size.x-newsize.x; break;
+        case Align::LEFT: break;
+        case Align::CENTER: pos.x += (size.x-newsize.x)*0.5f; break;
+        case Align::RIGHT: pos.x += size.x-newsize.x; break;
     }
     switch (valign) {
-        case Align::top: break;
-        case Align::center: pos.y += (size.y-newsize.y)*0.5f; break;
-        case Align::bottom: pos.y += size.y-newsize.y; break;
+        case Align::TOP: break;
+        case Align::CENTER: pos.y += (size.y-newsize.y)*0.5f; break;
+        case Align::BOTTOM: pos.y += size.y-newsize.y; break;
     }
     textYOffset = pos.y-calcPos().y;
     totalLineHeight = lineHeight;

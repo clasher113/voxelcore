@@ -40,13 +40,19 @@ Sets x, y, z player linear velocity
 player.get_rot(playerid: int, interpolated: bool) -> number, number, number
 ```
 
-Returns x, y, z of camera rotation (radians). Interpolation is relevant in cases where the rotation refresh rate is lower than the frame rate.
+Returns x, y, z of camera rotation (degrees). Interpolation is relevant in cases where the rotation refresh rate is lower than the frame rate.
 
 ```lua
 player.set_rot(playerid: int, x: number, y: number, z: number)
 ```
 
-Set camera rotation (radians)
+Set camera rotation (degrees)
+
+```lua
+player.get_dir(playerid: int) -> vec3
+```
+
+Returns the player look direction vector
 
 ```lua
 player.get_inventory(playerid: int) -> int, int
@@ -88,6 +94,13 @@ player.set_loading_chunks(playerid: int, bool)
 ```
 
 Getter and setter of the property that determines whether the player is loading chunks.
+
+```lua
+player.get_interaction_distance(playerid: int) -> float
+player.set_interaction_distance(playerid: int, distance: float)
+```
+
+Getter and setter of the property for max interaction distance.
 
 ``` lua
 player.set_spawnpoint(playerid: int, x: number, y: number, z: number)
@@ -147,3 +160,21 @@ player.get_entity(playerid: int) -> int
 ```
 
 Returns unique identifier of the player entity
+
+```lua
+player.get_all_in_radius(center: vec3, radius: number) -> table<int>
+```
+
+Returns an array of player IDs within a sphere with center `center` and radius `radius`.
+
+```lua
+player.get_all() -> table<int>
+```
+
+Returns an array of all active player IDs.
+
+```lua
+player.get_nearest(position: vec3) -> int
+```
+
+Returns the ID of the player closest to the specified position, or nil if there are no players.

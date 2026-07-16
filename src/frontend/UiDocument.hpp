@@ -19,7 +19,7 @@ struct uidocscript {
     bool onclose : 1;
 };
 
-using UINodesMap = std::unordered_map<std::string, std::shared_ptr<gui::UINode>>;
+using UINodesMap = std::unordered_map<std::string, std::weak_ptr<gui::UINode>>;
 
 class UiDocument {
     std::string id;
@@ -36,10 +36,10 @@ public:
     );
 
     void rebuildIndices();
+    void pushIndices(const std::shared_ptr<gui::UINode>& node);
 
     const std::string& getId() const;
     const UINodesMap& getMap() const;
-    UINodesMap& getMapWriteable();
     std::shared_ptr<gui::UINode> getRoot() const;
     std::shared_ptr<gui::UINode> get(const std::string& id) const;
     const uidocscript& getScript() const;

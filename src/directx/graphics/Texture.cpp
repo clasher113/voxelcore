@@ -76,7 +76,7 @@ Texture::Texture(ubyte* data, uint width, uint height, ImageFormat format) :
 
 	ID3D11DeviceContext* const context = Device::getContext();
 
-	reload(data);
+	reload(data, width, height);
 
 	context->GenerateMips(m_p_resourceView);
 
@@ -108,15 +108,28 @@ void Texture::unbind(ShaderType shaderType, UINT startSlot) const {
 	if (shaderType & GEOMETRY)	context->GSSetShaderResources(startSlot, 1u, &nullSRV);
 }
 
-void Texture::reload(ubyte* data) {
+void Texture::reload(ubyte* data, uint width, uint height) {
 	ID3D11DeviceContext* const context = Device::getContext();
-	context->UpdateSubresource(m_p_texture, 0u, nullptr, data, m_description.Width * (m_description.Format == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 3), 0u);
+	const D3D11_BOX area {
+		0u, 0u, 0u, width, height, 1u
+	};
+
+	context->UpdateSubresource(m_p_texture, 0u, &area, data, m_description.Width * (m_description.Format == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 3), 0u);
 }
 
 void Texture::reload(const ImageData& image) {
 	m_description.Width = image.getWidth();
 	m_description.Height = image.getHeight();
-	reload(image.getData());
+	reload(image.getData(), m_description.Width, m_description.Height);
+}
+
+void Texture::reloadPartial(const ImageData& image, uint x, uint y, uint w, uint h) {
+	ID3D11DeviceContext* const context = Device::getContext();
+	const D3D11_BOX area{
+		x, y, 0u, w, h, 1u
+	};
+
+	context->UpdateSubresource(m_p_texture, 0u, &area, image.getData(), m_description.Width * (m_description.Format == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 3), 0u);
 }
 
 void Texture::setMipMapping(bool flag, bool pixelated) {

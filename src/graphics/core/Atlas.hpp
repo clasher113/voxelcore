@@ -14,8 +14,8 @@ class ImageData;
 class Texture;
 
 class Atlas {
-    std::unique_ptr<Texture> texture;
-    std::unique_ptr<ImageData> image;
+    std::shared_ptr<Texture> texture;
+    std::shared_ptr<ImageData> image;
     std::unordered_map<std::string, UVRegion> regions;
 public:
     /// @param image atlas raster
@@ -36,6 +36,9 @@ public:
 
     Texture* getTexture() const;
     ImageData* getImage() const;
+
+    std::shared_ptr<Texture> shareTexture() const;
+    std::shared_ptr<ImageData> shareImageData() const;
 };
 
 struct atlasentry {

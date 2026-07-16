@@ -2,7 +2,7 @@
 #include "ShaderInclude.hpp"
 
 #include "io/io.hpp"
-#include "io/engine_paths.hpp"
+#include "engine/EnginePaths.hpp"
 #include "constants.hpp"
 
 #include <cassert>

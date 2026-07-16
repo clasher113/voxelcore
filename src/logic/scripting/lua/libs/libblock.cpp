@@ -246,17 +246,25 @@ static int l_get_user_bits(lua::State* L) {
 }
 
 static int l_get_variant(lua::State* L) {
+    auto& chunks = *level->chunks;
     auto x = lua::tointeger(L, 1);
     auto y = lua::tointeger(L, 2);
     auto z = lua::tointeger(L, 3);
 
-    auto vox = blocks_agent::get(*level->chunks, x, y, z);
+    auto vox = blocks_agent::get(chunks, x, y, z);
     if (vox == nullptr) {
         return lua::pushinteger(L, 0);
     }
     const auto& def = content->getIndices()->blocks.require(vox->id);
     if (def.variants == nullptr) {
         return lua::pushinteger(L, 0);
+    }
+    if (def.rt.extended) {
+        auto origin = blocks_agent::seek_origin(chunks, {x, y, z}, def, vox->state);
+        vox = blocks_agent::get(chunks, origin.x, origin.y, origin.z);
+        if (vox == nullptr) {
+            return lua::pushinteger(L, 0);
+        }
     }
     return lua::pushinteger(
         L, (vox->state.userbits >> def.variants->offset) & def.variants->mask
@@ -290,6 +298,14 @@ static int l_set_user_bits(lua::State* L) {
         if (vox == nullptr) {
             return 0;
         }
+        int ocx = floordiv<CHUNK_W>(origin.x);
+        int ocz = floordiv<CHUNK_D>(origin.z);
+        if (cx != ocx || cz != ocz) {
+            chunk = blocks_agent::get_chunk(chunks, ocx, ocz);
+            if (chunk == nullptr) {
+                return 0;
+            }
+        }
     }
     vox->state.userbits = (vox->state.userbits & (~mask)) | value;
     chunk->setModifiedAndUnsaved();
@@ -318,14 +334,22 @@ static int l_set_variant(lua::State* L) {
     }
 
     auto offset = def.variants->offset;
-    auto mask = def.variants->mask;
-    auto value = (lua::tointeger(L, 4) << offset) & mask;
+    auto mask = def.variants->mask << offset;
+    auto value = (lua::tointeger(L, 4) << offset);
 
     if (def.rt.extended) {
         auto origin = blocks_agent::seek_origin(chunks, {x, y, z}, def, vox->state);
         vox = blocks_agent::get(chunks, origin.x, origin.y, origin.z);
         if (vox == nullptr) {
             return 0;
+        }
+        int ocx = floordiv<CHUNK_W>(origin.x);
+        int ocz = floordiv<CHUNK_D>(origin.z);
+        if (cx != ocx || cz != ocz) {
+            chunk = blocks_agent::get_chunk(chunks, ocx, ocz);
+            if (chunk == nullptr) {
+                return 0;
+            }
         }
     }
     vox->state.userbits = (vox->state.userbits & (~mask)) | value;
@@ -730,7 +754,7 @@ static int l_pull_register_events(lua::State* L) {
     lua::createtable(L, events.size() * 4, 0);
     for (int i = 0; i < events.size(); i++) {
         const auto& event = events[i];
-        lua::pushinteger(L, static_cast<int>(event.type) | event.id << 16);
+        lua::pushinteger(L, static_cast<int>(event.bits) | event.id << 16);
         lua::rawseti(L, i * 4 + 1);
 
         for (int j = 0; j < 3; j++) {
@@ -783,5 +807,5 @@ const luaL_Reg blocklib[] = {
     {"has_tag", lua::wrap<l_has_tag>},
     {"__get_tags", lua::wrap<l_get_tags>},
     {"__pull_register_events", lua::wrap<l_pull_register_events>},
-    {NULL, NULL}
+    {nullptr, nullptr}
 };

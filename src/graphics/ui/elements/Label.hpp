@@ -44,7 +44,7 @@ namespace gui {
         float lineInterval = 1.5f;
 
         /// @brief Vertical alignment (only when multiline is set to false)
-        Align valign = Align::center;
+        Align valign = Align::CENTER;
 
         /// @brief Line separators and wrapping will be ignored if set to false
         bool multiline = false;

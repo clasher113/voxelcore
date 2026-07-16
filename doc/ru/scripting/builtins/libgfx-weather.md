@@ -36,11 +36,11 @@ gfx.weather.change(
     -- длительность изменения погоды в секундах
     time: number,
     -- название пресета погоды
-    [опционально] name: str
+    [опционально] name: string
 )
 
 -- Возвращает имя пресета погоды
-gfx.weather.get_current() -> str
+gfx.weather.get_current() -> string
 
 -- Возвращает копию таблицы настроек погоды
 gfx.weather.get_current_data() -> table
@@ -49,5 +49,5 @@ gfx.weather.get_current_data() -> table
 gfx.weather.get_fall_intensity() -> number
 
 -- Проверяет, происходит ли в данный момент переключение погоды
-gfx.weather.is_transition() -> bool
+gfx.weather.is_transition() -> boolean
 ```

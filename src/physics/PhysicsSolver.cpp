@@ -11,11 +11,10 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/norm.hpp>
 
-const float E = 0.03f;
-const float MAX_FIX = 0.1f;
+inline const float E = 0.03f;
+inline const float MAX_FIX = 0.1f;
 
-PhysicsSolver::PhysicsSolver(glm::vec3 gravity) : gravity(gravity) {
-}
+PhysicsSolver::PhysicsSolver(glm::vec3 gravity) : gravity(gravity) {}
 
 void PhysicsSolver::step(
     const GlobalChunks& chunks, 
@@ -28,7 +27,7 @@ void PhysicsSolver::step(
     float linearDamping = hitbox.linearDamping * hitbox.friction;
     float s = 2.0f/BLOCK_AABB_GRID;
 
-    const glm::vec3& half = hitbox.halfsize;
+    auto half = hitbox.getHalfSize();
     glm::vec3& pos = hitbox.position;
     glm::vec3& vel = hitbox.velocity;
     float gravityScale = hitbox.gravityScale;
@@ -91,8 +90,8 @@ void PhysicsSolver::step(
     }
 
     AABB aabb;
-    aabb.a = hitbox.position - hitbox.halfsize;
-    aabb.b = hitbox.position + hitbox.halfsize;
+    aabb.a = hitbox.position - hitbox.getHalfSize();
+    aabb.b = hitbox.position + hitbox.getHalfSize();
     for (size_t i = 0; i < sensors.size(); i++) {
         auto& sensor = *sensors[i];
         if (sensor.entity == entity) {
@@ -267,7 +266,7 @@ void PhysicsSolver::colisionCalc(
 
 bool PhysicsSolver::isBlockInside(int x, int y, int z, Hitbox* hitbox) {
     const glm::vec3& pos = hitbox->position;
-    const glm::vec3& half = hitbox->halfsize;
+    auto half = hitbox->getHalfSize();
     return x >= floor(pos.x-half.x) && x <= floor(pos.x+half.x) &&
            z >= floor(pos.z-half.z) && z <= floor(pos.z+half.z) &&
            y >= floor(pos.y-half.y) && y <= floor(pos.y+half.y);
@@ -276,7 +275,7 @@ bool PhysicsSolver::isBlockInside(int x, int y, int z, Hitbox* hitbox) {
 bool PhysicsSolver::isBlockInside(int x, int y, int z, Block* def, blockstate state, Hitbox* hitbox) {
     const float e = 0.001f; // inaccuracy
     const glm::vec3& pos = hitbox->position;
-    const glm::vec3& half = hitbox->halfsize;
+    auto half = hitbox->getHalfSize();
     const auto& boxes = def->rotatable 
                       ? def->rt.hitboxes[state.rotation] 
                       : def->hitboxes;

@@ -91,7 +91,7 @@ static inline void generate_pole(
     voxel* voxels,
     int x, int z
 ) {
-    uint y = top;
+    uint y = std::min<uint>(top, CHUNK_H - 1);
     uint layerExtension = 0;
     for (const auto& layer : layers.layers) {
         // skip layer if can't be generated under sea level
@@ -106,7 +106,9 @@ static inline void generate_pole(
         } else {
             layerHeight += layerExtension;
         }
-        layerHeight = std::min(static_cast<uint>(layerHeight), y+1);
+        layerHeight = std::min(
+            static_cast<uint>(layerHeight), std::min<uint>(CHUNK_H - 1, y + 1)
+        );
 
         for (uint i = 0; i < layerHeight; i++, y--) {
             voxels[vox_index(x, y, z)].id = layer.rt.id;
@@ -204,6 +206,47 @@ void WorldGenerator::placeLine(const LinePlacement& line, int priority) {
     }
 }
 
+void WorldGenerator::placeBlock(const BlockPlacement& block, int priority) {
+    // Compute world-space AABB of the extended block to distribute to prototypes
+    const auto& indices = content.getIndices()->blocks;
+    const auto& def = indices.require(block.block);
+    const auto& rot = def.rotations.variants[block.rotation & 0b11];
+
+    glm::ivec3 minp = block.position;
+    glm::ivec3 maxp = block.position;
+    const auto size = def.size;
+    for (int sy = 0; sy < size.y; sy++) {
+        for (int sz = 0; sz < size.z; sz++) {
+            for (int sx = 0; sx < size.x; sx++) {
+                glm::ivec3 p = block.position;
+                p += rot.axes[0] * sx;
+                p += rot.axes[1] * sy;
+                p += rot.axes[2] * sz;
+                minp = glm::min(minp, p);
+                maxp = glm::max(maxp, p);
+            }
+        }
+    }
+    // inclusive-exclusive for max; expand by 1 to compute chunk coverage
+    maxp += glm::ivec3(1, 1, 1);
+    AABB aabb(minp, maxp);
+    int cxa = floordiv<CHUNK_W>(aabb.a.x);
+    int cza = floordiv<CHUNK_D>(aabb.a.z);
+    int cxb = floordiv<CHUNK_W>(aabb.b.x);
+    int czb = floordiv<CHUNK_D>(aabb.b.z);
+    for (int cz = cza; cz <= czb; cz++) {
+        for (int cx = cxa; cx <= cxb; cx++) {
+            const auto& found = prototypes.find({cx, cz});
+            if (found != prototypes.end()) {
+                // position becomes relative to prototype chunk
+                glm::ivec3 rel = block.position - glm::ivec3(cx * CHUNK_W, 0, cz * CHUNK_D);
+                bool owner = (cx == floordiv<CHUNK_W>(block.position.x)) && (cz == floordiv<CHUNK_D>(block.position.z));
+                found->second->placements.emplace_back(priority, BlockPlacement{block.block, rel, block.rotation, !owner});
+            }
+        }
+    }
+}
+
 void WorldGenerator::placeStructures(
     const std::vector<Placement>& placements, 
     ChunkPrototype& prototype, 
@@ -217,9 +260,11 @@ void WorldGenerator::placeStructures(
                 continue;
             }
             placeStructure(*sp, placement.priority, chunkX, chunkZ);
+        } else if (auto lp = std::get_if<LinePlacement>(&placement.placement)) {
+            placeLine(*lp, placement.priority);
         } else {
-            const auto& line = std::get<LinePlacement>(placement.placement);
-            placeLine(line, placement.priority);
+            const auto& bp = std::get<BlockPlacement>(placement.placement);
+            placeBlock(bp, placement.priority);
         }
     }
 }
@@ -482,9 +527,10 @@ void WorldGenerator::generatePlacements(
     for (const auto& placement : placements) {
         if (auto structure = std::get_if<StructurePlacement>(&placement.placement)) {
             generateStructure(prototype, *structure, voxels, chunkX, chunkZ);
-        } else {
-            const auto& line = std::get<LinePlacement>(placement.placement);
-            generateLine(prototype, line, voxels, chunkX, chunkZ);
+        } else if (auto line = std::get_if<LinePlacement>(&placement.placement)) {
+            generateLine(prototype, *line, voxels, chunkX, chunkZ);
+        } else if (auto block = std::get_if<BlockPlacement>(&placement.placement)) {
+            generateBlock(prototype, *block, voxels, chunkX, chunkZ);
         }
     }
 }
@@ -585,6 +631,61 @@ void WorldGenerator::generateLine(
                             below = {def.rt.surfaceReplacement, {}};
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+void WorldGenerator::generateBlock(
+    const ChunkPrototype& prototype,
+    const BlockPlacement& placement,
+    voxel* voxels,
+    int chunkX, int chunkZ
+) {
+    const auto& indices = content.getIndices()->blocks;
+    const auto& def = indices.require(placement.block);
+
+    glm::ivec3 origin = placement.position; // relative; may be outside
+    int rotIndex = 0;
+    if (def.rotatable && def.rotations.variantsCount) {
+        rotIndex = placement.rotation % def.rotations.variantsCount;
+    }
+
+    // write origin only for owner chunk (mirror==false) and if inside bounds
+    if (!placement.mirror &&
+        origin.x >= 0 && origin.x < CHUNK_W &&
+        origin.y >= 0 && origin.y < CHUNK_H &&
+        origin.z >= 0 && origin.z < CHUNK_D) {
+        auto& vox = voxels[vox_index(origin.x, origin.y, origin.z)];
+        vox.id = placement.block;
+        vox.state = {};
+        vox.state.rotation = rotIndex;
+    }
+
+    // expand extended blocks
+    if (def.rt.extended) {
+        const auto& rot = def.rotations.variants[rotIndex];
+        const auto size = def.size;
+        for (int sy = 0; sy < size.y; sy++) {
+            for (int sz = 0; sz < size.z; sz++) {
+                for (int sx = 0; sx < size.x; sx++) {
+                    if ((sx | sy | sz) == 0) continue;
+                    glm::ivec3 pos = origin;
+                    pos += rot.axes[0] * sx;
+                    pos += rot.axes[1] * sy;
+                    pos += rot.axes[2] * sz;
+                    if (pos.x < 0 || pos.x >= CHUNK_W ||
+                        pos.y < 0 || pos.y >= CHUNK_H ||
+                        pos.z < 0 || pos.z >= CHUNK_D) {
+                        continue;
+                    }
+                    struct voxel seg;
+                    seg.id = placement.block;
+                    seg.state = {};
+                    seg.state.rotation = rotIndex;
+                    seg.state.segment = ((sx > 0) | ((sy > 0) << 1) | ((sz > 0) << 2));
+                    voxels[vox_index(pos.x, pos.y, pos.z)] = seg;
                 }
             }
         }

@@ -1,9 +1,4 @@
-#include "../lua_custom_types.hpp"
-
-#include <cstring>
-#include <sstream>
-#include <iomanip>
-#include <filesystem>
+#include "lua_type_heightmap.hpp"
 
 #include "util/functional_util.hpp"
 #define FNL_IMPL
@@ -13,7 +8,14 @@
 #include "graphics/core/ImageData.hpp"
 #include "maths/Heightmap.hpp"
 #include "engine/Engine.hpp"
+#include "engine/EnginePaths.hpp"
 #include "../lua_util.hpp"
+#include "lua_type_heightmap.hpp"
+
+#include <cstring>
+#include <sstream>
+#include <iomanip>
+#include <filesystem>
 
 using namespace lua;
 

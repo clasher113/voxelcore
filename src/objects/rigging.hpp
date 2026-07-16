@@ -121,7 +121,8 @@ namespace rigging {
         void update(
             Skeleton& skeleton,
             const glm::mat3& rotation,
-            const glm::vec3& position
+            const glm::vec3& position,
+            const glm::vec3& scale
         ) const;
 
         void render(
@@ -129,7 +130,8 @@ namespace rigging {
             ModelBatch& batch,
             Skeleton& skeleton,
             const glm::mat3& rotation,
-            const glm::vec3& position
+            const glm::vec3& position,
+            const glm::vec3& scale
         ) const;
 
         Skeleton instance() const {

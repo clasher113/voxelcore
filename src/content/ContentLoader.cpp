@@ -13,7 +13,7 @@
 #include "objects/rigging.hpp"
 #include "util/listutil.hpp"
 #include "util/stringutil.hpp"
-#include "io/engine_paths.hpp"
+#include "engine/EnginePaths.hpp"
 
 static debug::Logger logger("content-loader");
 
@@ -289,6 +289,7 @@ void ContentLoader::loadContent(const dv::value& root) {
             item.icon = def.name;
             item.placingBlock = def.name;
             item.tags = def.tags;
+            item.scriptFile = def.name + BLOCK_ITEM_SUFFIX + ".lua";
     
             for (uint j = 0; j < 4; j++) {
                 item.emission[j] = def.emission[j];
@@ -492,6 +493,7 @@ void ContentLoader::loadScripts(Content& content) {
     load_scripts(content, content.items);
 
     for (const auto& [packid, runtime] : content.getPacks()) {
+        auto env = runtime->getEnvironment();
         const auto& pack = runtime->getInfo();
         const auto& folder = pack.folder;
         
@@ -500,9 +502,10 @@ void ContentLoader::loadScripts(Content& content) {
 
         // Load entity components
         io::path componentsDir = folder / "scripts/components";
-        foreach_file(componentsDir, [&pack](const io::path& file) {
+        foreach_file(componentsDir, [&pack, env](const io::path& file) {
             auto name = pack.id + ":" + file.stem();
             scripting::load_entity_component(
+                env,
                 name,
                 file,
                 pack.id + ":scripts/components/" + file.name()

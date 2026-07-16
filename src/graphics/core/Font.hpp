@@ -7,40 +7,13 @@
 
 #include "typedefs.hpp"
 #include "FontMetics.hpp"
+#include "data/dv_fwd.hpp"
+#include "../commons/FontStyle.hpp"
 
 class Texture;
 class Batch2D;
 class Batch3D;
 class Camera;
-
-struct FontStyle {
-    bool bold = false;
-    bool italic = false;
-    bool strikethrough = false;
-    bool underline = false;
-    glm::vec4 color {1, 1, 1, 1};
-
-    FontStyle() = default;
-
-    FontStyle(
-        bool bold,
-        bool italic,
-        bool strikethrough,
-        bool underline,
-        glm::vec4 color
-    )
-        : bold(bold),
-          italic(italic),
-          strikethrough(strikethrough),
-          underline(underline),
-          color(std::move(color)) {
-    }
-};
-
-struct FontStylesScheme {
-    std::vector<FontStyle> palette;
-    std::vector<ubyte> map;
-};
 
 class Font {
     int lineHeight;

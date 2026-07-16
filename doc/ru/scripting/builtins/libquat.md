@@ -6,7 +6,7 @@
 
 ```lua
 -- создает кватернион на основе матрицы вращения
-quat.from_mat4(m: matrix)
+quat.from_mat4(m: matrix) -> quat
 
 -- записывает кватернион по матрице вращения в dst
 quat.from_mat4(m: matrix, dst: quat)
@@ -19,7 +19,7 @@ quat.from_mat4(m: matrix, dst: quat)
 ```lua
 -- создает кватернион как интерполяцию между a и b, 
 -- где t - фактор интерполяции
-quat.slerp(a: quat, b: quat, t: number)
+quat.slerp(a: quat, b: quat, t: number) -> quat
 
 -- записывает кватернион как интерполяцию между a и b в dst, 
 -- где t - фактор интерполяции
@@ -30,5 +30,5 @@ quat.slerp(a: quat, b: quat, t: number, dst: quat)
 
 ```lua
 -- возвращает строку представляющую содержимое кватерниона
-quat.tostring(q: quat)
+quat.tostring(q: quat) -> string
 ```

@@ -30,31 +30,31 @@
 using namespace gui;
 
 static Align align_from_string(std::string_view str, Align def) {
-    if (str == "left") return Align::left;
-    if (str == "center") return Align::center;
-    if (str == "right") return Align::right;
-    if (str == "top") return Align::top;
-    if (str == "bottom") return Align::bottom;
+    if (str == "left") return Align::LEFT;
+    if (str == "center") return Align::CENTER;
+    if (str == "right") return Align::RIGHT;
+    if (str == "top") return Align::TOP;
+    if (str == "bottom") return Align::BOTTOM;
     return def;
 }
 
 static Gravity gravity_from_string(const std::string& str) {
     static const std::unordered_map<std::string, Gravity> gravity_names {
-        {"top-left", Gravity::top_left},
-        {"top-center", Gravity::top_center},
-        {"top-right", Gravity::top_right},
-        {"center-left", Gravity::center_left},
-        {"center-center", Gravity::center_center},
-        {"center-right", Gravity::center_right},
-        {"bottom-left", Gravity::bottom_left},
-        {"bottom-center", Gravity::bottom_center},
-        {"bottom-right", Gravity::bottom_right},
+        {"top-left", Gravity::TOP_LEFT},
+        {"top-center", Gravity::TOP_CENTER},
+        {"top-right", Gravity::TOP_RIGHT},
+        {"center-left", Gravity::CENTER_LEFT},
+        {"center-center", Gravity::CENTER_CENTER},
+        {"center-right", Gravity::CENTER_RIGHT},
+        {"bottom-left", Gravity::BOTTOM_LEFT},
+        {"bottom-center", Gravity::BOTTOM_CENTER},
+        {"bottom-right", Gravity::BOTTOM_RIGHT},
     };
     auto found = gravity_names.find(str);
     if (found != gravity_names.end()) {
         return found->second;
     }
-    return Gravity::none;
+    return Gravity::NONE;
 }
 
 static runnable create_runnable(
@@ -73,16 +73,18 @@ static runnable create_runnable(
     return nullptr;
 }
 
-static onaction create_action(
+static void register_action(
+    UINode& node,
     const UiXmlReader& reader,
     const xml::xmlelement& element,
-    const std::string& name
+    const std::string& name,
+    UIAction action
 ) {
     auto callback = create_runnable(reader, element, name);
     if (callback == nullptr) {
-        return nullptr;
+        return;
     }
-    return [callback](GUI&) { callback(); };
+    node.listenAction(action, [callback](GUI&) { callback(); });
 }
 
 /// @brief Read basic UINode properties
@@ -177,21 +179,13 @@ static void read_uinode(
         }
     }
 
-    if (auto onclick = create_action(reader, element, "onclick")) {
-        node.listenAction(onclick);
-    }
-
-    if (auto onfocus = create_action(reader, element, "onfocus")) {
-        node.listenFocus(onfocus);
-    }
-
-    if (auto ondefocus = create_action(reader, element, "ondefocus")) {
-        node.listenDefocus(ondefocus);
-    }
-
-    if (auto ondoubleclick = create_action(reader, element, "ondoubleclick")) {
-        node.listenDoubleClick(ondoubleclick);
-    }
+    register_action(node, reader, element, "onclick", UIAction::CLICK);
+    register_action(node, reader, element, "onrightclick", UIAction::RIGHT_CLICK);
+    register_action(node, reader, element, "onfocus", UIAction::FOCUS);
+    register_action(node, reader, element, "ondefocus", UIAction::DEFOCUS);
+    register_action(node, reader, element, "ondoubleclick", UIAction::DOUBLE_CLICK);
+    register_action(node, reader, element, "onmouseover", UIAction::MOUSE_OVER);
+    register_action(node, reader, element, "onmouseout", UIAction::MOUSE_OUT);
 }
 
 static void read_container_impl(
@@ -240,15 +234,12 @@ static void read_base_panel_impl(
     if (element.has("padding")) {
         glm::vec4 padding = element.attr("padding").asVec4();
         panel.setPadding(padding);
-        glm::vec2 size = panel.getSize();
-        panel.setSize(glm::vec2(
-            size.x + padding.x + padding.z, size.y + padding.y + padding.w
-        ));
+        panel.refresh();
     }
     if (element.has("orientation")) {
         auto& oname = element.attr("orientation").getText();
         if (oname == "horizontal") {
-            panel.setOrientation(Orientation::horizontal);
+            panel.setOrientation(Orientation::HORIZONTAL);
         }
     }
 }
@@ -273,7 +264,7 @@ static void read_panel_impl(
     if (element.has("orientation")) {
         auto& oname = element.attr("orientation").getText();
         if (oname == "horizontal") {
-            panel.setOrientation(Orientation::horizontal);
+            panel.setOrientation(Orientation::HORIZONTAL);
         }
     }
     if (subnodes) {
@@ -334,7 +325,7 @@ static std::shared_ptr<UINode> read_label(
     if (element.has("multiline")) {
         label->setMultiline(element.attr("multiline").asBool());
         if (!element.has("valign")) {
-            label->setVerticalAlign(Align::top);
+            label->setVerticalAlign(Align::TOP);
         }
     }
     if (element.has("text-wrap")) {
@@ -360,8 +351,8 @@ static std::shared_ptr<UINode> read_split_box(
     float splitPos = element.attr("split-pos", "0.5").asFloat();
     Orientation orientation =
         element.attr("orientation", "vertical").getText() == "horizontal"
-            ? Orientation::horizontal
-            : Orientation::vertical;
+            ? Orientation::HORIZONTAL
+            : Orientation::VERTICAL;
     auto splitBox = std::make_shared<SplitBox>(
         reader.getGUI(), glm::vec2(), splitPos, orientation
     );
@@ -568,6 +559,11 @@ static std::shared_ptr<UINode> read_text_box(
     }
     if (element.has("line-numbers")) {
         textbox->setShowLineNumbers(element.attr("line-numbers").asBool());
+    }
+    if (element.has("keep-line-selection")) {
+        textbox->setKeepLineSelection(
+            element.attr("keep-line-selection").asBool()
+        );
     }
     if (element.has("markup")) {
         textbox->setMarkup(element.attr("markup").getText());

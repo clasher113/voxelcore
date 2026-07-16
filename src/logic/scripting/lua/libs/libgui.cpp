@@ -19,22 +19,28 @@
 #include "graphics/ui/gui_util.hpp"
 #include "graphics/ui/markdown.hpp"
 #include "graphics/core/Font.hpp"
+#include "content/Content.hpp"
+#include "content/ContentPack.hpp"
 #include "items/Inventories.hpp"
 #include "util/stringutil.hpp"
 #include "world/Level.hpp"
+#include "../usertypes/lua_type_canvas.hpp"
 
 using namespace gui;
 using namespace scripting;
 
 static DocumentNode get_document_node_impl(
-    lua::State*, const std::string& name, const std::string& nodeName
+    lua::State*, const std::string& name, const std::string& nodeName, bool throwable=true
 ) {
     auto doc = engine->getAssets()->get<UiDocument>(name);
     if (doc == nullptr) {
-        throw std::runtime_error("document '" + name + "' not found");
+        if (throwable) {
+            throw std::runtime_error("document '" + name + "' not found");
+        }
+        return {nullptr, nullptr};
     }
     auto node = doc->get(nodeName);
-    if (node == nullptr) {
+    if (node == nullptr && throwable) {
         throw std::runtime_error(
             "document '" + name + "' has no element with id '" + nodeName + "'"
         );
@@ -55,7 +61,7 @@ DocumentNode get_document_node(lua::State* L, int idx) {
 static int l_menu_back(lua::State* L) {
     auto node = get_document_node(L);
     if (auto menu = dynamic_cast<Menu*>(node.node.get())) {
-        menu->back();
+        return lua::pushboolean(L, menu->back());
     }
     return 0;
 }
@@ -99,7 +105,7 @@ static int l_container_add(lua::State* L) {
         auto subnode = guiutil::create(
             engine->getGUI(), xmlsrc, std::move(env)
         );
-        UINode::getIndices(subnode, docnode.document->getMapWriteable());
+        docnode.document->pushIndices(subnode);
         node->add(std::move(subnode));
     } catch (const std::exception& err) {
         throw std::runtime_error("container:add(...): " + std::string(err.what()));
@@ -167,7 +173,25 @@ static int l_get_line_at(lua::State* L) {
     auto node = get_document_node(L, 1);
     auto position = lua::tointeger(L, 2);
     if (auto box = dynamic_cast<TextBox*>(node.node.get())) {
-        return lua::pushinteger(L, box->getLineAt(position));
+        return lua::pushinteger(L, box->getLineAt(position) + 1);
+    }
+    return 0;
+}
+
+static int l_get_index_by_pos(lua::State* L) {
+    auto node = get_document_node(L, 1);
+    auto position = lua::tovec2(L, 2);
+    if (auto box = dynamic_cast<TextBox*>(node.node.get())) {
+        return lua::pushinteger(L, box->calcIndexAt(position.x, position.y));
+    }
+    return 0;
+}
+
+static int l_get_line_y(lua::State* L) {
+    auto node = get_document_node(L, 1);
+    auto line = lua::tointeger(L, 2);
+    if (auto box = dynamic_cast<TextBox*>(node.node.get())) {
+        return lua::pushinteger(L, box->getLineYOffset(line - 1));
     }
     return 0;
 }
@@ -374,7 +398,7 @@ static int p_get_region(UINode* node, lua::State* L) {
 
 static int p_get_data(UINode* node, lua::State* L) {
     if (auto canvas = dynamic_cast<Canvas*>(node)) {
-        return lua::newuserdata<lua::LuaCanvas>(L, canvas->texture(), canvas->data());
+        return lua::newuserdata<lua::LuaCanvas>(L, canvas->getTexture(), canvas->getData());
     }
     return 0;
 }
@@ -386,9 +410,7 @@ static const std::string& request_node_id(const DocumentNode& docnode) {
             reinterpret_cast<std::ptrdiff_t>(docnode.node.get()));
     }
     docnode.node->setId(std::move(id));
-    UINode::getIndices(
-        docnode.node, docnode.document->getMapWriteable()
-    );
+    docnode.document->pushIndices(docnode.node);
     return docnode.node->getId();
 }
 
@@ -456,6 +478,9 @@ static int p_get_content_offset(UINode* node, lua::State* L) {
     return lua::pushvec(L, node->getContentOffset());
 }
 static int p_get_id(UINode* node, lua::State* L) {
+    if (node == nullptr) {
+        return 0;
+    }
     return lua::pushstring(L, node->getId());
 }
 static int p_get_color(UINode* node, lua::State* L) {
@@ -500,6 +525,12 @@ static int p_get_focused(UINode* node, lua::State* L) {
 static int p_get_line_at(UINode*, lua::State* L) {
     return lua::pushcfunction(L, l_get_line_at);
 }
+static int p_get_index_by_pos(UINode*, lua::State* L) {
+    return lua::pushcfunction(L, l_get_index_by_pos);
+}
+static int p_get_line_y(UINode*, lua::State* L) {
+    return lua::pushcfunction(L, l_get_line_y);
+}
 static int p_get_line_pos(UINode*, lua::State* L) {
     return lua::pushcfunction(L, l_get_line_pos);
 }
@@ -537,6 +568,14 @@ static int p_get_options(UINode* node, lua::State* L) {
     return 0;
 }
 
+static int p_is_exists(UINode* node, lua::State* L) {
+    return lua::pushboolean(L, node != nullptr);
+}
+
+static bool is_node_required(std::string_view attr) {
+    return attr != "exists";
+}
+
 static int l_gui_getattr(lua::State* L) {
     if (!lua::isstring(L, 1)) {
         throw std::runtime_error("document name is not a string");
@@ -565,12 +604,14 @@ static int l_gui_getattr(lua::State* L) {
         throw std::runtime_error("attribute name is not a string");
     }
     auto attr = lua::require_string(L, 3);
+    bool required = is_node_required(attr);
 
     static const std::unordered_map<
         std::string_view,
         std::function<int(UINode*, lua::State*)>>
         getters {
             {"id", p_get_id},
+            {"exists", p_is_exists},
             {"color", p_get_color},
             {"hoverColor", p_get_hover_color},
             {"pressedColor", p_get_pressed_color},
@@ -600,6 +641,8 @@ static int l_gui_getattr(lua::State* L) {
             {"edited", p_get_edited},
             {"lineNumbers", p_get_line_numbers},
             {"lineAt", p_get_line_at},
+            {"indexByPos", p_get_index_by_pos},
+            {"lineY", p_get_line_y},
             {"linePos", p_get_line_pos},
             {"syntax", p_get_syntax},
             {"markup", p_get_markup},
@@ -627,7 +670,7 @@ static int l_gui_getattr(lua::State* L) {
         };
     auto func = getters.find(attr);
     if (func != getters.end()) {
-        auto docnode = get_document_node_impl(L, docname, element);
+        auto docnode = get_document_node_impl(L, docname, element, required);
         auto node = docnode.node;
         return func->second(node.get(), L);
     }
@@ -1026,17 +1069,31 @@ static int l_gui_load_document(lua::State* L) {
     io::path filename = lua::require_string(L, 1);
     auto alias = lua::require_string(L, 2);
     auto args = lua::tovalue(L, 3);
-    
+    auto prefix = filename.entryPoint();
+
+    auto env = scripting::get_root_environment();
+    if (content) {
+        if (auto runtime = content->getPackRuntime(prefix)) {
+            env = runtime->getEnvironment();
+        }
+    }
+
     auto documentPtr = UiDocument::read(
-        engine->getGUI(),
-        scripting::get_root_environment(),
-        alias,
-        filename,
-        filename.string()
+        engine->getGUI(), std::move(env), alias, filename, filename.string()
     );
     auto document = documentPtr.get();
     engine->getAssets()->store(std::move(documentPtr), alias);
     scripting::on_ui_open(document, {args});
+    return 0;
+}
+
+static int l_set_syntax_styles(lua::State* L) {
+    if (engine->isHeadless()) {
+        return 0;
+    }
+    engine->getGUI().setSyntaxColorScheme(std::make_unique<FontStylesScheme>(
+        FontStylesScheme::parse(lua::tovalue(L, 1))
+    ));
     return 0;
 }
 
@@ -1052,6 +1109,7 @@ const luaL_Reg guilib[] = {
     {"confirm", lua::wrap<l_gui_confirm>},
     {"alert", lua::wrap<l_gui_alert>},
     {"load_document", lua::wrap<l_gui_load_document>},
+    {"set_syntax_styles", lua::wrap<l_set_syntax_styles>},
     {"__reindex", lua::wrap<l_gui_reindex>},
-    {NULL, NULL}
+    {nullptr, nullptr}
 };

@@ -23,19 +23,19 @@ struct Transform {
 
     void refresh();
 
-    inline void setRot(glm::mat3 m) {
+    inline void setRot(const glm::mat3& m) {
         rot = m;
         dirty = true;
     }
 
-    inline void setSize(glm::vec3 v) {
+    inline void setSize(const glm::vec3& v) {
         if (glm::distance2(displaySize, v) >= EPSILON) {
             dirty = true;
         }
         size = v;
     }
 
-    inline void setPos(glm::vec3 v) {
+    inline void setPos(const glm::vec3& v) {
         if (glm::distance2(displayPos, v) >= EPSILON) {
             dirty = true;
         }

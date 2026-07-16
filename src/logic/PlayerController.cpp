@@ -207,8 +207,7 @@ void CameraControl::update(
         tpCamera->front = camera->front;
         tpCamera->right = camera->right;
     }
-    if (player.currentCamera == spCamera || player.currentCamera == tpCamera ||
-        player.currentCamera == camera) {
+    if (player.isCurrentCameraBuiltin()) {
         player.currentCamera->setFov(glm::radians(settings.fov.get()));
     }
 }
@@ -280,7 +279,7 @@ void PlayerController::postUpdate(
         updateFootsteps(delta);
     }
 
-    if (!pause && input) {
+    if (!pause && input && player.isCurrentCameraBuiltin()) {
         camControl.updateMouse(this->input, windowHeight);
     }
     camControl.refreshRotation();
@@ -488,7 +487,10 @@ void PlayerController::updateInteraction(const Input& inputEvents, float delta) 
     }
     const auto& bindings = inputEvents.getBindings();
     bool xkey = bindings.active(BIND_PLAYER_FAST_INTERACTOIN);
-    float maxDistance = xkey ? 200.0f : 10.0f;
+    float maxDistance = player.getMaxInteractionDistance();
+    if (xkey) {
+        maxDistance *= 100.0;
+    }
     bool longInteraction = interactionTimer <= 0 || xkey;
     bool lclick = bindings.jactive(BIND_PLAYER_DESTROY) ||
                   (longInteraction && bindings.active(BIND_PLAYER_DESTROY));

@@ -76,13 +76,14 @@ namespace scripting {
         const io::path& script
     );
 
-    std::unique_ptr<Process> start_coroutine(const io::path& script);
+    std::unique_ptr<Process> start_app_script(const io::path& script);
 
     void on_world_load(LevelController* controller);
     void on_world_tick(int tps);
     void on_world_save();
+    void process_before_quit();
     void on_world_quit();
-    void cleanup();
+    void cleanup(const std::vector<std::string>& nonReset);
     void on_blocks_tick(const Block& block, int tps);
     void update_block(const Block& block, const glm::ivec3& pos);
     void random_update_block(const Block& block, const glm::ivec3& pos);
@@ -185,10 +186,12 @@ namespace scripting {
     );
 
     /// @brief Load component script
+    /// @param env environment
     /// @param name component full name (packid:name)
     /// @param file component script file path
     /// @param fileName script file path using the engine format
     void load_entity_component(
+        const scriptenv& env,
         const std::string& name,
         const io::path& file,
         const std::string& fileName

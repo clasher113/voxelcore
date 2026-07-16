@@ -1,5 +1,5 @@
-#include "../lua_custom_types.hpp"
 #include "../lua_util.hpp"
+#include "lua_type_random.hpp"
 
 #include <chrono>
 

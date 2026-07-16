@@ -25,4 +25,12 @@ assets.parse_model(
     -- Model name after loading
     name: str
 )
+
+-- Creates a Canvas from a loaded texture.
+assets.to_canvas(
+    -- The name of the loaded texture.
+    -- Both standalone textures ("texture_name") and
+    -- those in an atlas ("atlas:texture_name") are supported
+    name: str
+) --> Canvas
 ```

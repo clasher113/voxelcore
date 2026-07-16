@@ -73,6 +73,7 @@ static int l_set(lua::State* L, ItemStack& item) {
     if (!data.isObject() && data != nullptr) {
         throw std::runtime_error("invalid data argument type (table expected)");
     }
+    validate_itemid(itemid);
     item.set(ItemStack(itemid, count, std::move(data)));
     return 0;
 }
@@ -256,5 +257,5 @@ const luaL_Reg inventorylib[] = {
     {"create", lua::wrap<l_create>},
     {"remove", lua::wrap<l_remove>},
     {"clone", lua::wrap<l_clone>},
-    {NULL, NULL}
+    {nullptr, nullptr}
 };

@@ -121,6 +121,17 @@ void LevelController::update(float delta, bool pause) {
     level->entities->clean();
 }
 
+void LevelController::processBeforeQuit() {
+    preQuitCallbacks.notify();
+    // todo: move somewhere else
+    for (auto player : level->players->getAll()) {
+        if (player->chunks) {
+            player->chunks->saveAndClear();
+        }
+    }
+    scripting::process_before_quit();
+}
+
 void LevelController::saveWorld() {
     auto world = level->getWorld();
     if (world->isNameless()) {

@@ -6,8 +6,15 @@
 #include "debug/Logger.hpp"
 #include "engine/Engine.hpp"
 #include "graphics/commons/Model.hpp"
-#include "graphics/core/Texture.hpp"
+#include "graphics/core/Atlas.hpp"
 #include "util/Buffer.hpp"
+#include "../usertypes/lua_type_canvas.hpp"
+
+#ifdef USE_DIRECTX
+#include "directx/graphics/Texture.hpp"
+#elif USE_OPENGL
+#include "graphics/core/Texture.hpp"
+#endif // USE_DIRECTX
 
 using namespace scripting;
 
@@ -64,8 +71,47 @@ static int l_parse_model(lua::State* L) {
     return 0;
 }
 
+static int l_to_canvas(lua::State* L) {
+    auto& assets = *engine->getAssets();
+
+    auto alias = lua::require_lstring(L, 1);
+    size_t sep = alias.rfind(':');
+    if (sep == std::string::npos) {
+        auto texture = assets.getShared<Texture>(std::string(alias));
+        if (texture != nullptr) {
+            auto image = texture->readData();
+            return lua::newuserdata<lua::LuaCanvas>(
+                L, texture, std::move(image)
+            );
+        }
+        return 0;
+    }
+    auto atlasName = alias.substr(0, sep);
+    
+    if (auto atlas = assets.get<Atlas>(std::string(atlasName))) {
+        auto textureName = std::string(alias.substr(sep + 1));
+        auto image = atlas->shareImageData();
+        auto texture = atlas->shareTexture();
+
+        if (auto region = atlas->getIf(textureName)) {
+            UVRegion uvRegion = *region;
+            int atlasWidth = static_cast<int>(image->getWidth());
+            int atlasHeight = static_cast<int>(image->getHeight());
+            int x = static_cast<int>(uvRegion.u1 * atlasWidth);
+            int y = static_cast<int>(uvRegion.v1 * atlasHeight);
+            int w = static_cast<int>(uvRegion.getWidth() * atlasWidth);
+            int h = static_cast<int>(uvRegion.getHeight() * atlasHeight);
+            return lua::newuserdata<lua::LuaCanvas>(
+                L, std::move(texture), image->cropped(x, y, w, h), uvRegion
+            );
+        }
+    }
+    return 0;
+}
+
 const luaL_Reg assetslib[] = {
     {"load_texture", lua::wrap<l_load_texture>},
     {"parse_model", lua::wrap<l_parse_model>},
-    {NULL, NULL}
+    {"to_canvas", lua::wrap<l_to_canvas>},
+    {nullptr, nullptr}
 };

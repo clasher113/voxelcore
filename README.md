@@ -3,7 +3,7 @@
 ## Latest release
 
 - [Download](https://github.com/MihailRis/VoxelCore/releases/latest) | [Скачать](https://github.com/MihailRis/VoxelCore/releases/latest)
-- [Documentation](https://github.com/MihailRis/VoxelCore/blob/release-0.28/doc/en/main-page.md) | [Документация](https://github.com/MihailRis/VoxelCore/blob/release-0.28/doc/ru/main-page.md)
+- [Documentation](https://github.com/MihailRis/VoxelCore/blob/release-0.30/doc/en/main-page.md) | [Документация](https://github.com/MihailRis/VoxelCore/blob/release-0.30/doc/ru/main-page.md)
 
 ---
 
@@ -13,8 +13,10 @@
 
 #### Install EnTT
 
+Installing last version that supports C++17.
+
 ```sh
-git clone https://github.com/skypjack/entt.git
+git clone --branch v3.16.0 https://github.com/skypjack/entt.git
 cd entt
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DENTT_INSTALL=ON ..

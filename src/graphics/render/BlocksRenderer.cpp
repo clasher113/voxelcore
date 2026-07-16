@@ -40,8 +40,7 @@ BlocksRenderer::BlocksRenderer(
     blockDefsCache = content.getIndices()->blocks.getDefs();
 }
 
-BlocksRenderer::~BlocksRenderer() {
-}
+BlocksRenderer::~BlocksRenderer() = default;
 
 /// Basic vertex add method
 void BlocksRenderer::vertex(
@@ -319,6 +318,7 @@ void BlocksRenderer::blockCustomModel(
             overflow = true;
             return;
         }
+        bool shading = mesh.shading && !block.shadeless;
         for (int triangle = 0; triangle < mesh.vertices.size() / 3; triangle++) {
             auto r = mesh.vertices[triangle * 3 + (triangle % 2) * 2].coord -
                      mesh.vertices[triangle * 3 + 1].coord;
@@ -335,7 +335,9 @@ void BlocksRenderer::blockCustomModel(
                       0.5f;
             vp = vp.x * X + vp.y * Y + vp.z * Z;
 
-            if (!isOpen(glm::floor(coord + vp + 0.5f + n * 1e-3f), block, variant) && is_aligned(n)) {
+            if (!block.rt.extended
+                && !isOpen(glm::floor(coord + vp + 0.5f + n * 1e-3f), block, variant)
+                && is_aligned(n)) {
                 continue;
             }
 
@@ -348,18 +350,29 @@ void BlocksRenderer::blockCustomModel(
                 const auto& vcoord = vertex.coord - 0.5f;
 
                 glm::vec4 aoColor {1.0f, 1.0f, 1.0f, 1.0f};
-                if (mesh.shading && ao) {
-                    auto p = coord + vcoord.x * X + vcoord.y * Y +
-                             vcoord.z * Z + r * 0.5f + t * 0.5f + n * 0.5f;
-                    aoColor = pickSoftLight(p.x, p.y, p.z, glm::ivec3(r), glm::ivec3(t));
+                if (shading && ao) {
+                    const float eps = 0.05f;
+                    auto p = coord + vcoord.x * X + vcoord.y * Y + vcoord.z * Z +
+                             r * 0.5f + t * 0.5f + n * eps;
+                    auto p1 = p + n * eps;
+                    auto p2 = p + n * 0.5f;
+                    aoColor = pickSoftLight(p1.x, p1.y, p1.z, glm::ivec3(r), glm::ivec3(t));
+                    if (!block.lightPassing) {
+                        aoColor = glm::max(
+                            aoColor,
+                            pickSoftLight(
+                                p2.x, p2.y, p2.z, glm::ivec3(r), glm::ivec3(t)
+                            )
+                        );
+                    }
                 }
                 this->vertex(
                     coord + vcoord.x * X + vcoord.y * Y + vcoord.z * Z,
                     vertex.uv.x,
                     vertex.uv.y,
-                    mesh.shading ? (glm::vec4(d, d, d, d) * aoColor) : glm::vec4(1, 1, 1, d),
+                    shading ? (glm::vec4(d, d, d, d) * aoColor) : glm::vec4(1, 1, 1, d),
                     n,
-                    mesh.shading ? 0.0f : 1.0
+                    shading ? 0.0f : 1.0
                 );
                 indexBuffer[indexCount++] = vertexOffset++;
             }
@@ -410,22 +423,22 @@ void BlocksRenderer::blockCube(
         }
     } else {
         if (isOpen(coord + Z, block, variant)) {
-            face(coord, X, Y, Z, texfaces[5], pickLight(coord + Z), lights);
+            face(coord, X, Y, Z, texfaces[5], lights ? pickLight(coord + Z) : glm::vec4(1,1,1,0), lights);
         }
         if (isOpen(coord - Z, block, variant)) {
-            face(coord, -X, Y, -Z, texfaces[4], pickLight(coord - Z), lights);
+            face(coord, -X, Y, -Z, texfaces[4], lights ? pickLight(coord - Z) : glm::vec4(1,1,1,0), lights);
         }
         if (isOpen(coord + Y, block, variant)) {
-            face(coord, X, -Z, Y, texfaces[3], pickLight(coord + Y), lights);
+            face(coord, X, -Z, Y, texfaces[3], lights ? pickLight(coord + Y) : glm::vec4(1,1,1,0), lights);
         }
         if (isOpen(coord - Y, block, variant)) {
-            face(coord, X, Z, -Y, texfaces[2], pickLight(coord - Y), lights);
+            face(coord, X, Z, -Y, texfaces[2], lights ? pickLight(coord - Y) : glm::vec4(1,1,1,0), lights);
         }
         if (isOpen(coord + X, block, variant)) {
-            face(coord, -Z, Y, X, texfaces[1], pickLight(coord + X), lights);
+            face(coord, -Z, Y, X, texfaces[1], lights ? pickLight(coord + X) : glm::vec4(1,1,1,0), lights);
         }
         if (isOpen(coord - X, block, variant)) {
-            face(coord, Z, Y, -X, texfaces[0], pickLight(coord - X), lights);
+            face(coord, Z, Y, -X, texfaces[0], lights ? pickLight(coord - X) : glm::vec4(1,1,1,0), lights);
         }
     }
 }
@@ -485,6 +498,7 @@ void BlocksRenderer::render(
 ) {
     bool denseRender = this->denseRender;
     bool densePass = this->densePass;
+    bool enableAO = settings.graphics.softLighting.get();
     for (const auto drawGroup : *content.drawGroups) {
         int begin = beginEnds[drawGroup][0];
         if (begin == 0) {
@@ -521,7 +535,7 @@ void BlocksRenderer::render(
             switch (def.getModel(state.userbits).type) {
                 case BlockModelType::BLOCK:
                     blockCube({x, y, z}, texfaces, def, vox.state, !def.shadeless,
-                              def.ambientOcclusion);
+                              def.ambientOcclusion && enableAO);
                     break;
                 case BlockModelType::XSPRITE: {
                     if (!denseRender)
@@ -532,7 +546,7 @@ void BlocksRenderer::render(
                 case BlockModelType::AABB: {
                     if (!denseRender)
                     blockAABB({x, y, z}, texfaces, &def, vox.state.rotation,
-                              !def.shadeless, def.ambientOcclusion);
+                              !def.shadeless, def.ambientOcclusion && enableAO);
                     break;
                 }
                 case BlockModelType::CUSTOM: {
@@ -542,7 +556,7 @@ void BlocksRenderer::render(
                         def,
                         vox.state,
                         !def.shadeless,
-                        def.ambientOcclusion
+                        def.ambientOcclusion && enableAO
                     );
                     break;
                 }
@@ -566,6 +580,7 @@ SortingMeshData BlocksRenderer::renderTranslucent(
     size_t totalSize = 0;
 
     bool densePass = this->densePass;
+    bool enableAO = settings.graphics.softLighting.get();
     for (const auto drawGroup : *content.drawGroups) {
         int begin = beginEnds[drawGroup][0];
         if (begin == 0) {
@@ -599,7 +614,7 @@ SortingMeshData BlocksRenderer::renderTranslucent(
             switch (def.getModel(state.userbits).type) {
                 case BlockModelType::BLOCK:
                     blockCube({x, y, z}, texfaces, def, vox.state, !def.shadeless,
-                              def.ambientOcclusion);
+                              def.ambientOcclusion && enableAO);
                     break;
                 case BlockModelType::XSPRITE: {
                     blockXSprite(x, y, z, glm::vec3(1.0f),
@@ -607,13 +622,24 @@ SortingMeshData BlocksRenderer::renderTranslucent(
                     break;
                 }
                 case BlockModelType::AABB: {
-                    blockAABB({x, y, z}, texfaces, &def, vox.state.rotation,
-                              !def.shadeless, def.ambientOcclusion);
+                    blockAABB(
+                        {x, y, z},
+                        texfaces,
+                        &def,
+                        vox.state.rotation,
+                        !def.shadeless,
+                        def.ambientOcclusion && enableAO
+                    );
                     break;
                 }
                 case BlockModelType::CUSTOM: {
-                    blockCustomModel({x, y, z}, def, vox.state,
-                                     !def.shadeless, def.ambientOcclusion);
+                    blockCustomModel(
+                        {x, y, z},
+                        def,
+                        vox.state,
+                        !def.shadeless,
+                        def.ambientOcclusion && enableAO
+                    );
                     break;
                 }
                 default:

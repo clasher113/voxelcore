@@ -159,6 +159,8 @@ Face culling mode:
 - **optional** - face culling among blocks of the same rendering group can be disabled via the `graphics.dense-render` setting.
 - **disabled** - face culling among blocks of the same rendering group disabled.
 
+In `optional` mode, disabling `graphics.dense-render` will use the `*_opaque` texture variant (if available).
+
 ## Physics
 
 ### *obstacle*
@@ -215,10 +217,6 @@ If **true** an item will not be generated for block. **picking-item** must be sp
 Item will be chosen on MMB click on the block.
 
 Example: block `door:door_open` is hidden, so you need to specify `picking-item: "door:door.item"` to bind it to not hidden `door:door` block item.
-
-### *script-name*
-
-Used to specify block script name (to reuse one script to multiple blocks). Name must not contain `packid:scripts/` and extension. Just name.
 
 ### *ui-layout*
 
@@ -315,6 +313,16 @@ It should be noted that the `item` refers specifically to the item. That is, to 
 Example: `base:dirt.item`.
 
 To generate loot, the function `block_loot(block_id: int)` in the `base:util` module should be used.
+
+## Other properties
+
+### *script-name*
+
+Used to specify block script name (to reuse one script to multiple blocks). Name must not contain `packid:scripts/` and extension. Just name.
+
+### Tick Interval - *tick-interval*
+
+The interval in ticks (1/20th of a second). A value of 20 results in an on_block_tick call interval of one second.
 
 ## Methods
 

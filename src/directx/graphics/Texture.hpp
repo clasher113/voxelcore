@@ -29,8 +29,9 @@ public:
 
 	virtual void bind(ShaderType shaderType = ShaderType::PIXEL, UINT startSlot = 0u) const;
 	virtual void unbind(ShaderType shaderType = ShaderType::PIXEL, UINT startSlot = 0u) const;
-	void reload(ubyte* data);
+	void reload(ubyte* data, uint w, uint h);
 	void reload(const ImageData& image);
+	void reloadPartial(const ImageData& image, uint x, uint y, uint w, uint h);
 	void setMipMapping(bool flag, bool pixelated);
 
 	virtual std::unique_ptr<ImageData> readData(bool flipY = true);

@@ -17,6 +17,7 @@ struct CursorState;
 class Engine;
 class Input;
 class Window;
+struct FontStylesScheme;
 
 namespace devtools {
     class Editor;
@@ -73,6 +74,7 @@ namespace gui {
         std::shared_ptr<UINode> focus;
         std::shared_ptr<UINode> tooltip;
         std::shared_ptr<UiDocument> rootDocument;
+        std::unique_ptr<FontStylesScheme> syntaxColorScheme;
         std::unordered_map<std::string, std::shared_ptr<UINode>> storage;
 
         std::unique_ptr<Camera> uicamera;
@@ -156,6 +158,9 @@ namespace gui {
         /// @brief Get the main container
         /// @deprecated
         std::shared_ptr<Container> getContainer() const;
+
+        void setSyntaxColorScheme(std::unique_ptr<FontStylesScheme> scheme);
+        FontStylesScheme* getSyntaxColorScheme() const;
 
         void onAssetsLoad(Assets* assets);
 

@@ -1,7 +1,9 @@
 #include "libentity.hpp"
 
 #include "content/Content.hpp"
+#include "content/ContentPack.hpp"
 #include "engine/Engine.hpp"
+#include "engine/EnginePaths.hpp"
 #include "objects/Entities.hpp"
 #include "objects/EntityDef.hpp"
 #include "objects/Entity.hpp"
@@ -235,7 +237,14 @@ static int l_reload_component(lua::State* L) {
     }
     auto filename = name.substr(0, pos + 1) + "scripts/components/" +
                     name.substr(pos + 1) + ".lua";
-    scripting::load_entity_component(name, filename, filename);
+    auto prefix = name.substr(0, pos);
+    auto runtime = content->getPackRuntime(prefix);
+    if (runtime == nullptr) {
+        throw std::runtime_error("pack '" + prefix + "' content is not loaded");
+    }
+    scripting::load_entity_component(
+        runtime->getEnvironment(), name, filename, filename
+    );
     return 0;
 }
 
@@ -255,5 +264,5 @@ const luaL_Reg entitylib[] = {
     {"get_all_in_radius", lua::wrap<l_get_all_in_radius>},
     {"raycast", lua::wrap<l_raycast>},
     {"reload_component", lua::wrap<l_reload_component>},
-    {NULL, NULL}
+    {nullptr, nullptr}
 };

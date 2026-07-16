@@ -20,6 +20,12 @@ hud.open(
     [optional] invid: int
 ) -> int
 
+-- Returns true if specified layout is open.
+hud.is_open(
+    layoutid: str
+) -> bool
+
+
 -- Open block UI and inventory.
 -- Throws an exception if block has no UI layout.
 -- Returns block inventory ID (if *"inventory-size"=0* a virtual 
