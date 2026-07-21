@@ -62,8 +62,9 @@ entities.get_all_in_radius(center: vec3, radius: number) -> table<int>
 ```
 
 ```lua
-entities.raycast(start: vec3, dir: vec3, max_distance: number,
-                 ignore: int, [optional] destination: table, [optional] filter: table) -> table или nil
+entities.raycast(start: vec3, dir: vec3, max_distance: number, ignore: int, [optional] destination: table,
+    [optional] filter: table, [optional] include_non_selectable = false
+) -> table или nil
 ```
 
 Функция является расширенным вариантом [block.raycast](libblock.md#raycast). Возвращает таблицу с результатами если луч касается блока, либо сущности.

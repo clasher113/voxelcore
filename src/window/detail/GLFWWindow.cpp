@@ -309,6 +309,7 @@ public:
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         } else {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            glfwSetCursor(window, nullptr);
         }
         cursorLocked = !cursorLocked;
     }
@@ -347,8 +348,8 @@ private:
     GLFWwindow* window;
     bool cursorLocked = false;
     bool cursorDrag = false;
-    glm::vec2 delta;
-    glm::vec2 cursor;
+    glm::vec2 delta {};
+    glm::vec2 cursor {};
 };
 static_assert(!std::is_abstract<GLFWInput>());
 
@@ -624,7 +625,7 @@ public:
         TextureUtil::readPixels(staged, data.get());
         staged->Release();
         return std::make_unique<ImageData>(
-            ImageFormat::rgba8888, size.x, size.y, data.release()
+            ImageFormat::RGBA8888, size.x, size.y, data.release()
         );
 #elif USE_OPENGL
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -632,7 +633,7 @@ public:
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glReadPixels(0, 0, size.x, size.y, GL_RGB, GL_UNSIGNED_BYTE, data.get());
         return std::make_unique<ImageData>(
-            ImageFormat::rgb888, size.x, size.y, data.release()
+            ImageFormat::RGB888, size.x, size.y, data.release()
         );
 #endif // USE_DIRECTX
     }
@@ -653,7 +654,7 @@ private:
     CursorShape cursor = CursorShape::ARROW;
     int framerate = -1;
     std::stack<glm::vec4> scissorStack;
-    glm::vec4 scissorArea;
+    glm::vec4 scissorArea {};
     double prevSwap = 0.0;
     int posX = 0;
     int posY = 0;

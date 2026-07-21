@@ -54,6 +54,9 @@ The main properties described in the configuration file:
 - **heights-bpd** - number of blocks per point of the height map. Default: 4.
 - **wide-structs-chunks-radius** - maximum radius for placing 'wide' structures, measured in chunks.
 - **heightmap-inputs** - an array of parameter map numbers that will be passed by the inputs table to the height map generation function.
+- **player-spawn-radius** - radius of the player spawn zone.
+- **player-min-spawn-height**, **player-max-spawn-height** - specifying the **preferred** vertical spawn zone.
+  Specifying a minimum height allows you to minimize the chance of spawning in underground voids, just as specifying a maximum allows you to minimize the chance of spawning on suspiciously dense cloud.
 
 ## Global variables
 
@@ -413,7 +416,7 @@ Structure:
 
 Where:
 - structure_name - a string containing the name of the structure, registered in structures.toml.
-- structure_position - a vec3 (an array of three numbers) relative to the position of the chunk.
+- structure_position - a vec3 (an array of three numbers).
 - rotation - a number from 0 to 3 indicating the rotation of the structure along the Y axis.
 - priority - a number determining the order in which structures are placed. Structures with lower priority are overlapped by structures with higher priority.
 

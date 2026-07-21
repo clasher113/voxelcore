@@ -37,7 +37,7 @@ Skybox::Skybox(uint size, Shader& shader)
     shader(shader),
     batch3d(std::make_unique<Batch3D>(4096))
 {
-    auto cubemap = std::make_unique<Cubemap>(size, size, ImageFormat::rgb888);
+    auto cubemap = std::make_unique<Cubemap>(size, size, ImageFormat::RGB888);
 
 #ifdef USE_DIRECTX
     fbo = std::make_unique<Framebuffer>(std::move(cubemap));
@@ -191,7 +191,7 @@ void Skybox::draw(
     drawStars(angle, opacity);
 }
 
-void Skybox::refresh(const DrawContext& pctx, float t, float mie, uint quality) {
+void Skybox::refresh(const DrawContext& pctx, float t, float mie, const glm::vec3& tint, const glm::vec3& hightlight, uint quality) {
     frameid++;
     float dayTime = t;
     DrawContext ctx = pctx.sub();
@@ -226,11 +226,13 @@ void Skybox::refresh(const DrawContext& pctx, float t, float mie, uint quality) 
 
     shader.uniform1i("u_quality", quality);
     shader.uniform1f("u_mie", mie);
+    shader.uniform3f("u_tint", tint);
+    shader.uniform3f("u_hightlight", hightlight);
     shader.uniform1f("u_fog", mie - 1.0f);
     shader.uniform3f("u_lightDir", lightDir);
     shader.uniform1f("u_dayTime", dayTime);
 
-    if (glm::abs(mie-prevMie) + glm::abs(t-prevT) >= 0.01) {
+    if (glm::abs(mie-prevMie) + glm::abs(t-prevT) + glm::abs(prevHighlight.r - hightlight.r) >= 0.01) {
         for (uint face = 0; face < 6; face++) {
             refreshFace(face, cubemap);
         }
@@ -240,6 +242,7 @@ void Skybox::refresh(const DrawContext& pctx, float t, float mie, uint quality) 
     }
     prevMie = mie;
     prevT = t;
+    prevHighlight = hightlight;
 
 #ifdef USE_OPENGL
     cubemap->unbind();

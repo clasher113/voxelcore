@@ -1,31 +1,32 @@
 #include "AssetsLoader.hpp"
 
-#include <iostream>
-#include <memory>
-#include <utility>
-
-#include "coders/imageio.hpp"
+#include "assetload_funcs.hpp"
+#include "Assets.hpp"
 #include "coders/commons.hpp"
+#include "coders/imageio.hpp"
 #include "constants.hpp"
 #include "content/Content.hpp"
 #include "content/ContentPack.hpp"
 #include "debug/Logger.hpp"
+#include "engine/Engine.hpp"
 #include "engine/EnginePaths.hpp"
 #include "io/io.hpp"
+#include "items/ItemDef.hpp"
 #include "logic/scripting/scripting.hpp"
+#include "objects/EntityDef.hpp"
 #include "objects/rigging.hpp"
 #include "util/ThreadPool.hpp"
 #include "voxels/Block.hpp"
-#include "items/ItemDef.hpp"
-#include "Assets.hpp"
-#include "assetload_funcs.hpp"
-#include "engine/Engine.hpp"
 
 #ifdef USE_DIRECTX
 #include "directx/graphics/Texture.hpp"
 #elif USE_OPENGL
 #include "graphics/core/Texture.hpp"
 #endif // USE_DIRECTX
+
+
+#include <memory>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -41,6 +42,7 @@ AssetsLoader::AssetsLoader(Engine& engine, Assets& assets, const ResPaths& paths
     addLoader(AssetType::SOUND, assetload::sound);
     addLoader(AssetType::MODEL, assetload::model);
     addLoader(AssetType::POST_EFFECT, assetload::posteffect);
+    addLoader(AssetType::SKELETON, assetload::skeleton);
 }
 
 void AssetsLoader::addLoader(AssetType tag, aloader_func func) {
@@ -146,6 +148,8 @@ static std::string assets_def_folder(AssetType tag) {
             return MODELS_FOLDER;
         case AssetType::POST_EFFECT:
             return POST_EFFECTS_FOLDER;
+        case AssetType::SKELETON:
+            return SKELETONS_FOLDER;
     }
     return "<error>";
 }
@@ -183,6 +187,18 @@ void AssetsLoader::processPreload(
             config = std::make_shared<PostEffectCfg>(advanced);
             break;
         }
+        case AssetType::MODEL: {
+            bool squashed = false;
+            map.at("squash").get(squashed);
+            config = std::make_shared<ModelCfg>(squashed);
+            break;
+        }
+        case AssetType::FONT: {
+            int size = DEFAULT_FONT_SIZE;
+            map.at("size").get(size);
+            config = std::make_unique<FontCfg>(size);
+            break;
+        }
         default:
             break;
     }
@@ -216,6 +232,7 @@ void AssetsLoader::processPreloadConfig(const io::path& file) {
     processPreloadList(AssetType::SOUND, root["sounds"]);
     processPreloadList(AssetType::MODEL, root["models"]);
     processPreloadList(AssetType::POST_EFFECT, root["post-effects"]);
+    processPreloadList(AssetType::SKELETON, root["skeletons"]);
     // layouts are loaded automatically
 }
 
@@ -268,21 +285,20 @@ void AssetsLoader::addDefaults(AssetsLoader& loader, const Content* content) {
             add_layouts(pack->getEnvironment(), info.id, folder, loader);
         }
 
-        for (auto& entry : content->getSkeletons()) {
-            auto& skeleton = *entry.second;
-            for (auto& bone : skeleton.getBones()) {
-                std::string model = bone->model.name;
-                size_t pos = model.rfind('.');
-                if (pos != std::string::npos) {
-                    model = model.substr(0, pos);
-                }
-                if (!model.empty()) {
-                    loader.add(
-                        AssetType::MODEL, MODELS_FOLDER + "/" + model, model
-                    );
-                }
+        for (const auto& entry : content->getPacks()) {
+            io::path skeletonsDir = entry.first + ":skeletons";
+            if (!io::is_directory(skeletonsDir)) {
+                continue;
+            }
+            for (const auto& file : io::directory_iterator(skeletonsDir)) {
+                loader.add(
+                    AssetType::SKELETON,
+                    (file.parent() / file.stem()).string(),
+                    entry.first + ":" + file.stem()
+                );
             }
         }
+
         for (const auto& [_, def] : content->blocks.getDefs()) {
             if (def->variants) {
                 for (const auto& variant : def->variants->variants) {
@@ -301,30 +317,43 @@ void AssetsLoader::addDefaults(AssetsLoader& loader, const Content* content) {
                 );
             }
         }
+        for (const auto& [_, def] : content->entities.getDefs()) {
+            if (def->skeletonName.find(':') == std::string::npos) {
+                // expecting a VCM with skeleton
+                loader.add(
+                    AssetType::MODEL,
+                    MODELS_FOLDER + "/" + def->skeletonName,
+                    def->skeletonName
+                );
+            }
+        }
     }
 }
 
 bool AssetsLoader::loadExternalTexture(
-    Assets* assets,
+    AssetsLoader& loader,
     const std::string& name,
     const std::vector<io::path>& alternatives
 ) {
-    if (assets->get<Texture>(name) != nullptr) {
+    if (loader.getAssets().get<Texture>(name) != nullptr) {
         return true;
     }
     for (auto& path : alternatives) {
         if (io::exists(path)) {
-            try {
-                auto image = imageio::read(path);
-                assets->store(Texture::from(image.get()), name);
-                return true;
-            } catch (const std::exception& err) {
-                logger.error() << "error while loading external "
-                               << path.string() << ": " << err.what();
-            }
+            loader.add(
+                AssetType::TEXTURE,
+                (path.parent() / path.stem()).string(),
+                name,
+                nullptr
+            );
+            return true;
         }
     }
     return false;
+}
+
+Assets& AssetsLoader::getAssets() {
+    return assets;
 }
 
 Engine& AssetsLoader::getEngine() {
@@ -354,14 +383,24 @@ public:
     }
 };
 
-std::shared_ptr<Task> AssetsLoader::startTask(runnable onDone) {
+std::shared_ptr<Task> AssetsLoader::startTask(runnable onDone, int maxWorkers) {
     auto pool =
         std::make_shared<util::ThreadPool<aloader_entry, assetload::postfunc>>(
             "assets-loader-pool",
-            [=]() { return std::make_shared<LoaderWorker>(this); },
-            [this](const assetload::postfunc& func) { func(&assets); }
+            [=]() { return std::make_unique<LoaderWorker>(this); },
+            [this](const assetload::postfunc& func) { func(&assets); },
+            maxWorkers
         );
     pool->setOnComplete(std::move(onDone));
+    pool->setJobsSource([this]() -> std::optional<aloader_entry> {
+        if (entries.empty()) {
+            return std::nullopt;
+        }
+        aloader_entry entry = std::move(entries.front());
+        entries.pop();
+        return entry;
+    });
+
     while (!entries.empty()) {
         aloader_entry entry = std::move(entries.front());
         entries.pop();

@@ -14,6 +14,7 @@ struct EngineSettings;
 
 /// @brief LevelController manages other controllers
 class LevelController {
+    Engine& engine;
     EngineSettings& settings;
     std::unique_ptr<Level> level;
     // Sub-controllers
@@ -21,10 +22,12 @@ class LevelController {
     std::unique_ptr<ChunksController> chunks;
 
     util::Clock playerTickClock;
+
+    Player* clientPlayer;
 public:
     CallbacksSet<> preQuitCallbacks;
 
-    LevelController(Engine* engine, std::unique_ptr<Level> level, Player* clientPlayer);
+    LevelController(Engine& engine, std::unique_ptr<Level> level, Player* clientPlayer);
 
     /// @param delta time elapsed since the last update
     /// @param pause is world and player simulation paused

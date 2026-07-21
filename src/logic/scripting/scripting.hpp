@@ -23,10 +23,12 @@ struct ItemDef;
 class Inventory;
 class UiDocument;
 struct BlockFuncsSet;
+struct BlockFuncNamesCache;
 struct ItemFuncsSet;
+struct ItemFuncNamesCache;
 struct WorldFuncsSet;
 struct UserComponent;
-struct uidocscript;
+struct UiDocScript;
 class BlocksController;
 class LevelController;
 class Entity;
@@ -106,6 +108,7 @@ namespace scripting {
 
     void on_inventory_open(const Player* player, const Inventory& inventory);
     void on_inventory_closed(const Player* player, const Inventory& inventory);
+    void on_inventory_interact(int invid, int slot, int action, int mode);
 
     void on_player_tick(Player* player, int tps);
 
@@ -168,7 +171,8 @@ namespace scripting {
         const std::string& prefix,
         const io::path& file,
         const std::string& fileName,
-        BlockFuncsSet& funcsset
+        BlockFuncsSet& funcsset,
+        BlockFuncNamesCache& namesCache
     );
 
     /// @brief Load script associated with an Item
@@ -182,7 +186,8 @@ namespace scripting {
         const std::string& prefix,
         const io::path& file,
         const std::string& fileName,
-        ItemFuncsSet& funcsset
+        ItemFuncsSet& funcsset,
+        ItemFuncNamesCache& namesCache
     );
 
     /// @brief Load component script
@@ -227,7 +232,7 @@ namespace scripting {
         const std::string& prefix,
         const io::path& file,
         const std::string& fileName,
-        uidocscript& script
+        UiDocScript& script
     );
 
     /// @brief Finalize lua state. Using scripting after will lead to Lua panic

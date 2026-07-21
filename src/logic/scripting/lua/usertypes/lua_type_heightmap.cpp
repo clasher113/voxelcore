@@ -56,7 +56,7 @@ static int l_dump(lua::State* L) {
         io::path file = require_string(L, 2);
         uint w = heightmap->getWidth();
         uint h = heightmap->getHeight();
-        ImageData image(ImageFormat::rgb888, w, h);
+        ImageData image(ImageFormat::RGB888, w, h);
         auto heights = heightmap->getValues();
         auto raster = image.getData();
         for (uint y = 0; y < h; y++) {

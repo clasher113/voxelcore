@@ -231,44 +231,46 @@ local function FFIBytearray_as_string(bytes)
 end
 
 local function create_FFIview_class(name, typename, typesize)
-    local FFIU16view_mt = {
+    local ptrtype = typename .. "*"
+    local FFIview_mt = {
         __index = function(self, key)
-            if key <= 0 or key > self.size then
+            if key == 'size' then
+                return self.bytes.size / typesize
+            end
+            if key <= 0 or key > self.bytes.size / typesize then
                 return
             end
-            return self.ptr[key - 1]
+            local ptr = FFI.cast(ptrtype, self.bytes.bytes)
+            return ptr[key - 1]
         end,
         __newindex = function(self, key, value)
-            if key == self.size + 1 then
-                return append(self, value)
-            elseif key <= 0 or key > self.size then
+            if key <= 0 or key > self.bytes.size / typesize then
                 return
             end
-            self.ptr[key - 1] = value
+            local ptr = FFI.cast(ptrtype, self.bytes.bytes)
+            ptr[key - 1] = value
         end,
         __len = function(self)
-            return self.size
+            return self.bytes.size / typesize
         end,
         __tostring = function(self)
-            return string.format(name .. "[%s]{...}", tonumber(self.size))
+            return string.format(name .. "[%s]{...}", tonumber(self.bytes.size / typesize))
         end,
         __ipairs = function(self)
             local i = 0
             return function()
                 i = i + 1
-                if i <= self.size then
-                    return i, self.ptr[i - 1]
+                if i <= self.bytes.size / typesize then
+                    local ptr = FFI.cast(ptrtype, self.bytes.bytes)
+                    return i, ptr[i - 1]
                 end
             end
         end
     }
     return function (bytes)
-        local ptr = FFI.cast(typename .. "*", bytes.bytes)
         local x = setmetatable({
             bytes=bytes,
-            ptr=ptr,
-            size=math.floor(bytes.size / typesize),
-        }, FFIU16view_mt)
+        }, FFIview_mt)
         return x
     end
 end

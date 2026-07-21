@@ -31,6 +31,8 @@ cbuffer TranslucentCBuff : register(b0) {
     float u_torchlightDistance;
     float3 u_sunDir;
     float u_gamma;
+    float3 u_minSkyLight;
+    float u_dayTime;
     bool u_alphaClip;
     bool u_debugLights;
     bool u_debugNormals;
@@ -60,7 +62,7 @@ PSInput VShader(VSInput input) {
     output.texCoord = input.texCoord;
     
     output.dir = output.modelpos.xyz - u_cameraPos;
-    float3 skyLightColor = pick_sky_color(skyboxTexture, samplerLinearClamp);
+    float3 skyLightColor = pick_sky_color(skyboxTexture, samplerLinearClamp, u_dayTime, u_minSkyLight);
     output.skyLight = skyLightColor.rgb * input.light.a;
     
     float4x4 viewmodel = mul(u_view, u_model);

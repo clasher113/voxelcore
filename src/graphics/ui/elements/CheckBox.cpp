@@ -25,7 +25,8 @@ void CheckBox::draw(const DrawContext& pctx, const Assets&) {
     batch->rect(pos.x, pos.y, size.x, size.y);
 }
 
-void CheckBox::mouseRelease(int, int) {
+void CheckBox::mouseRelease(int x, int y) {
+    UINode::mouseRelease(x, y);
     checked = !checked;
     if (consumer) {
         consumer(checked);

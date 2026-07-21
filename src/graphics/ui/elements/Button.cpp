@@ -91,6 +91,10 @@ void Button::setTextAlign(Align align) {
     }
 }
 
+std::shared_ptr<Label> Button::getLabel() const {
+    return label;
+}
+
 Align Button::getTextAlign() const {
     if (label) {
         return label->getAlign();

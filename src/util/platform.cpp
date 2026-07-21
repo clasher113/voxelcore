@@ -14,8 +14,10 @@
 
 #ifdef _WIN32
 #include <Windows.h>
+#include <conio.h>
 #pragma comment(lib, "winmm.lib")
 #else
+#include <sys/poll.h>
 #include <unistd.h>
 #endif
 
@@ -102,7 +104,11 @@ std::string platform::detect_locale() {
     if (programLocaleName && preferredLocaleName) {
         setlocale(LC_ALL, programLocaleName);
 
-        return std::string(preferredLocaleName, 5);
+        if (std::strlen(preferredLocaleName) >= 5) {
+            return std::string(preferredLocaleName, 5);
+        } else {
+            return std::string(preferredLocaleName);
+        }
     }
     return langs::FALLBACK_DEFAULT;
 }
@@ -277,11 +283,23 @@ void platform::new_engine_instance(const std::vector<std::string>& args) {
     ss << " >/dev/null &";
     
     auto command = ss.str();
+    logger.info() << command;
     if (int res = system(command.c_str())) {
         throw std::runtime_error(
             "starting an engine instance failed with code: " +
             std::to_string(res)
         );
     }
+#endif
+}
+
+bool platform::stdin_has_data() {
+#ifdef _WIN32
+    return _kbhit();
+#else
+    struct pollfd fds;
+    fds.fd = STDIN_FILENO;
+    fds.events = POLLIN;
+    return poll(&fds, 1, 0) == 1;
 #endif
 }

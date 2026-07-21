@@ -17,6 +17,7 @@ console.add_command(
     "clear",
     "Clears the console",
     function()
+        if not hud then error("command is unavailable in headless mode") return end
         local document = Document.new("core:console")
         document.log.text = ""
     end

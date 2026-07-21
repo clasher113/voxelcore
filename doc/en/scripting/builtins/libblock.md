@@ -136,7 +136,9 @@ Set specified bits.
 ## Raycast
 
 ```lua
-block.raycast(start: vec3, dir: vec3, max_distance: number, [optional] dest: table, [optional] filter: table) -> {
+block.raycast(start: vec3, dir: vec3, max_distance: number, [optional] dest: table, 
+    [optional] filter: table, [optional] include_non_selectable = false
+) -> {
     block: int, -- block id
     endpoint: vec3, -- point of the ray hit point
     iendpoint: vec3, -- position of the block hit by the ray
@@ -150,23 +152,29 @@ Casts a ray from the start point in the direction of *dir*. Max_distance specifi
 Argument `filter` can be used to tell ray what blocks can be skipped(passed through) during ray-casting.
 To use filter `dest` argument must be filled with some value(can be nil), it's done for backwards compatability 
 
+The `include_non_selectable` argument determines whether blocks that cannot be selected by the cursor will be included.
+Example - `base:water`
+
 The function returns a table with the results or nil if the ray does not hit any block.
 
 The result will use the destination table instead of creating a new one if the optional argument specified.
 
-## Model
-
-Block model information.
+## Model and physics
 
 ```lua
 -- returns block model type (block/aabb/custom/...)
-block.get_model(id: int) -> str
+block.get_model(id: int, [optional] variant_index: int = 0) -> str
 
 -- returns block model name
-block.model_name(id: int) -> str
+block.model_name(id: int, [optional] variant_index: int = 0) -> str
 
 -- returns array of 6 textures assigned to sides of block
-block.get_textures(id: int) -> string table
+block.get_textures(id: int, [optional] variant_index: int = 0) -> string table
+
+-- returns array of two vectors (arrays of 3 numbers):
+-- 1. Minimum point of the hitbox
+-- 2. Hitbox size
+block.get_hitbox(id: int, rotation_index: int, [optional] hitbox_index: int = 0) -> {vec3, vec3}
 ```
 
 ## Data fields

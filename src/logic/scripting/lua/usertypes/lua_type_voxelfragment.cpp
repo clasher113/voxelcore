@@ -30,7 +30,7 @@ static int l_place(lua::State* L) {
         auto offset = tovec3(L, 2);
         int rotation = tointeger(L, 3);
         fragment->getFragment(rotation)->place(
-            *scripting::level->chunks, offset 
+            *scripting::controller, offset 
         );
     }
     return 0;

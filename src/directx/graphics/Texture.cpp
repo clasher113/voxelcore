@@ -170,7 +170,7 @@ std::unique_ptr<ImageData> Texture::readData(bool flipY) {
 	TextureUtil::readPixels(staged, data.get(), flipY);
 	staged->Release();
 	return std::make_unique<ImageData>(
-		ImageFormat::rgba8888, m_description.Width, m_description.Height, std::move(data)
+		ImageFormat::RGBA8888, m_description.Width, m_description.Height, std::move(data)
 	);
 }
 

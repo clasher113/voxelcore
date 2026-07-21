@@ -162,4 +162,19 @@ namespace util {
     
         return a + glm::ivec3(glm::round(glm::vec3(vec) * t));
     }
+
+    template <int n, typename T = float>
+    bool is_nan_or_inf(const glm::vec<n, T>& vector) {
+        return glm::any(glm::isnan(vector)) || glm::any(glm::isinf(vector));
+    }
+
+    template <int n, typename T = float>
+    bool is_nan_or_inf(const glm::mat<n, n, T>& matrix) {
+        for (int i = 0; i < n; i++) {
+            if (is_nan_or_inf(matrix[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

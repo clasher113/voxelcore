@@ -16,8 +16,11 @@
 #include "voxels/Chunks.hpp"
 #include "window/Camera.hpp"
 #include "world/Level.hpp"
+#include "world/World.hpp"
+#include "world/generator/GeneratorDef.hpp"
 #include "data/dv_util.hpp"
 #include "debug/Logger.hpp"
+#include "util/stringutil.hpp"
 
 static debug::Logger logger("player");
 
@@ -26,7 +29,7 @@ constexpr int SPAWN_ATTEMPTS_PER_UPDATE = 64;
 Player::Player(
     Level& level,
     int64_t id,
-    const std::string& name,
+    const std::wstring& name,
     glm::vec3 position,
     float speed,
     std::shared_ptr<Inventory> inv,
@@ -50,6 +53,7 @@ Player::Player(
     fpCamera->setFov(glm::radians(90.0f));
     spCamera->setFov(glm::radians(90.0f));
     tpCamera->setFov(glm::radians(90.0f));
+    random.setSeed((id << 8) ^ 34076213);
 }
 
 Player::~Player() = default;
@@ -105,10 +109,8 @@ void Player::postUpdate() {
     if (flight && hitbox.grounded && !noclip) {
         flight = false;
     }
-    if (spawnpoint.y <= 0.1) {
-        for (int i = 0; i < SPAWN_ATTEMPTS_PER_UPDATE; i++) {
-            attemptToFindSpawnpoint();
-        }
+    for (int i = 0; i < SPAWN_ATTEMPTS_PER_UPDATE && std::isnan(spawnpoint.x); i++) {
+        attemptToChooseSpawnpoint();
     }
 }
 
@@ -116,18 +118,25 @@ void Player::teleport(glm::vec3 position) {
     this->position = position;
 
     if (auto entity = level.entities->get(eid)) {
-        entity->getRigidbody().hitbox.position = position;
+        entity->getRigidbody().hitbox.setPos(position);
         entity->getTransform().setPos(position);
         entity->setInterpolatedPosition(position);
     }
 }
 
-void Player::attemptToFindSpawnpoint() {
-    glm::vec3 newpos(
-        position.x + (rand() % 200 - 100),
-        rand() % 80 + 100,
-        position.z + (rand() % 200 - 100)
-    );
+void Player::attemptToChooseSpawnpoint() {
+    // looks bad to be here tbh
+    const auto& generatorDef =
+        level.content.generators.require(level.getWorld()->getGenerator());
+
+    int minHeight = generatorDef.playerMinSpawnHeight;
+    int maxHeight = generatorDef.playerMaxSpawnHeight;
+    glm::vec3 newpos {0.0f, random.randFloat() * (maxHeight - minHeight + 1) + minHeight, 0.0f};
+    double angle = random.randDouble() * glm::two_pi<double>();
+    double radius = glm::sqrt(random.randDouble());
+    newpos.x += glm::cos(angle) * generatorDef.playerSpawnRadius * radius;
+    newpos.z += glm::sin(angle) * generatorDef.playerSpawnRadius * radius;
+
     while (newpos.y > 0 &&
            !chunks->isObstacleBlock(newpos.x, newpos.y - 2, newpos.z)) {
         newpos.y--;
@@ -222,11 +231,11 @@ entityid_t Player::getSelectedEntity() const {
     return selectedEid;
 }
 
-void Player::setName(const std::string& name) {
+void Player::setName(const std::wstring& name) {
     this->name = name;
 }
 
-const std::string& Player::getName() const {
+const std::wstring& Player::getName() const {
     return name;
 }
 
@@ -258,7 +267,7 @@ dv::value Player::serialize() const {
     auto root = dv::object();
 
     root["id"] = id;
-    root["name"] = name;
+    root["name"] = util::wstr2str_utf8(name);
 
     root["position"] = dv::to_value(position);
     root["rotation"] = dv::to_value(rotation);
@@ -285,7 +294,10 @@ dv::value Player::serialize() const {
 
 void Player::deserialize(const dv::value& src) {
     src.at("id").get(id);
-    src.at("name").get(name);
+
+    std::string utf8name;
+    src.at("name").get(utf8name);
+    name = util::str2wstr_utf8(utf8name);
 
     const auto& posarr = src["position"];
 

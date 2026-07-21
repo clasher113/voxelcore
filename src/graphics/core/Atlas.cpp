@@ -100,7 +100,7 @@ std::unique_ptr<Atlas> AtlasBuilder::build(uint extrusion, bool prepare, uint ma
         }
     }
 
-    auto canvas = std::make_unique<ImageData>(ImageFormat::rgba8888, width, height);
+    auto canvas = std::make_unique<ImageData>(ImageFormat::RGBA8888, width, height);
     std::unordered_map<std::string, UVRegion> regions;
     std::vector<rectangle> rects = packer.getResult();
     for (uint i = 0; i < entries.size(); i++) {

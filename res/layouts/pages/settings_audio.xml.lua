@@ -1,27 +1,35 @@
 function create_setting(id, name, step, postfix)
-    local info = core.get_setting_info(id)
+    local info = app.get_setting_info(id)
     postfix = postfix or ""
     document.root:add(gui.template("track_setting", {
         id=id,
         name=gui.str(name, "settings"),
-        value=core.get_setting(id),
+        value=app.get_setting(id),
         min=info.min,
         max=info.max,
         step=step,
         postfix=postfix
     }))
-    update_setting(core.get_setting(id), id, name, postfix)
+    update_setting(app.get_setting(id), id, name, postfix)
 end
 
 function update_setting(x, id, name, postfix)
-    core.set_setting(id, x)
+    app.set_setting(id, x)
     -- updating label
     document[id..".L"].text = string.format(
         "%s: %s%s", 
-        gui.str(name, "settings"), 
-        core.str_setting(id), 
+        gui.str(name, "settings"),
+        app.str_setting(id),
         postfix
     )
+end
+
+function create_checkbox(id, name, tooltip)
+    tooltip = tooltip or ''
+    document.root:add(string.format(
+        "<checkbox consumer='function(x) app.set_setting(\"%s\", x) end' checked='%s' tooltip='%s'>%s</checkbox>",
+        id, app.str_setting(id), gui.str(tooltip, "settings"), gui.str(name, "settings")
+    ))
 end
 
 local initialized = false
@@ -54,7 +62,7 @@ function on_open()
     create_setting("audio.volume-music", "Music", 0.01)
     document.root:add("<label context='settings'>@Microphone</label>")
     document.root:add("<select id='input_device_select' "..
-        "onselect='function(opt) core.set_setting(\"audio.input-device\", opt) end'/>")
+        "onselect='function(opt) app.set_setting(\"audio.input-device\", opt) end'/>")
     document.root:add("<container id='input_volume_outer' color='#000000' size='4'>"
                         .."<container id='input_volume_inner' color='#00FF00FF' pos='1' size='2'/>"
                     .."</container>")
@@ -67,5 +75,10 @@ function on_open()
         table.insert(devices, {value=name, text=name})
     end
     selectbox.options = devices
-    selectbox.value = audio.__get_input_info().device_specifier
+    local info = audio.input.get_input_info()
+    if info then
+        selectbox.value = info.device_specifier
+    end
+
+    create_checkbox("audio.acoustic-effects", "Acoustic effects", "audio.acoustic-effects.tooltip")
 end

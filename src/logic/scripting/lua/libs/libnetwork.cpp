@@ -2,6 +2,7 @@
 #include "coders/json.hpp"
 #include "engine/Engine.hpp"
 #include "network/Network.hpp"
+#include "devtools/Project.hpp"
 
 #include <variant>
 #include <utility>
@@ -133,7 +134,7 @@ static int l_post(lua::State* L, network::Network& network) {
     auto headers = read_headers(L, 3);
     int currentRequestId = request_id++;
 
-    engine->getNetwork().post(
+    network.post(
         url,
         string,
         [currentRequestId](std::vector<char> bytes) {
@@ -240,7 +241,7 @@ static int l_recv(lua::State* L, network::Network& network) {
     u64id_t id = lua::tointeger(L, 1);
     int length = lua::tointeger(L, 2);
 
-    auto connection = engine->getNetwork().getConnection(id, false);
+    auto connection = network.getConnection(id, false);
 
     if (connection == nullptr || connection->getTransportType() != network::TransportType::TCP) {
         return 0;
@@ -439,7 +440,7 @@ static int l_is_nodelay(lua::State* L, network::Network& network) {
     return lua::pushboolean(L, false);
 }
 
-static int l_pull_events(lua::State* L, network::Network& network) {
+static int l_pull_events(lua::State* L) {
     std::vector<NetworkEvent> local_queue;
     {
         std::lock_guard lock(events_queue_mutex);
@@ -519,11 +520,22 @@ static int l_pull_events(lua::State* L, network::Network& network) {
     return 1;
 }
 
+static int l_is_available(lua::State* L) {
+    return lua::pushboolean(L, engine->getNetwork() != nullptr);
+}
+
 template <int(*func)(lua::State*, network::Network&)>
 int wrap(lua_State* L) {
     int result = 0;
     try {
-        result = func(L, engine->getNetwork());
+        auto network = engine->getNetwork();
+        const auto& permissions = engine->getProject().permissions;
+        if (network == nullptr || !permissions.has(Permissions::NETWORK)) {
+            throw std::runtime_error(
+                "network subsystem is not available in the project"
+            );
+        }
+        result = func(L, *network);
     }
     // transform exception with description into lua_error
     catch (std::exception& e) {
@@ -543,7 +555,8 @@ const luaL_Reg networklib[] = {
     {"get_total_upload", wrap<l_get_total_upload>},
     {"get_total_download", wrap<l_get_total_download>},
     {"find_free_port", wrap<l_find_free_port>},
-    {"__pull_events", wrap<l_pull_events>},
+    {"is_available", lua::wrap<l_is_available>},
+    {"__pull_events", lua::wrap<l_pull_events>},
     {"__open_tcp", wrap<l_open_tcp>},
     {"__open_udp", wrap<l_open_udp>},
     {"__closeserver", wrap<l_closeserver>},

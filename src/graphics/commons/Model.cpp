@@ -1,6 +1,10 @@
+#define GLM_ENABLE_EXPERIMENTAL
+
 #include "Model.hpp"
 
 #include <algorithm>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 using namespace model;
 
@@ -41,6 +45,20 @@ void Mesh::addPlane(
     );
 }
 
+void Mesh::addTriangle(
+    const glm::vec3& a,
+    const glm::vec3& b,
+    const glm::vec3& c,
+    const glm::vec3& norm,
+    const glm::vec2& uvA,
+    const glm::vec2& uvB,
+    const glm::vec2& uvC
+) {
+    vertices.push_back({a, uvA, norm});
+    vertices.push_back({b, uvB, norm});
+    vertices.push_back({c, uvC, norm});
+}
+
 void Mesh::addRect(
     const glm::vec3& pos,
     const glm::vec3& right,
@@ -55,6 +73,39 @@ void Mesh::addRect(
     vertices.push_back({pos-right-up, {uv.u1, uv.v1}, norm});
     vertices.push_back({pos+right+up, {uv.u2, uv.v2}, norm});
     vertices.push_back({pos-right+up, {uv.u1, uv.v2}, norm});
+}
+
+static glm::mat4 extract_rotation(const glm::mat4& matrix) {
+    glm::vec3 scale;
+    glm::quat rotation;
+    glm::vec3 translation;
+    glm::vec3 skew;
+    glm::vec4 perspective;
+    glm::decompose(matrix, scale, rotation, translation, skew, perspective);
+    return glm::mat4_cast(rotation);
+}
+
+void Mesh::addRect(
+    const glm::vec3& pos,
+    const glm::vec3& right,
+    const glm::vec3& up,
+    const glm::vec3& norm,
+    const UVRegion& uv,
+    const glm::mat4& transform
+) {
+    auto a = transform * glm::vec4(pos - right - up, 1.0f);
+    auto b = transform * glm::vec4(pos + right - up, 1.0f);
+    auto c = transform * glm::vec4(pos + right + up, 1.0f);
+    auto d = transform * glm::vec4(pos - right + up, 1.0f);
+    auto tsfnorm = extract_rotation(transform) * glm::vec4(norm, 1.0f);
+
+    vertices.push_back({a, {uv.u1, uv.v1}, tsfnorm});
+    vertices.push_back({b, {uv.u2, uv.v1}, tsfnorm});
+    vertices.push_back({c, {uv.u2, uv.v2}, tsfnorm});
+
+    vertices.push_back({a, {uv.u1, uv.v1}, tsfnorm});
+    vertices.push_back({c, {uv.u2, uv.v2}, tsfnorm});
+    vertices.push_back({d, {uv.u1, uv.v2}, tsfnorm});
 }
 
 void Mesh::addBox(const glm::vec3& pos, const glm::vec3& size) {
@@ -105,6 +156,18 @@ void Mesh::scale(const glm::vec3& size) {
     }
 }
 
+void Mesh::transform(const glm::mat4& matrix) {
+    for (auto& vertex : vertices) {
+        vertex.coord = matrix * glm::vec4(vertex.coord, 1.0f);
+    }
+}
+
+void Mesh::translate(const glm::vec3& offset) {
+    for (auto& vertex : vertices) {
+        vertex.coord += offset;
+    }
+}
+
 void Model::clean() {
     meshes.erase(
         std::remove_if(meshes.begin(), meshes.end(), 
@@ -113,4 +176,42 @@ void Model::clean() {
         }),
         meshes.end()
     );
+}
+
+void Model::transform(const glm::mat4& matrix) {
+    for (auto& mesh : meshes) {
+        mesh.transform(matrix);
+    }
+}
+
+void Model::translate(const glm::vec3& offset) {
+    for (auto& mesh : meshes) {
+        mesh.translate(offset);
+    }
+}
+
+void Model::merge(const Model& source) {
+    for (const auto& srcMesh : source.meshes) {
+        auto& dstMesh = addMesh(srcMesh.texture, srcMesh.shading);
+        dstMesh.vertices.insert(
+            dstMesh.vertices.end(),
+            srcMesh.vertices.begin(),
+            srcMesh.vertices.end()
+        );
+    }
+}
+
+void Model::merge(Model&& source) {
+    for (auto& srcMesh : source.meshes) {
+        auto& dstMesh = addMesh(srcMesh.texture, srcMesh.shading);
+        if (dstMesh.vertices.empty()) {
+            dstMesh = std::move(srcMesh);
+        } else {
+            dstMesh.vertices.insert(
+                dstMesh.vertices.end(),
+                srcMesh.vertices.begin(),
+                srcMesh.vertices.end()
+            );
+        }
+    }
 }

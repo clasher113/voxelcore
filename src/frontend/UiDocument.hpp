@@ -13,7 +13,7 @@ namespace gui {
     class UINode;
 }
 
-struct uidocscript {
+struct UiDocScript {
     bool onopen : 1;
     bool onprogress : 1;
     bool onclose : 1;
@@ -23,14 +23,14 @@ using UINodesMap = std::unordered_map<std::string, std::weak_ptr<gui::UINode>>;
 
 class UiDocument {
     std::string id;
-    uidocscript script;
+    UiDocScript script;
     UINodesMap map;
     std::shared_ptr<gui::UINode> root;
     scriptenv env;
 public:
     UiDocument(
         std::string id, 
-        uidocscript script, 
+        UiDocScript script, 
         const std::shared_ptr<gui::UINode> &root,
         scriptenv env
     );
@@ -42,7 +42,7 @@ public:
     const UINodesMap& getMap() const;
     std::shared_ptr<gui::UINode> getRoot() const;
     std::shared_ptr<gui::UINode> get(const std::string& id) const;
-    const uidocscript& getScript() const;
+    const UiDocScript& getScript() const;
     scriptenv getEnvironment() const;
 
     static std::unique_ptr<UiDocument> read(

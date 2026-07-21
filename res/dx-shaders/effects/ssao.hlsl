@@ -1,7 +1,7 @@
 cbuffer Params : register(b1) {
-   int u_kernelSize = 16;
-   float u_radius = 0.4;
-   float u_bias = 0.006;
+   int u_kernelSize = 32;
+   float u_radius = 0.2;
+   float u_bias = 0.001;
    float3 u_ssaoSamples[64]; 
 }
 

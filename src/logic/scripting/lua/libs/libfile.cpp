@@ -39,18 +39,7 @@ static int l_read(lua::State* L) {
     );
 }
 
-static std::set<std::string> writeable_entry_points {
-    "world", "export", "config"
-};
-
 static bool is_writeable(const std::string& entryPoint) {
-    if (entryPoint.length() < 2) {
-        return false;
-    }
-    if (entryPoint.substr(0, 2) == "W.") {
-        return true;
-    }
-    // todo: do better
     auto device = io::get_device(entryPoint);
     if (device == nullptr) {
         return false;
@@ -58,7 +47,7 @@ static bool is_writeable(const std::string& entryPoint) {
     if (dynamic_cast<io::MemoryDevice*>(device.get())) {
         return true;
     }
-    if (writeable_entry_points.find(entryPoint) != writeable_entry_points.end()) {
+    if (engine->getPaths().isWriteable(entryPoint)) {
         return true;
     }
     return false;
@@ -358,6 +347,41 @@ static int l_write_descriptor(lua::State* L) {
     return 0;
 }
 
+static int l_seek_descriptor(lua::State* L) {
+    int descriptor = lua::tointeger(L, 1);
+
+    if (!scripting::descriptors_manager::has_descriptor(descriptor)) {
+        throw std::runtime_error("unknown descriptor");
+    }
+
+    std::string mode = lua::require_string(L, 2);
+    std::ios_base::seekdir dir;
+
+    switch (mode[0]) {
+        case 'b':
+            dir = std::ios_base::beg;
+            break;
+        case 'c':
+            dir = std::ios_base::cur;
+            break;
+        case 'e':
+            dir = std::ios_base::end;
+            break;
+        default:
+            throw std::runtime_error("invalid seek mode");
+    }
+
+    auto* stream = scripting::descriptors_manager::get_output(descriptor);
+
+    stream->seekp(lua::tointeger(L, 3), dir);
+
+    if (!stream->good()) {
+        throw std::runtime_error("failed to seek stream");
+    }
+
+    return 0;
+}
+
 static int l_flush_descriptor(lua::State* L) {
     int descriptor = lua::tointeger(L, 1);
 
@@ -417,9 +441,9 @@ const luaL_Reg filelib[] = {
     {"__has_descriptor", lua::wrap<l_has_descriptor>},
     {"__read_descriptor", lua::wrap<l_read_descriptor>},
     {"__write_descriptor", lua::wrap<l_write_descriptor>},
+    {"__seek_descriptor", lua::wrap<l_seek_descriptor>},
     {"__flush_descriptor", lua::wrap<l_flush_descriptor>},
     {"__close_descriptor", lua::wrap<l_close_descriptor>},
     {"__close_all_descriptors", lua::wrap<l_close_all_descriptors>},
     {nullptr, nullptr}
 };
-

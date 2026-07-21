@@ -19,6 +19,7 @@ find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
 find_package(CURL REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(Freetype REQUIRED)
 if(NOT APPLE)
     find_package(EnTT REQUIRED)
 endif()
@@ -75,6 +76,7 @@ target_link_libraries(
             Vorbis::vorbis
             Vorbis::vorbisfile
             luajit::luajit
+            Freetype::Freetype
     PUBLIC glm::glm # Need public for src/delegates.hpp, which including to
                     # main.cpp
 )

@@ -1,12 +1,12 @@
 #include "Chunk.hpp"
 
-#include <utility>
-
 #include "content/ContentReport.hpp"
 #include "items/Inventory.hpp"
 #include "lighting/Lightmap.hpp"
 #include "util/data_io.hpp"
 #include "voxel.hpp"
+
+#include <utility>
 
 Chunk::Chunk(int xpos, int zpos, std::shared_ptr<Lightmap> lightmap)
     : x(xpos), z(zpos), lightmap(std::move(lightmap)) {
@@ -40,6 +40,7 @@ void Chunk::addBlockInventory(
 void Chunk::removeBlockInventory(uint x, uint y, uint z) {
     if (inventories.erase(vox_index(x, y, z))) {
         flags.unsaved = true;
+        flags.inventoriesRemoved = true;
     }
 }
 

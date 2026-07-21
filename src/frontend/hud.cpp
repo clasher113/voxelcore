@@ -163,7 +163,7 @@ Hud::Hud(Engine& engine, LevelFrontend& frontend, Player& player)
       frontend(frontend),
       player(player),
       debugImgWorldGen(std::make_unique<ImageData>(
-          ImageFormat::rgba8888, WORLDGEN_IMG_SIZE, WORLDGEN_IMG_SIZE
+          ImageFormat::RGBA8888, WORLDGEN_IMG_SIZE, WORLDGEN_IMG_SIZE
       )) {
     contentAccess = createContentAccess();
     contentAccess->setId("hud.content-access");
@@ -213,9 +213,6 @@ Hud::Hud(Engine& engine, LevelFrontend& frontend, Player& player)
 }
 
 Hud::~Hud() {
-    if (input.isCursorLocked()) {
-        input.toggleCursor();
-    }
     // removing all controlled ui
     for (auto& element : elements) {
         onRemove(element);
@@ -281,7 +278,7 @@ void Hud::updateWorldGenDebug() {
     const auto& chunks = *player.chunks;
     uint padding = engine.getSettings().chunks.padding.get();
     auto generator =
-        frontend.getController()->getChunksController()->getGenerator();
+        frontend.getController().getChunksController()->getGenerator();
     auto debugInfo = generator->createDebugInfo();
     
     int width = debugImgWorldGen->getWidth();
@@ -303,7 +300,7 @@ void Hud::updateWorldGenDebug() {
 
             bool isInLoadingZone =
                 frontend.getController()
-                    ->getChunksController()
+                    .getChunksController()
                     ->isInLoadingZone(player, padding, ax + ox, az + oz);
 
             data[(flippedZ * width + x) * 4 + 1] =
@@ -348,9 +345,6 @@ void Hud::update(bool visible) {
     if (!gui.isFocusCaught()) {
         processInput(visible);
     }
-    if ((isMenuOpen || inventoryOpen) == input.isCursorLocked()) {
-        input.toggleCursor();
-    }
 
     if (blockUI) {
         voxel* vox = chunks.get(blockPos.x, blockPos.y, blockPos.z);
@@ -389,17 +383,19 @@ void Hud::update(bool visible) {
 }
 
 /// @brief Show inventory on the screen and turn on inventory mode blocking movement
-void Hud::openInventory() {
-    auto& content = frontend.getLevel().content;
+void Hud::openInventory(bool playerInventory) {
     showExchangeSlot();
-
     inventoryOpen = true;
-    auto inventory = player.getInventory();
-    auto inventoryDocument = assets.get<UiDocument>("core:inventory");
-    inventoryView = std::dynamic_pointer_cast<InventoryView>(inventoryDocument->getRoot());
-    inventoryView->bind(inventory, &content);
-    add(HudElement(HudElementMode::INVENTORY, inventoryDocument, inventoryView, false));
-    add(HudElement(HudElementMode::INVENTORY, nullptr, exchangeSlot, false));
+
+    if (playerInventory) {
+        auto& content = frontend.getLevel().content;
+        auto inventory = player.getInventory();
+        auto inventoryDocument = assets.get<UiDocument>("core:inventory");
+        inventoryView = std::dynamic_pointer_cast<InventoryView>(inventoryDocument->getRoot());
+        inventoryView->bind(inventory, &content);
+        add(HudElement(HudElementMode::INVENTORY, inventoryDocument, inventoryView, false));
+    }
+    gui.setActiveFrame(GUI::CORE_MAIN);
 }
 
 std::shared_ptr<Inventory> Hud::openInventory(
@@ -418,11 +414,8 @@ std::shared_ptr<Inventory> Hud::openInventory(
     }
     secondUI = secondInvView;
 
-    if (playerInventory) {
-        openInventory();
-    } else {
-        inventoryOpen = true;
-    }
+    openInventory(playerInventory);
+
     if (inv == nullptr) {
         inv = level.inventories->createVirtual(secondInvView->getSlotsCount());
     }
@@ -450,11 +443,9 @@ void Hud::openInventory(
         throw std::runtime_error("block UI root element must be 'inventory'");
     }
     secondUI = blockUI;
-    if (playerInventory) {
-        openInventory();
-    } else {
-        inventoryOpen = true;
-    }
+
+    openInventory(playerInventory);
+
     if (blockinv == nullptr) {
         blockinv = level.inventories->createVirtual(blockUI->getSlotsCount());
     }
@@ -476,11 +467,14 @@ void Hud::showExchangeSlot() {
         SlotLayout(-1, glm::vec2(), false, false, nullptr, nullptr, nullptr)
     );
     exchangeSlot->setId("hud.exchange-slot");
-    exchangeSlot->bind(exchangeSlotInv->getId(), exchangeSlotInv->getSlot(0), &content);
+    exchangeSlot->bind(
+        exchangeSlotInv->getId(), exchangeSlotInv->getSlot(0), 0, &content
+    );
     exchangeSlot->setColor(glm::vec4());
     exchangeSlot->setInteractive(false);
     exchangeSlot->setZIndex(1);
     gui.store(SlotView::EXCHANGE_SLOT_NAME, exchangeSlot);
+    add(HudElement(HudElementMode::INVENTORY, nullptr, exchangeSlot, false));
 }
 
 void Hud::showOverlay(
@@ -490,12 +484,9 @@ void Hud::showOverlay(
         closeInventory();
     }
     secondUI = doc->getRoot();
-    if (playerInventory) {
-        openInventory();
-    } else {
-        showExchangeSlot();
-        inventoryOpen = true;
-    }
+
+    openInventory(playerInventory);
+
     add(HudElement(HudElementMode::INVENTORY, doc, secondUI, false), args);
 }
 
@@ -558,6 +549,7 @@ void Hud::closeInventory() {
         }
     }
     cleanup();
+    gui.setActiveFrame("");
 }
 
 void Hud::add(const HudElement& element, const dv::value& argsArray) {
@@ -702,6 +694,10 @@ bool Hud::isInventoryOpen() const {
     return inventoryOpen;
 }
 
+bool Hud::isPlayerInventoryOpen() const {
+    return inventoryView != nullptr;
+}
+
 bool Hud::isPause() const {
     return pause;
 }
@@ -720,9 +716,11 @@ void Hud::setPause(bool pause) {
     
     if (!pause && menu.hasOpenPage()) {
         menu.reset();
+        gui.setActiveFrame("");
     }
     if (pause && !menu.hasOpenPage()) {
         menu.setPage("pause");
+        gui.setActiveFrame(GUI::CORE_MAIN);
     }
 }
 
@@ -735,6 +733,16 @@ std::shared_ptr<Inventory> Hud::getBlockInventory() {
         return nullptr;
     }
     return blockUI->getInventory();
+}
+
+std::shared_ptr<Inventory> Hud::getSecondInventory() {
+    if (blockUI) {
+        return blockUI->getInventory();
+    }
+    if (secondInvView) {
+        return secondInvView->getInventory();
+    }
+    return nullptr;
 }
 
 bool Hud::isContentAccess() const {

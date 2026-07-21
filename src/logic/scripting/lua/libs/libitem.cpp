@@ -8,6 +8,9 @@
 using namespace scripting;
 
 static const ItemDef* get_item_def(lua::State* L, int idx) {
+    if (content == nullptr) {
+        throw std::runtime_error("content is not initialized");
+    }
     auto indices = content->getIndices();
     auto id = lua::tointeger(L, idx);
     return indices->items.get(id);

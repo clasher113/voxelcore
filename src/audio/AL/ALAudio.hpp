@@ -3,19 +3,19 @@
 #include <glm/glm.hpp>
 #include <queue>
 #include <string>
+#include <array>
 #include <unordered_map>
 #include <vector>
 
 #include "typedefs.hpp"
 #include "audio/audio.hpp"
+#include "audio/effects.hpp"
 
-#ifdef __APPLE__
-#include <OpenAL/al.h>
-#include <OpenAL/alc.h>
-#else
 #include <AL/al.h>
 #include <AL/alc.h>
-#endif
+#include <AL/alext.h>
+
+struct AudioSettings;
 
 namespace audio {
     struct ALBuffer;
@@ -176,10 +176,25 @@ namespace audio {
 
         std::vector<uint> allbuffers;
         std::vector<uint> freebuffers;
-
         uint maxSources = 256;
+        uint maxEffectSlots = 64;
+
+        const AudioSettings& settings;
+
+        bool initEffects();
     public:
-        ALAudio(ALCdevice* device, ALCcontext* context);
+        std::vector<uint> effectSlots;
+        std::vector<uint> effects;
+        std::array<uint, 1> filters;
+
+        bool useEffects;
+
+        ALAudio(
+            ALCdevice* device,
+            ALCcontext* context,
+            bool effects,
+            const AudioSettings& settings
+        );
         ~ALAudio();
 
         uint getFreeSource();
@@ -214,10 +229,12 @@ namespace audio {
 
         void update(double delta) override;
 
+        void setAcoustics(Acoustics acoustics) override;
+
         bool isDummy() const override {
             return false;
         }
 
-        static std::unique_ptr<ALAudio> create();
+        static std::unique_ptr<ALAudio> create(const AudioSettings& settings);
     };
 }

@@ -167,10 +167,10 @@ void Lighting::onChunkLoaded(int cx, int cz, bool expand) {
             }
         }
     }
-    solverR.solve();
-    solverG.solve();
-    solverB.solve();
-    solverS.solve();
+    solverR.solve(chunk);
+    solverG.solve(chunk);
+    solverB.solve(chunk);
+    solverS.solve(chunk);
 }
 
 void Lighting::onBlockSet(int x, int y, int z, blockid_t id){
@@ -180,9 +180,10 @@ void Lighting::onBlockSet(int x, int y, int z, blockid_t id){
     solverB->remove(x,y,z);
 
     if (id == 0){
-        solverR->solve();
-        solverG->solve();
-        solverB->solve();
+        auto chunk = chunks.getChunkByVoxel(glm::ivec3{x, y, z});
+        solverR->solve(chunk);
+        solverG->solve(chunk);
+        solverB->solve(chunk);
         if (chunks.getLight(x,y+1,z, 3) == 0xF){
             for (int i = y; i >= 0; i--){
                 voxel* vox = chunks.get(x,i,z);
@@ -191,17 +192,30 @@ void Lighting::onBlockSet(int x, int y, int z, blockid_t id){
                 solverS->add(x,i,z, 0xF);
             }
         }
-        solverR->add(x,y+1,z); solverG->add(x,y+1,z); solverB->add(x,y+1,z); solverS->add(x,y+1,z);
-        solverR->add(x,y-1,z); solverG->add(x,y-1,z); solverB->add(x,y-1,z); solverS->add(x,y-1,z);
-        solverR->add(x+1,y,z); solverG->add(x+1,y,z); solverB->add(x+1,y,z); solverS->add(x+1,y,z);
-        solverR->add(x-1,y,z); solverG->add(x-1,y,z); solverB->add(x-1,y,z); solverS->add(x-1,y,z);
-        solverR->add(x,y,z+1); solverG->add(x,y,z+1); solverB->add(x,y,z+1); solverS->add(x,y,z+1);
-        solverR->add(x,y,z-1); solverG->add(x,y,z-1); solverB->add(x,y,z-1); solverS->add(x,y,z-1);
-        solverR->solve();
-        solverG->solve();
-        solverB->solve();
-        solverS->solve();
+        const int coords[] = {
+            0, 0, 1,
+            0, 0,-1,
+            0, 1, 0,
+            0,-1, 0,
+            1, 0, 0,
+            -1, 0, 0
+        };
+        for (int i = 0; i < 6; i++) {
+            int lx = x + coords[i * 3];
+            int ly = y + coords[i * 3 + 1];
+            int lz = z + coords[i * 3 + 2];
+
+            solverR->add(lx, ly, lz);
+            solverG->add(lx, ly, lz);
+            solverB->add(lx, ly, lz);
+            solverS->add(lx, ly, lz);
+            solverR->solve(chunk);
+            solverG->solve(chunk);
+            solverB->solve(chunk);
+            solverS->solve(chunk);
+        }
     } else {
+        auto chunk = chunks.getChunkByVoxel(glm::ivec3{x, y, z});
         if (!block.skyLightPassing){
             solverS->remove(x,y,z);
             for (int i = y-1; i >= 0; i--){
@@ -210,19 +224,19 @@ void Lighting::onBlockSet(int x, int y, int z, blockid_t id){
                     break;
                 }
             }
-            solverS->solve();
+            solverS->solve(chunk);
         }
-        solverR->solve();
-        solverG->solve();
-        solverB->solve();
+        solverR->solve(chunk);
+        solverG->solve(chunk);
+        solverB->solve(chunk);
 
         if (block.emission[0] || block.emission[1] || block.emission[2]){
             solverR->add(x,y,z,block.emission[0]);
             solverG->add(x,y,z,block.emission[1]);
             solverB->add(x,y,z,block.emission[2]);
-            solverR->solve();
-            solverG->solve();
-            solverB->solve();
+            solverR->solve(chunk);
+            solverG->solve(chunk);
+            solverB->solve(chunk);
         }
     }
 }

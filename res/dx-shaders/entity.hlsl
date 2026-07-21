@@ -36,6 +36,8 @@ cbuffer EntityCBuff : register(b0) {
     float u_gamma;
     float3 u_torchlightColor;
     float u_torchlightDistance;
+    float3 u_minSkyLight;
+    float u_dayTime;
     float u_opacity;
     bool u_alphaClip;
 }
@@ -64,7 +66,7 @@ PSInput VShader(VSInput input) {
     output.texCoord = input.texCoord;
     
     output.dir = modelpos.xyz - u_cameraPos;
-    float3 skyLightColor = pick_sky_color(skyboxTexture, samplerLinearClamp);    
+    float3 skyLightColor = pick_sky_color(skyboxTexture, samplerLinearClamp, u_dayTime, u_minSkyLight);    
     output.color.rgb = max(output.color.rgb, skyLightColor.rgb * input.light.a) * input.color;
     output.color.a = u_opacity;
     

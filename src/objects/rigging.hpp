@@ -68,7 +68,7 @@ namespace rigging {
             return offset;
         }
 
-        const auto& getSubnodes() const {
+        const auto& getBones() const {
             return bones;
         }
     };
@@ -78,7 +78,7 @@ namespace rigging {
     };
 
     struct Skeleton {
-        const SkeletonConfig* config;
+        std::shared_ptr<const SkeletonConfig> config;
         Pose pose;
         Pose calculated;
         std::vector<BoneFlags> flags;
@@ -89,13 +89,15 @@ namespace rigging {
 
         util::VecInterpolation<3, float> interpolation {false};
 
-        Skeleton(const SkeletonConfig* config);
+        Skeleton(std::shared_ptr<const SkeletonConfig> config);
 
         dv::value serialize(bool saveTextures, bool savePose) const;
         void deserialize(const dv::value& root);
+
+        void setConfig(std::shared_ptr<const SkeletonConfig> config);
     };
 
-    class SkeletonConfig {
+    class SkeletonConfig : public std::enable_shared_from_this<SkeletonConfig> {
         std::string name;
         std::unique_ptr<Bone> root;
         std::unordered_map<std::string, size_t> indices;
@@ -135,10 +137,10 @@ namespace rigging {
         ) const;
 
         Skeleton instance() const {
-            return Skeleton(this);
+            return Skeleton(shared_from_this());
         }
 
-        Bone* find(std::string_view str) const;
+        const Bone* find(std::string_view str) const;
 
         static std::unique_ptr<SkeletonConfig> parse(
             std::string_view src, std::string_view file, std::string_view name

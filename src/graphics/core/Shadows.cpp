@@ -107,58 +107,73 @@ void Shadows::setQuality(int quality) {
 }
 
 void Shadows::setup(Shader& shader, const Weather& weather) {
-    if (shadows) {
-        const auto& worldInfo = level.getWorld()->getInfo();
-        float cloudsIntensity = glm::max(worldInfo.fog, weather.clouds());
-        float shadowsOpacity = 1.0f - cloudsIntensity;
-        shadowsOpacity *= glm::sqrt(glm::abs(
-            glm::mod((worldInfo.daytime + 0.5f) * 2.0f, 1.0f) * 2.0f - 1.0f
-        ));
-        shader.uniform1i("u_screen", 0);
-#ifdef USE_DIRECTX
-        shader.uniformMatrix("u_narrowShadowsMatrix", shadowCamera.getProjView());
-        shader.uniformMatrix("u_wideShadowsMatrix", wideShadowCamera.getProjView());
-#elif USE_OPENGL
-        shader.uniformMatrix("u_shadowsMatrix[0]", shadowCamera.getProjView());
-        shader.uniformMatrix("u_shadowsMatrix[1]", wideShadowCamera.getProjView());
-#endif // USE_DIRECTX
-        shader.uniform3f("u_sunDir", shadowCamera.front);
-        shader.uniform1i("u_shadowsRes", shadowMap->getResolution());
-        shader.uniform1f("u_shadowsOpacity", shadowsOpacity); // TODO: make it configurable
-        shader.uniform1f("u_shadowsSoftness", 1.0f + cloudsIntensity * 4); // TODO: make it configurable
-
-#ifdef USE_DIRECTX
-        shader.applyChanges();
-
-        ID3D11DeviceContext* const context = Device::getContext();
-
-        ID3D11ShaderResourceView* narrowShadowMapSRV = shadowMap->getSRV();
-        ID3D11ShaderResourceView* wideShadowMapSRV = wideShadowMap->getSRV();
-
-        context->PSSetShaderResources(TARGET_SHADOWS0, 1, &narrowShadowMapSRV);
-        context->PSSetShaderResources(TARGET_SHADOWS1, 1, &wideShadowMapSRV);
-#elif USE_OPENGL
-        glActiveTexture(GL_TEXTURE0 + TARGET_SHADOWS0);
-        shader.uniform1i("u_shadows[0]", TARGET_SHADOWS0);
-        glBindTexture(GL_TEXTURE_2D, shadowMap->getDepthMap());
-
-        glActiveTexture(GL_TEXTURE0 + TARGET_SHADOWS1);
-        shader.uniform1i("u_shadows[1]", TARGET_SHADOWS1);
-        glBindTexture(GL_TEXTURE_2D, wideShadowMap->getDepthMap());
-
-        glActiveTexture(TEXTURE_MAIN);
-#endif // USE_DIRECTX
+    if (!shadows) {
+        return;
     }
+    const auto& worldInfo = level.getWorld()->getInfo();
+    float cloudsIntensity = glm::max(worldInfo.fog, weather.clouds());
+    float shadowsOpacity = 1.0f - cloudsIntensity;
+    shadowsOpacity *= glm::sqrt(glm::abs(
+        glm::mod((worldInfo.daytime + 0.5f) * 2.0f, 1.0f) * 2.0f - 1.0f
+    ));
+    shader.uniform1i("u_screen", 0);
+#ifdef USE_DIRECTX
+    shader.uniformMatrix("u_narrowShadowsMatrix", shadowCamera.getProjView());
+    shader.uniformMatrix("u_wideShadowsMatrix", wideShadowCamera.getProjView());
+#elif USE_OPENGL
+    shader.uniformMatrix("u_shadowsMatrix[0]", shadowCamera.getProjView());
+    shader.uniformMatrix("u_shadowsMatrix[1]", wideShadowCamera.getProjView());
+#endif // USE_DIRECTX
+    shader.uniform3f("u_sunDir", shadowCamera.front);
+    shader.uniform1i("u_shadowsRes", shadowMap->getResolution());
+    shader.uniform1f("u_shadowsOpacity", shadowsOpacity); // TODO: make it configurable
+    shader.uniform1f("u_shadowsSoftness", 1.0f + cloudsIntensity * 4); // TODO: make it configurable
+
+#ifdef USE_DIRECTX
+    shader.applyChanges();
+
+    ID3D11DeviceContext* const context = Device::getContext();
+
+    ID3D11ShaderResourceView* narrowShadowMapSRV = shadowMap->getSRV();
+    ID3D11ShaderResourceView* wideShadowMapSRV = wideShadowMap->getSRV();
+
+    context->PSSetShaderResources(TARGET_SHADOWS0, 1, &narrowShadowMapSRV);
+    context->PSSetShaderResources(TARGET_SHADOWS1, 1, &wideShadowMapSRV);
+#elif USE_OPENGL
+    glActiveTexture(GL_TEXTURE0 + TARGET_SHADOWS0);
+    shader.uniform1i("u_shadows[0]", TARGET_SHADOWS0);
+    glBindTexture(GL_TEXTURE_2D, shadowMap->getDepthMap());
+
+    glActiveTexture(GL_TEXTURE0 + TARGET_SHADOWS1);
+    shader.uniform1i("u_shadows[1]", TARGET_SHADOWS1);
+    glBindTexture(GL_TEXTURE_2D, wideShadowMap->getDepthMap());
+
+    glActiveTexture(TEXTURE_MAIN);
+#endif // USE_DIRECTX
 }
 
-void Shadows::refresh(const Camera& camera, const DrawContext& pctx, std::function<void(Camera&)> renderShadowPass) {
+void Shadows::refresh(
+    const Camera& camera,
+    const DrawContext& pctx,
+    const std::function<void(Camera&)>& renderShadowPass
+) {
     static int frameid = 0;
-    if (shadows) {
-        if (frameid % 2 == 0) {
-            generateShadowsMap(camera, pctx, *shadowMap, shadowCamera, 1.0f, renderShadowPass);
-        } else {
-            generateShadowsMap(camera, pctx, *wideShadowMap, wideShadowCamera, 3.0f, renderShadowPass);
-        }
+    if (!shadows) {
+        return;
+    }
+    if (frameid % 2 == 0) {
+        generateShadowsMap(
+            camera, pctx, *shadowMap, shadowCamera, 1.0f, renderShadowPass
+        );
+    } else {
+        generateShadowsMap(
+            camera,
+            pctx,
+            *wideShadowMap,
+            wideShadowCamera,
+            3.0f,
+            renderShadowPass
+        );
     }
     frameid++;
 }
@@ -169,7 +184,7 @@ void Shadows::generateShadowsMap(
     ShadowMap& shadowMap,
     Camera& shadowCamera,
     float scale,
-    std::function<void(Camera&)> renderShadowPass
+    const std::function<void(Camera&)>& renderShadowPass
 ) {
     auto world = level.getWorld();
     const auto& worldInfo = world->getInfo();
@@ -190,10 +205,7 @@ void Shadows::generateShadowsMap(
     shadowCamera.setAspectRatio(1.0f);
 
     float t = worldInfo.daytime - 0.25f;
-    if (t < 0.0f) {
-        t += 1.0f;
-    }
-    t = fmod(t, 0.5f);
+    t = glm::mod(t < 0.0f ? t + 1.0f : t, 0.5f);
 
     float sunCycleStep = 1.0f / 500.0f;
     float sunAngle = glm::radians(
@@ -220,30 +232,28 @@ void Shadows::generateShadowsMap(
 
     shadowCamera.setProjection(glm::ortho(min.x, max.x, min.y, max.y, 0.1f, 1000.0f));
 
-    {
-        auto sctx = pctx.sub();
-        sctx.setDepthTest(true);
-        sctx.setCullFace(true);
-        sctx.setViewport({resolution, resolution});
+    auto sctx = pctx.sub();
+    sctx.setDepthTest(true);
+    sctx.setCullFace(true);
+    sctx.setViewport({resolution, resolution});
 
 #ifdef USE_DIRECTX
-        ID3D11DeviceContext* const context = Device::getContext();
-        ID3D11ShaderResourceView* nullSRV = nullptr;
-        context->PSSetShaderResources(TARGET_SHADOWS0, 1, &nullSRV);
-        context->PSSetShaderResources(TARGET_SHADOWS1, 1, &nullSRV);
+    ID3D11DeviceContext* const context = Device::getContext();
+    ID3D11ShaderResourceView* nullSRV = nullptr;
+    context->PSSetShaderResources(TARGET_SHADOWS0, 1, &nullSRV);
+    context->PSSetShaderResources(TARGET_SHADOWS1, 1, &nullSRV);
 
-        Camera temp(shadowCamera);
-        temp.setProjection(glm::orthoRH_ZO(min.x, max.x, min.y, max.y, 0.1f, 1000.0f));
+    Camera temp(shadowCamera);
+    temp.setProjection(glm::orthoRH_ZO(min.x, max.x, min.y, max.y, 0.1f, 1000.0f));
 #endif // USE_DIRECTX
 
-        shadowMap.bind();
-        if (renderShadowPass) {
+    shadowMap.bind();
+    if (renderShadowPass) {
 #ifdef USE_DIRECTX
-            renderShadowPass(temp);
+        renderShadowPass(temp);
 #elif USE_OPENGL
-            renderShadowPass(shadowCamera);
+        renderShadowPass(shadowCamera);
 #endif // USE_DIRECTX
-        }
-        shadowMap.unbind();
     }
+    shadowMap.unbind();
 }

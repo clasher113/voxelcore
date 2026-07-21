@@ -69,7 +69,7 @@ std::unique_ptr<ImageData> Texture::readData() {
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.get());
     glBindTexture(GL_TEXTURE_2D, 0);
     return std::make_unique<ImageData>(
-        ImageFormat::rgba8888, width, height, std::move(data)
+        ImageFormat::RGBA8888, width, height, std::move(data)
     );
 }
 

@@ -33,7 +33,11 @@ ChunksController::ChunksController(Level& level)
 ChunksController::~ChunksController() = default;
 
 void ChunksController::update(
-    int64_t maxDuration, int loadDistance, uint padding, Player& player
+    int64_t maxDuration,
+    int loadDistance,
+    uint padding,
+    Player& player,
+    bool isLocalPlayer
 ) const {
     const auto& position = player.getPosition();
     int centerX = floordiv<CHUNK_W>(glm::floor(position.x));
@@ -50,7 +54,7 @@ void ChunksController::update(
 
     for (uint i = 0; i < MAX_WORK_PER_FRAME; i++) {
         timeutil::Timer timer;
-        if (loadVisible(player, padding)) {
+        if (loadVisible(player, padding, isLocalPlayer)) {
             int64_t mcs = timer.stop();
             if (mcstotal + mcs < maxDuration * 1000) {
                 mcstotal += mcs;
@@ -77,7 +81,9 @@ bool ChunksController::isInLoadingZone(
     return distance < minDistance;
 }
 
-bool ChunksController::loadVisible(const Player& player, uint padding) const {
+bool ChunksController::loadVisible(
+    const Player& player, uint padding, bool isLocalPlayer
+) const {
     auto& chunks = *player.chunks;
     int sizeX = chunks.getWidth();
     int sizeY = chunks.getHeight();
@@ -113,7 +119,7 @@ bool ChunksController::loadVisible(const Player& player, uint padding) const {
             auto& chunk = chunks.getChunks()[index];
             if (chunk != nullptr) {
                 if (chunk->flags.loaded && !chunk->flags.lighted) {
-                    if (buildLights(player, chunk)) {
+                    if (isLocalPlayer && buildLights(player, chunk)) {
                         return true;
                     }
                 }

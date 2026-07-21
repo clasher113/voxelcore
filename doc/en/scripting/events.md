@@ -221,6 +221,18 @@ function on_hud_close(playerid: int)
 
 Called on world close (before saving)
 
+```lua
+function on_inventory_interact(invid: int, slot: int, action: int, mode: int)
+```
+
+Triggered when a player interacts with inventory slots.
+
+| ACTION / MODE | (0) PRIMARY                                        | (1) SECONDARY                                          |
+| ------------- | -------------------------------------------------- | ------------------------------------------------------ |
+| (0) PUT       | Places all items; if occupied, swaps them.         | Places a single item from the cursor into the slot.    |
+| (1) TAKE      | Picks up all items from the slot.                  | Picks up half of the items from the slot (rounded up). |
+| (2) SHARE     | Triggers the share event for the inventory layout. | Undefined                                              |
+
 ## *events* library
 
 ```lua

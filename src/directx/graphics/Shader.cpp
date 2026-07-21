@@ -53,7 +53,7 @@ void Shader::recompile(const std::vector<std::string>& defines) {
 			return std::string(sstream.str());
 		};
 
-		logger.info() << "shaders " << toHex(recompiled->m_p_pixelShader) << " " << toHex(recompiled->m_p_pixelShader) << " has been recompiled";
+		logger.info() << "shaders " << toHex(recompiled->m_p_vertexShader) << " " << toHex(recompiled->m_p_pixelShader) << " has been recompiled";
 
 		this->~Shader();
 		new (this) Shader(*recompiled.release());

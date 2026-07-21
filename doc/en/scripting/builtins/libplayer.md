@@ -117,6 +117,7 @@ player.set_suspended(pid: int, suspended: bool)
 Setter and getter for the player's suspended status.
 
 When suspended, the entity is deleted and the player is disabled from the world simulation.
+When resumed, a new entity will be created with a different ID.
 
 ```lua
 player.set_name(playerid: int, name: str)

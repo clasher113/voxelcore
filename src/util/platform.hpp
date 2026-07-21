@@ -21,4 +21,6 @@ namespace platform {
     void new_engine_instance(const std::vector<std::string>& args);
     /// @brief Open URL in web browser 
     bool open_url(const std::string& url);
+    /// @brief Check if stdin has input
+    bool stdin_has_data();
 }

@@ -3,14 +3,12 @@
 
 #include <algorithm>
 #include <glm/glm.hpp>
-#include <iostream>
 
 #include "loading/ContentUnitLoader.hpp"
 #include "ContentBuilder.hpp"
 #include "ContentPack.hpp"
 #include "debug/Logger.hpp"
 #include "logic/scripting/scripting.hpp"
-#include "objects/rigging.hpp"
 #include "util/listutil.hpp"
 #include "util/stringutil.hpp"
 #include "engine/EnginePaths.hpp"
@@ -399,16 +397,6 @@ void ContentLoader::load() {
         }
     }
 
-    // Load skeletons
-    io::path skeletonsDir = folder / "skeletons";
-    foreach_file(skeletonsDir, [this](const io::path& file) {
-        std::string name = pack->id + ":" + file.stem();
-        std::string text = io::read_string(file);
-        builder.add(
-            rigging::SkeletonConfig::parse(text, file.string(), name)
-        );
-    });
-
     // Process content.json and load defined content units
     auto contentFile = pack->getContentFile();
     if (io::exists(contentFile)) {
@@ -453,7 +441,8 @@ static void load_script(const Content& content, T& def) {
             def.name,
             scriptfile,
             def.scriptFile,
-            def.rt.funcsset
+            def.rt.funcsset,
+            def.rt.eventNames
         );
     }
 }

@@ -257,6 +257,8 @@ cbuffer SkyboxGenCBuff : register(b0) {
     int u_quality;
     float3 u_lightDir;
     float u_dayTime;
+    float3 u_tint;
+    float3 u_hightlight;
 }
 
 PSInput VShader(VSInput input) {
@@ -314,5 +316,5 @@ float4 PShader(PSInput input) : SV_TARGET {
     col = 1.0 - exp(-col);
     col = min(col, 1.f.rrr);
     // Output to screen
-    return float4(col, 1.0);
+    return float4(col * u_tint + u_hightlight, 1.0);
 }

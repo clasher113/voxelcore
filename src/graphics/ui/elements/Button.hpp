@@ -30,6 +30,8 @@ namespace gui {
         virtual Align getTextAlign() const;
         virtual void setTextAlign(Align align);
 
+        std::shared_ptr<Label> getLabel() const;
+
         virtual void setText(std::wstring text);
         virtual std::wstring getText() const;
 

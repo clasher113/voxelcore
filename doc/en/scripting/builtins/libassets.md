@@ -5,6 +5,13 @@ A library for working with audio/visual assets.
 ## Functions
 
 ```lua
+-- Requests background texture loading
+assets.request_texture(
+    -- Image file
+    filename: string,
+    -- Texture name after loading
+    name: string,
+)
 -- Loads a texture
 assets.load_texture(
     -- Array of bytes of an image file
@@ -23,7 +30,11 @@ assets.parse_model(
     -- Contents of the model file
     content: str,
     -- Model name after loading
-    name: str
+    name: str,
+    -- The skeleton name after loading. May be the same as the model name.
+    -- The model will be split by the named bones.
+    [optional]
+    skeleton_name: string
 )
 
 -- Creates a Canvas from a loaded texture.

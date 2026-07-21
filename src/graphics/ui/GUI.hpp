@@ -2,6 +2,7 @@
 
 #include "delegates.hpp"
 
+#include <set>
 #include <queue>
 #include <memory>
 #include <vector>
@@ -60,15 +61,14 @@ namespace gui {
     class UINode;
     class Container;
     class Menu;
-
-    using PageLoaderFunc = std::function<std::shared_ptr<UINode>(const std::string&)>;
+    class Frame;
 
     /// @brief The main UI controller
     class GUI {
         Engine& engine;
         Input& input;
         std::unique_ptr<Batch2D> batch2D;
-        std::shared_ptr<Container> container;
+        std::shared_ptr<Frame> container;
         std::shared_ptr<UINode> hover;
         std::shared_ptr<UINode> pressed;
         std::shared_ptr<UINode> focus;
@@ -76,12 +76,14 @@ namespace gui {
         std::shared_ptr<UiDocument> rootDocument;
         std::unique_ptr<FontStylesScheme> syntaxColorScheme;
         std::unordered_map<std::string, std::shared_ptr<UINode>> storage;
+        std::shared_ptr<Frame> activeFrame;
 
         std::unique_ptr<Camera> uicamera;
         std::shared_ptr<Menu> menu;
         std::queue<runnable> postRunnables;
-
-        PageLoaderFunc pagesLoader;
+        std::vector<std::weak_ptr<UINode>> mouseOver;
+        std::unordered_map<std::string, std::shared_ptr<Frame>> frames;
+        vec2supplier cursorLocator;
 
         float tooltipTimer = 0.0f;
         float doubleClickTimer = 0.0f;
@@ -89,19 +91,16 @@ namespace gui {
         bool doubleClicked = false;
         bool debug = false;
 
-        void actMouse(float delta, const CursorState& cursor);
+        void actMouse(Frame& frame, float delta, const CursorState& cursor);
         void actFocused();
         void updateTooltip(float delta);
         void resetTooltip();
     public:
+        static inline std::string CORE_MAIN = "core:main";
         static constexpr int CONTEXT_MENU_ZINDEX = 999;
 
         GUI(Engine& engine);
         ~GUI();
-
-        void setPageLoader(PageLoaderFunc pageLoader);
-        
-        PageLoaderFunc getPagesLoader();
 
         /// @brief Get the main menu (Menu) node
         std::shared_ptr<Menu> getMenu();
@@ -121,13 +120,21 @@ namespace gui {
         /// @brief Draw all visible elements on main container 
         /// @param pctx parent graphics context
         /// @param assets active assets storage
-        void draw(const DrawContext& pctx, const Assets& assets);
+        void draw(const DrawContext& pctx, Assets& assets);
 
         void postAct();
 
         /// @brief Add element to the main container
         /// @param node UI element
         void add(std::shared_ptr<UINode> node);
+
+        void addFrame(std::shared_ptr<Frame> frame);
+
+        void setActiveFrame(
+            const std::string& id, vec2supplier cursorLocator = nullptr
+        );
+
+        std::shared_ptr<Frame> getActiveFrame() const;
 
         /// @brief Remove node from the main container
         void remove(UINode* node) noexcept;

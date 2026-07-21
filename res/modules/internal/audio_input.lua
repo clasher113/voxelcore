@@ -25,6 +25,9 @@ function audio.input.get_max_amplitude()
 end
 
 function audio.input.fetch(token, size)
+    if not token then
+        error('nil passed instead of access token')
+    end
     size = size or MAX_FETCH
     if audio_input_tokens_store[token] then
         if #total_fetch >= size then
@@ -51,7 +54,10 @@ function audio.input.request_open(callback)
     _gui_confirm(gui.str(GRANT_PERMISSION_MSG):gsub("%%{0}", caller), function()
         audio_input_tokens_store[token] = caller
         callback(token)
-        menu:reset()
+        if not menu:back() then
+            menu:reset()
+            gui.set_active_frame("")
+        end
     end)
 end
 
@@ -60,4 +66,10 @@ function audio.input.__get_core_token()
     if caller == "core" then
         return core_token
     end
+end
+
+local audio_get_input_info = audio.__get_input_info
+
+function audio.input.get_input_info()
+    return audio_get_input_info()
 end

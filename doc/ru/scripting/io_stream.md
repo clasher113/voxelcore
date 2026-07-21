@@ -137,6 +137,18 @@ io_stream:write_line(string)
 io_stream:read_fully(
     [опционально] useTable: boolean
 ) -> Bytearray | table<number> | table<string> | string
+
+--[[
+Устанавливает позицию в потоке
+Режимы:
+    b - Задаёт позицию относительно начало файла
+    c - Задаёт позицию относительно текущей позиции
+    e - Задаёт позицию относительно конца файла
+--]]
+io_stream:seek(
+    mode: string
+    offset: number
+)
 ```
 
 ## Методы Buffered-режима

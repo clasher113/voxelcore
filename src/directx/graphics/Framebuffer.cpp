@@ -125,7 +125,7 @@ void Framebuffer::resize(uint width, uint height) {
 	m_renderTargetCount = 1;
 	m_p_renderTarget = new ID3D11RenderTargetView*[m_renderTargetCount];
 
-	m_p_texture = std::make_unique<Texture>(create_texture(m_width, m_height, DXGI_FORMAT_R8G8B8A8_UNORM, D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET));
+	m_p_texture = std::make_shared<Texture>(create_texture(m_width, m_height, DXGI_FORMAT_R8G8B8A8_UNORM, D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET));
 	CHECK_ERROR1(device->CreateRenderTargetView(m_p_texture->getId(), nullptr, &m_p_renderTarget[0]));
 
 	m_p_depthTexture = create_texture(m_width, m_height, DXGI_FORMAT_D32_FLOAT, D3D11_BIND_DEPTH_STENCIL);
@@ -161,6 +161,18 @@ void Framebuffer::releaseResources() {
 	delete[] m_p_renderTarget;
 	if (m_p_depthStencil) m_p_depthStencil->Release();
 	if (m_p_depthTexture) m_p_depthTexture->Release();
+}
+
+std::shared_ptr<Texture> Framebuffer::getSharedTexture() const {
+	return m_p_texture;
+}
+
+uint Framebuffer::getWidth() const {
+	return m_width;
+}
+
+uint Framebuffer::getHeight() const {
+	return m_height;
 }
 
 ID3D11RenderTargetView* Framebuffer::getRTV(size_t index) {

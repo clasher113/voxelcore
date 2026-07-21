@@ -402,7 +402,7 @@ namespace lua {
         pop(L);
 
         pop(L);
-        return glm::quat(x, y, z, w);
+        return glm::quat(w, x, y, z);
     }
 
     inline glm::vec3 tovec3_stack(lua::State* L, int idx) {

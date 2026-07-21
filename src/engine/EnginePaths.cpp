@@ -6,6 +6,7 @@
 #include "io/devices/ZipFileDevice.hpp"
 #include "maths/util.hpp"
 #include "typedefs.hpp"
+#include "devtools/Project.hpp"
 #include "util/platform.hpp"
 #include "util/random.hpp"
 #include "util/stringutil.hpp"
@@ -43,7 +44,10 @@ static std::string generate_random_base64() {
 EnginePaths::EnginePaths(CoreParameters& params)
     : resourcesFolder(params.resFolder),
       userFilesFolder(params.userFolder),
-      projectFolder(params.projectFolder) {
+      projectFolder(params.projectFolder),
+      initiallyWriteables({
+        "world", "export", "config"
+      }) {
     if (!params.scriptFile.empty()) {
         scriptFolder = params.scriptFile.parent_path();
         io::set_device("script", std::make_shared<io::StdfsDevice>(*scriptFolder));
@@ -239,6 +243,22 @@ void EnginePaths::setEntryPoints(std::vector<PathsRoot> entryPoints) {
     this->entryPoints = std::move(entryPoints);
 }
 
+void EnginePaths::setupProject(const Project& project) {
+    if (project.permissions.has(Permissions::WRITE_TO_USER)) {
+        initiallyWriteables.insert("user");
+    }
+}
+
+bool EnginePaths::isWriteable(const std::string& entryPoint) const {
+    if (entryPoint.length() < 2) {
+        return false;
+    }
+    if (entryPoint.substr(0, 2) == "W.") {
+        return true;
+    }
+    return initiallyWriteables.find(entryPoint) != initiallyWriteables.end();
+}
+
 std::tuple<std::string, std::string> EnginePaths::parsePath(std::string_view path) {
     size_t separator = path.find(':');
     if (separator == std::string::npos) {
@@ -254,6 +274,9 @@ ResPaths::ResPaths(std::vector<PathsRoot> roots)
 }
 
 io::path ResPaths::find(const std::string& filename) const {
+    if (filename.find(':') != std::string::npos) {
+        return filename;
+    }
     for (int i = roots.size() - 1; i >= 0; i--) {
         auto& root = roots[i];
         auto file = root.path / filename;

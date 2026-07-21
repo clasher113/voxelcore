@@ -30,6 +30,7 @@ player.get_name(playerid: int) -> string
 
 
 -- Сеттер и геттер статуса "заморозки" игрока.
+-- При заморозке сущность игрока удаляется. При последующей разморозке будет создана новая, с другим id.
 player.set_suspended(pid: int, suspended: boolean)
 player.is_suspended(pid: int) -> boolean
 ```

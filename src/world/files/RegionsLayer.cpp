@@ -50,6 +50,20 @@ regfile::regfile(io::path filename) : file(filename), filename(filename) {
             " is not supported in " + filename.string()
         );
     }
+
+    size_t file_size = file.length();
+    size_t table_offset = file_size - REGION_CHUNKS_COUNT * 4;
+
+    file.seekg(table_offset);
+    file.read(
+        reinterpret_cast<char*>(offsets.data()),
+        sizeof(uint32_t) * REGION_CHUNKS_COUNT
+    );
+    if (dataio::is_big_endian()) {
+        for (size_t i = 0; i < offsets.size(); i++) {
+            offsets[i] = dataio::le2h(i);
+        }
+    }
 }
 
 std::unique_ptr<ubyte[]> regfile::read(
@@ -58,14 +72,12 @@ std::unique_ptr<ubyte[]> regfile::read(
     size_t file_size = file.length();
     size_t table_offset = file_size - REGION_CHUNKS_COUNT * 4;
 
-    uint32_t buff32;
-    file.seekg(table_offset + index * 4);
-    file.read(reinterpret_cast<char*>(&buff32), 4);
-    uint32_t offset = dataio::le2h(buff32);
+    uint32_t offset = offsets.at(index);
     if (offset == 0) {
         return nullptr;
     }
 
+    uint32_t buff32;
     file.seekg(offset);
     file.read(reinterpret_cast<char*>(&buff32), 4);
     size = dataio::le2h(buff32);

@@ -66,6 +66,8 @@ static void create_libs(State* L, StateType stateType) {
 
     if (stateType == StateType::SCRIPT) {
         openlib(L, "app", applib);
+        lua::getglobal(L, "app");
+        lua::setglobal(L, "__vc_app");
     } else if (stateType == StateType::BASE) {
         openlib(L, "__vc_app", applib);
     }

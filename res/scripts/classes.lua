@@ -182,6 +182,9 @@ local function clean(iterable, checkFun, ...)
 end
 
 network.__process_events = function()
+    if not network.is_available() then
+        return
+    end
     local CLIENT_CONNECTED = 1
     local CONNECTED_TO_SERVER = 2
     local DATAGRAM = 3

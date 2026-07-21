@@ -1,8 +1,5 @@
 #include "scripting.hpp"
 
-#include <iostream>
-#include <stdexcept>
-
 #include "scripting_commons.hpp"
 #include "content/Content.hpp"
 #include "content/ContentPack.hpp"
@@ -27,6 +24,9 @@
 #include "world/Level.hpp"
 #include "world/World.hpp"
 #include "interfaces/Process.hpp"
+
+#include <iostream>
+#include <stdexcept>
 
 using namespace scripting;
 
@@ -391,15 +391,15 @@ void scripting::on_blocks_tick(const Block& block, int tps) {
 }
 
 void scripting::update_block(const Block& block, const glm::ivec3& pos) {
-    std::string name = block.name + ".update";
-    lua::emit_event(lua::get_main_state(), name, [pos](auto L) {
+    lua::emit_event(lua::get_main_state(), block.rt.eventNames.update,
+    [pos](auto L) {
         return lua::pushivec_stack(L, pos);
     });
 }
 
 void scripting::random_update_block(const Block& block, const glm::ivec3& pos) {
-    std::string name = block.name + ".randupdate";
-    lua::emit_event(lua::get_main_state(), name, [pos](auto L) {
+    lua::emit_event(lua::get_main_state(), block.rt.eventNames.randomUpdate,
+    [pos](auto L) {
         return lua::pushivec_stack(L, pos);
     });
 }
@@ -660,7 +660,8 @@ void scripting::load_content_script(
     const std::string& prefix,
     const io::path& file,
     const std::string& fileName,
-    BlockFuncsSet& funcsset
+    BlockFuncsSet& funcsset,
+    BlockFuncNamesCache& namesCache
 ) {
     int env = *senv;
     lua::pop(lua::get_main_state(), load_script(env, "block", file, fileName));
@@ -686,6 +687,9 @@ void scripting::load_content_script(
         register_event(env, "on_block_present", prefix + ".blockpresent");
     funcsset.onblockremoved =
         register_event(env, "on_block_removed", prefix + ".blockremoved");
+
+    namesCache.update = prefix + ".update";
+    namesCache.randomUpdate = prefix + ".randupdate";
 }
 
 void scripting::load_content_script(
@@ -693,7 +697,8 @@ void scripting::load_content_script(
     const std::string& prefix,
     const io::path& file,
     const std::string& fileName,
-    ItemFuncsSet& funcsset
+    ItemFuncsSet& funcsset,
+    ItemFuncNamesCache& namesCache
 ) {
     int env = *senv;
     lua::pop(lua::get_main_state(), load_script(env, "item", file, fileName));
@@ -763,7 +768,7 @@ void scripting::load_layout_script(
     const std::string& prefix,
     const io::path& file,
     const std::string& fileName,
-    uidocscript& script
+    UiDocScript& script
 ) {
     int env = *senv;
 

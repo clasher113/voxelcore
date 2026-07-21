@@ -54,6 +54,11 @@ struct BlockFuncsSet {
     bool onblockremoved : 1;
 };
 
+struct BlockFuncNamesCache {
+    std::string update;
+    std::string randomUpdate;
+};
+
 struct CoordSystem {
     std::array<glm::ivec3, 3> axes;
     /// @brief Grid 3d position fix offset (for negative vectors)
@@ -123,7 +128,7 @@ VC_ENUM_METADATA(BlockModelType)
     {"custom", BlockModelType::CUSTOM},
 VC_ENUM_END
 
-enum class CullingMode {
+enum class CullingMode : uint8_t {
     DEFAULT,
     OPTIONAL,
     DISABLED,
@@ -135,6 +140,22 @@ VC_ENUM_METADATA(CullingMode)
     {"disabled", CullingMode::DISABLED},
 VC_ENUM_END
 
+/// @brief Grounding behaviour for extended blocks
+enum class GroundingBehaviour : uint8_t {
+    /// @brief at least one segment must be grounded
+    PARTIAL,
+    /// @brief all segments must be grounded
+    COMPLETE,
+    /// @brief origin segment must be grounded
+    ORIGIN
+};
+
+VC_ENUM_METADATA(GroundingBehaviour)
+    {"partial", GroundingBehaviour::PARTIAL},
+    {"complete", GroundingBehaviour::COMPLETE},
+    {"origin", GroundingBehaviour::ORIGIN},
+VC_ENUM_END
+
 /// @brief Common kit of block properties applied to groups of blocks
 struct BlockMaterial : Serializable {
     std::string name;
@@ -142,6 +163,7 @@ struct BlockMaterial : Serializable {
     std::string placeSound;
     std::string breakSound;
     std::string hitSound;
+    float soundAbsorption = 0.5f;
 
     dv::value toTable() const; // for compatibility
     dv::value serialize() const override;
@@ -230,6 +252,12 @@ public:
     /// @brief Block has semi-transparent texture
     bool translucent = false;
 
+    /// @brief Explicitly overriding 'solid' property if true assigned
+    bool explictlySolid = false;
+
+    /// @brief Grounding behaviour
+    GroundingBehaviour groundingBehaviour = GroundingBehaviour::PARTIAL;
+
     /// @brief Set of block physical hitboxes
     std::vector<AABB> hitboxes {AABB()};
 
@@ -293,6 +321,8 @@ public:
         blockid_t surfaceReplacement = 0;
 
         std::set<int> tags;
+
+        BlockFuncNamesCache eventNames;
     } rt {};
 
     Block(const std::string& name);

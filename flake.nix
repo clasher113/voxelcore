@@ -32,6 +32,7 @@
             glew
             zlib
             libpng
+            freetype
             libvorbis
             openal
             luajit
@@ -39,7 +40,7 @@
             entt
             mesa
             freeglut
-          ]; # libglvnd
+          ];
 
           packages = with pkgs; [
             glfw

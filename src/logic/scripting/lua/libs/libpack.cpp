@@ -87,10 +87,10 @@ static int l_pack_get_info(
     lua::setfield(L, "path");
 
     if (!engine->isHeadless()) {
-        auto assets = engine->getAssets();
+        auto& assetsLoader = engine->acquireBackgroundLoader();
         std::string icon = pack.id + ".icon";
         if (!AssetsLoader::loadExternalTexture(
-                assets, icon, {pack.folder / "icon.png"}
+                assetsLoader, icon, {pack.folder / "icon.png"}
             )) {
             icon = "gui/no_icon";
         }

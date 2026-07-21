@@ -8,7 +8,6 @@ SamplerComparisonState comparisonSampler : register(s2);
 cbuffer ShadowsCBuff : register(b2) {
     float4x4 u_narrowShadowsMatrix;
     float4x4 u_wideShadowsMatrix;
-    float u_dayTime;
     int u_shadowsRes;
     float u_shadowsOpacity;
     float u_shadowsSoftness;

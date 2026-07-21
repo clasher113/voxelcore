@@ -39,7 +39,7 @@ void Bone::setModel(const std::string& name) {
     model = {name, nullptr, true};
 }
 
-Skeleton::Skeleton(const SkeletonConfig* config)
+Skeleton::Skeleton(std::shared_ptr<const SkeletonConfig> config)
     : config(config),
       pose(config->getBones().size()),
       calculated(config->getBones().size()),
@@ -86,9 +86,19 @@ void Skeleton::deserialize(const dv::value& root) {
     }
 }
 
+void Skeleton::setConfig(std::shared_ptr<const SkeletonConfig> rigConfig) {
+    config = std::move(rigConfig);
+    pose.matrices.resize(
+        config->getBones().size(), glm::mat4(1.0f)
+    );
+    calculated.matrices.resize(
+        config->getBones().size(), glm::mat4(1.0f)
+    );
+}
+
 static void get_all_nodes(std::vector<Bone*>& nodes, Bone* node) {
     nodes[node->getIndex()] = node;
-    for (auto& subnode : node->getSubnodes()) {
+    for (auto& subnode : node->getBones()) {
         get_all_nodes(nodes, subnode.get());
     }
 }
@@ -97,6 +107,7 @@ SkeletonConfig::SkeletonConfig(
     const std::string& name, std::unique_ptr<Bone> root, size_t nodesCount
 )
     : name(name), root(std::move(root)), nodes(nodesCount) {
+    assert(this->root.get() != nullptr);
     get_all_nodes(nodes, this->root.get());
 }
 
@@ -111,7 +122,7 @@ size_t SkeletonConfig::update(
     }
     skeleton.calculated.matrices[index] = matrix * baseMatrix * boneMatrix;
     size_t count = 1;
-    for (auto& subnode : node->getSubnodes()) {
+    for (auto& subnode : node->getBones()) {
         count += update(
             index + count,
             skeleton,
@@ -159,6 +170,9 @@ void SkeletonConfig::render(
     const glm::vec3& position,
     const glm::vec3& scale
 ) const {
+    if (skeleton.config->root == nullptr) {
+        return;
+    }
     update(skeleton, rotation, position, scale);
 
     if (!skeleton.visible) {
@@ -187,7 +201,7 @@ void SkeletonConfig::render(
     }
 }
 
-Bone* SkeletonConfig::find(std::string_view str) const {
+const Bone* SkeletonConfig::find(std::string_view str) const {
     for (size_t i = 0; i < nodes.size(); i++) {
         auto* node = nodes[i];
         if (node->getName() == str) {

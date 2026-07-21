@@ -18,9 +18,9 @@ local function def_prop(name, def_value)
 end
 
 def_prop("jump_force", 0.0)
-def_prop("air_damping", 1.0)
-def_prop("ground_damping", 1.0)
-def_prop("movement_speed", 3.0)
+def_prop("air_damping", 10.0)
+def_prop("ground_damping", 10.0)
+def_prop("movement_speed", 27.0)
 def_prop("run_speed_mul", 1.5)
 def_prop("crouch_speed_mul", 0.35)
 def_prop("flight_speed_mul", 2.0)
@@ -61,19 +61,9 @@ local function move_horizontal(speed, dir, vel)
     if vec2.length(dir) > 0.0 then
         vec2.normalize(dir, dir)
 
-        local magnitude = vec2.length({vel[1], vel[3]})
-
-        if magnitude <= 1e-4 or (magnitude < speed or vec2.dot(
-            {vel[1] / magnitude, vel[3] / magnitude}, dir) < 0.9)
-        then
-            vel[1] = vel[1] * 0.2 + dir[1] * speed * 0.8
-            vel[3] = vel[3] * 0.2 + dir[2] * speed * 0.8
-        end
-        magnitude = vec3.length({vel[1], 0, vel[3]})
-        if vec2.dot({vel[1] / magnitude, vel[3] / magnitude}, dir) > 0.5 then
-            vel[1] = vel[1] / magnitude * speed
-            vel[3] = vel[3] / magnitude * speed
-        end
+        local delta = time.delta()
+        vel[1] = vel[1] + dir[1] * speed * delta
+        vel[3] = vel[3] + dir[2] * speed * delta
     end
     body:set_vel(vel)
 end

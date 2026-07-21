@@ -7,7 +7,7 @@ local names = {
     "hidden", "draw-group", "picking-item", "surface-replacement", "script-name",
     "ui-layout", "inventory-size", "tick-interval", "overlay-texture",
     "translucent", "fields", "particles", "icon-type", "icon", "placing-block",
-    "stack-size", "name", "script-file", "culling"
+    "stack-size", "name", "script-file", "culling", "solid"
 }
 for name, _ in pairs(user_props) do
     table.insert(names, name)
@@ -16,6 +16,14 @@ end
 -- remove undefined properties and build tags set
 local function process_properties(lib)
     for id, props in pairs(lib.properties) do
+        if props.parent then
+            local parent_props = lib.properties[block.index(props.parent)] or {}
+            for propname, value in pairs(parent_props) do
+                if not props[propname] then
+                    props[propname] = value
+                end
+            end
+        end
         for propname, _ in pairs(props) do
             if not table.has(names, propname) then
                 props[propname] = nil

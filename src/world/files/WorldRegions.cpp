@@ -157,7 +157,7 @@ void WorldRegions::put(Chunk* chunk, std::vector<ubyte> entitiesData) {
         return;
     }
     assert(chunk != nullptr);
-    if (!chunk->flags.lighted) {
+    if (!chunk->flags.ready) {
         return;
     }
     bool lightsUnsaved = !chunk->flags.loadedLights && doWriteLights;
@@ -183,7 +183,7 @@ void WorldRegions::put(Chunk* chunk, std::vector<ubyte> entitiesData) {
             LIGHTMAP_DATA_LEN);
     }
     // Writing block inventories
-    if (!chunk->inventories.empty()) {
+    if (!chunk->inventories.empty() || chunk->flags.inventoriesRemoved) {
         uint datasize;
         auto data = write_inventories(chunk->inventories, datasize);
         put(chunk->x,
@@ -215,33 +215,29 @@ void WorldRegions::put(Chunk* chunk, std::vector<ubyte> entitiesData) {
     }
 }
 
-std::unique_ptr<ubyte[]> WorldRegions::getVoxels(int x, int z) {
+bool WorldRegions::getVoxels(int x, int z, ubyte* dst) {
     uint32_t size;
     uint32_t srcSize;
     auto& layer = layers[REGION_LAYER_VOXELS];
     auto* data = layer.getData(x, z, size, srcSize);
     if (data == nullptr) {
-        return nullptr;
+        return false;
     }
     assert(srcSize == CHUNK_DATA_LEN);
-    return compression::decompress(data, size, srcSize, layer.compression);
+    compression::decompress({data, size}, dst, CHUNK_DATA_LEN, layer.compression);
+    return true;
 }
 
-std::unique_ptr<light_t[]> WorldRegions::getLights(int x, int z) {
+bool WorldRegions::getLights(int x, int z, ubyte* dst) {
     uint32_t size;
     uint32_t srcSize;
     auto& layer = layers[REGION_LAYER_LIGHTS];
     auto* bytes = layer.getData(x, z, size, srcSize);
     if (bytes == nullptr) {
-        return nullptr;
+        return false;
     }
-    auto data = compression::decompress(
-        bytes, size, srcSize, layer.compression
-    );
-    if (srcSize == LIGHTMAP_DATA_LEN) {
-        return Lightmap::decode(data.get());
-    }
-    return nullptr;
+    compression::decompress({bytes, size}, dst, srcSize, layer.compression);
+    return true;
 }
 
 ChunkInventoriesMap WorldRegions::fetchInventories(int x, int z) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <unordered_map>
 
 #define GLM_ENABLE_EXPERIMENTAL
@@ -57,7 +58,7 @@ public:
 
     void putChunk(std::shared_ptr<Chunk> chunk);
 
-    const AABB* isObstacleAt(float x, float y, float z) const;
+    std::optional<AABB> isObstacleAt(float x, float y, float z, const AABB& aabb) const;
 
     inline Chunk* getChunk(int cx, int cz) const {
         const auto& found = chunksMap.find(keyfrom(cx, cz));

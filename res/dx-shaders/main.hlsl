@@ -36,6 +36,8 @@ cbuffer MainCBuff : register(b0) {
     float u_gamma;
     float3 u_torchlightColor;
     float u_torchlightDistance;
+    float3 u_minSkyLight;
+    float u_dayTime;
     bool u_alphaClip;
     bool u_debugLights;
     bool u_debugNormals;
@@ -65,7 +67,7 @@ PSInput VShader(VSInput input) {
     output.texCoord = input.texCoord;
 	
     output.dir = modelpos.xyz - u_cameraPos;
-    float3 skyLightColor = pick_sky_color(skyboxTexture, samplerLinearClamp);
+    float3 skyLightColor = pick_sky_color(skyboxTexture, samplerLinearClamp, u_dayTime, u_minSkyLight);
     output.skyLight = skyLightColor.rgb * input.light.a;
     
     float4x4 viewmodel = mul(u_view, u_model);
@@ -103,7 +105,7 @@ PSOutput PShader(PSInput input) {
     }
     
     output.color = texColor;
-    output.color.rgb *= min(1.f.rrr, input.torchLight.rgb + input.skyLight);
+    output.color.rgb *= max(input.torchLight.rgb, input.skyLight);
     
 #ifndef ADVANCED_RENDER
     float3 fogColor = skyboxTexture.SampleLevel(samplerLinearClamp, input.dir, 0).rgb;

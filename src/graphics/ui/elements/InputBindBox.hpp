@@ -24,5 +24,7 @@ namespace gui {
         bool isFocuskeeper() const override {
             return true;
         }
+
+        std::shared_ptr<Label> getLabel() const;
     };
 }

@@ -7,6 +7,7 @@
 #include "typedefs.hpp"
 #include "settings.hpp"
 #include "io/fwd.hpp"
+#include "effects.hpp"
 
 namespace audio {
     /// @brief playing speaker uid
@@ -42,8 +43,9 @@ namespace audio {
         /// @brief Channel volume setting
         float volume = 1.0f;
         bool paused = false;
+        bool effects;
     public:
-        Channel(std::string name);
+        Channel(std::string name, bool effects);
 
         /// @brief Get channel volume
         float getVolume() const;
@@ -72,6 +74,9 @@ namespace audio {
 
         /// @brief Check if the channel is paused
         bool isPaused() const;
+
+        /// @brief Check if the channel uses common acoustic effects / filters
+        bool isEffectsApplied() const;
     };
 
     /// @brief Pulse-code modulation data
@@ -394,6 +399,7 @@ namespace audio {
         virtual std::vector<std::string> getInputDeviceNames() = 0;
         virtual std::vector<std::string> getOutputDeviceNames() = 0;
         virtual void update(double delta) = 0;
+        virtual void setAcoustics(Acoustics acoustics) = 0;
 
         /// @brief Check if backend is an abstraction that does not internally
         /// work with actual audio data or play anything
@@ -402,7 +408,7 @@ namespace audio {
 
     /// @brief Initialize audio system or use no audio mode
     /// @param enabled try to initialize actual audio
-    void initialize(bool enabled, AudioSettings& settings);
+    void initialize(bool enabled, bool inputEnabled, AudioSettings& settings);
 
     /// @brief Load audio file info and PCM data
     /// @param file audio file
@@ -547,8 +553,9 @@ namespace audio {
     /// @brief Create new channel.
     /// All non-builtin channels will be destroyed on audio::reset() call
     /// @param name channel name
+    /// @param effects use common acoustic effects / filters
     /// @return new channel index
-    int create_channel(const std::string& name);
+    int create_channel(const std::string& name, bool effects);
 
     /// @brief Get channel index by name
     /// @param name channel name
@@ -579,6 +586,8 @@ namespace audio {
     /// @brief Update audio streams and sound instanced
     /// @param delta time elapsed since the last update (seconds)
     void update(double delta);
+
+    void set_acoustics(Acoustics acoustics);
 
     /// @brief Stop all playing audio in channel, reset channel state
     void reset_channel(int channel);

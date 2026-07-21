@@ -6,8 +6,8 @@
 #include <memory>
 
 enum class ImageFormat {
-    rgb888,
-    rgba8888
+    RGB888,
+    RGBA8888
 };
 
 class ImageData {
@@ -57,7 +57,7 @@ public:
     }
 
     size_t getDataSize() const {
-        size_t channels = 3 + (format == ImageFormat::rgba8888);
+        size_t channels = 3 + (format == ImageFormat::RGBA8888);
         return width * height * channels;
     }
 };

@@ -133,9 +133,8 @@ static void check_world(const EnginePaths& paths, const io::path& folder) {
 }
 
 static const Content* load_world_content(Engine& engine, const io::path& folder) {
-    auto& paths = engine.getPaths();
+    const auto& paths = engine.getPaths();
     auto& contentControl = engine.getContentControl();
-    paths.setCurrentWorldFolder(folder);
 
     check_world(paths, folder);
     call(engine, [&contentControl]() {
@@ -221,9 +220,10 @@ static void confirm(
 }
 
 void EngineController::openWorld(const std::string& name, bool confirmConvert) {
-    const auto& paths = engine.getPaths();
+    auto& paths = engine.getPaths();
     auto& debugSettings = engine.getSettings().debug;
     auto folder = paths.getWorldsFolder() / name;
+    paths.setCurrentWorldFolder(folder);
 
     auto content = load_world_content(engine, folder);
     auto worldFiles = std::make_shared<WorldFiles>(folder, debugSettings);
@@ -276,8 +276,8 @@ void EngineController::createWorld(
     auto folder = paths.getWorldsFolder() / name;
 
     call(engine, [this, &paths, folder]() {
-        engine.getContentControl().loadContent();
         paths.setCurrentWorldFolder(folder);
+        engine.getContentControl().loadContent();
     });
 
     auto& contentControl = engine.getContentControl();
@@ -321,7 +321,10 @@ static void reconfig_packs_outside(
     }
     for (const auto& id : packsToRemove) {
         manager.exclude(id);
-        names.erase(std::find(names.begin(), names.end(), id));
+        auto it = std::find(names.begin(), names.end(), id);
+        if (it != names.end()) {
+            names.erase(it);
+        }
     }
     names = manager.assemble(names);
     contentControl.setContentPacksRaw(manager.getAll(names));

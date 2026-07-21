@@ -10,7 +10,6 @@
 #include <glm/glm.hpp>
 
 class Camera;
-class Block;
 class Assets;
 class Player;
 class Engine;
@@ -25,7 +24,6 @@ namespace gui {
     class GUI;
     class Menu;
     class UINode;
-    class Panel;
     class Container;
     class InventoryView;
     class SlotView;
@@ -149,6 +147,8 @@ public:
     /// @brief Check if inventory mode on
     bool isInventoryOpen() const;
 
+    bool isPlayerInventoryOpen() const;
+
     /// @brief Check if pause mode on
     bool isPause() const;
 
@@ -156,7 +156,7 @@ public:
     void setPause(bool pause);
 
     /// @brief Show player inventory in inventory-mode
-    void openInventory();
+    void openInventory(bool playerInventory = true);
 
     /// @brief Show inventory in inventory-mode
     /// @param doc ui layout
@@ -204,6 +204,8 @@ public:
     Player* getPlayer() const;
 
     std::shared_ptr<Inventory> getBlockInventory();
+
+    std::shared_ptr<Inventory> getSecondInventory();
 
     bool isContentAccess() const;
 

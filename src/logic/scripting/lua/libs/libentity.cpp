@@ -1,5 +1,6 @@
 #include "libentity.hpp"
 
+#include "assets/Assets.hpp"
 #include "content/Content.hpp"
 #include "content/ContentPack.hpp"
 #include "engine/Engine.hpp"
@@ -82,7 +83,11 @@ static int l_despawn(lua::State* L) {
 
 static int l_get_skeleton(lua::State* L) {
     if (auto entity = get_entity(L, 1)) {
-        return lua::pushstring(L, entity->getSkeleton().config->getName());
+        auto skeleton = entity->getSkeleton();
+        if (skeleton == nullptr) {
+            return 0;
+        }
+        return lua::pushstring(L, skeleton->config->getName());
     }
     return 0;
 }
@@ -97,15 +102,19 @@ static int l_get_player(lua::State* L) {
 }
 
 static int l_set_skeleton(lua::State* L) {
+    auto assets = engine->getAssets();
+    if (assets == nullptr) {
+        return 0;
+    }
     if (auto entity = get_entity(L, 1)) {
         std::string skeletonName = lua::require_string(L, 2);
-        auto rigConfig = content->getSkeleton(skeletonName);
+        auto rigConfig = assets->getShared<rigging::SkeletonConfig>(skeletonName);
         if (rigConfig == nullptr) {
             throw std::runtime_error(
                 "skeleton not found '" + skeletonName + "'"
             );
         }
-        entity->setRig(rigConfig);
+        entity->setRig(std::move(rigConfig));
     }
     return 0;
 }
@@ -141,8 +150,10 @@ static int l_raycast(lua::State* L) {
     auto dir = lua::tovec<3>(L, 2);
     auto maxDistance = lua::tonumber(L, 3);
     auto ignoreEntityId = lua::tointeger(L, 4);
+    bool includeNonSelectable = false;
     std::set<blockid_t> filteredBlocks {};
-    if (lua::gettop(L) >= 6) {
+    const int luaStackSize = lua::gettop(L);
+    if (luaStackSize >= 6) {
         if (lua::istable(L, 6)) {
             int addLen = lua::objlen(L, 6);
             for (int i = 0; i < addLen; i++) {
@@ -157,6 +168,9 @@ static int l_raycast(lua::State* L) {
         } else {
             throw std::runtime_error("table expected for filter");
         }
+    }
+    if (luaStackSize >= 7) {
+        includeNonSelectable = lua::toboolean(L, 6);
     }
 
     glm::vec3 end;
@@ -173,14 +187,15 @@ static int l_raycast(lua::State* L) {
             end,
             normal,
             iend,
-            filteredBlocks
+            filteredBlocks,
+            includeNonSelectable
         )) {
         maxDistance = glm::distance(start, end);
         block = voxel->id;
     }
     if (auto ray =
             level->entities->rayCast(start, dir, maxDistance, ignoreEntityId)) {
-        if (lua::gettop(L) >= 5 && !lua::isnil(L, 5)) {
+        if (luaStackSize >= 5 && !lua::isnil(L, 5)) {
             lua::pushvalue(L, 5);
         } else {
             lua::createtable(L, 0, 6);

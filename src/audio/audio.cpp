@@ -24,9 +24,11 @@ namespace {
     std::vector<std::unique_ptr<Channel>> channels;
     util::ObjectsKeeper objects_keeper {};
     std::unique_ptr<InputDevice> input_device = nullptr;
+    static bool input_enabled = false;
 }
 
-Channel::Channel(std::string name) : name(std::move(name)) {
+Channel::Channel(std::string name, bool effects)
+    : name(std::move(name)), effects(effects) {
 }
 
 float Channel::getVolume() const {
@@ -53,6 +55,10 @@ void Channel::resume() {
 
 bool Channel::isPaused() const {
     return paused;
+}
+
+bool Channel::isEffectsApplied() const {
+    return effects;
 }
 
 size_t PCMStream::readFully(char* buffer, size_t bufferSize, bool loop) {
@@ -152,11 +158,13 @@ public:
     }
 };
 
-void audio::initialize(bool enabled, AudioSettings& settings) {
+void audio::initialize(
+    bool enabled, bool inputEnabled, AudioSettings& settings
+) {
     enabled = enabled && settings.enabled.get();
     if (enabled) {
         logger.info() << "initializing ALAudio backend";
-        backend = ALAudio::create().release();
+        backend = ALAudio::create(settings).release();
     }
     if (backend == nullptr) {
         if (enabled) {
@@ -168,21 +176,29 @@ void audio::initialize(bool enabled, AudioSettings& settings) {
     struct {
         std::string name;
         NumberSetting* setting;
+        bool effects;
     } builtin_channels[] {
-        {"master", &settings.volumeMaster},
-        {"regular", &settings.volumeRegular},
-        {"music", &settings.volumeMusic},
-        {"ambient", &settings.volumeAmbient},
-        {"ui", &settings.volumeUI}
+        {"master", &settings.volumeMaster, false},
+        {"regular", &settings.volumeRegular, true},
+        {"music", &settings.volumeMusic, false},
+        {"ambient", &settings.volumeAmbient, true},
+        {"ui", &settings.volumeUI, false}
     };
     for (auto& channel : builtin_channels) {
-        create_channel(channel.name);
+        create_channel(channel.name, channel.effects);
         objects_keeper.keepAlive(channel.setting->observe([=](auto value) {
             audio::get_channel(channel.name)->setVolume(value * value);
         }, true));
     }
+    objects_keeper.keepAlive(settings.acousticEffects.observe([=](auto value) {
+        if (value) return;
+        backend->setAcoustics(audio::Acoustics {});
+    }, true));
 
-    ::input_device = backend->openInputDevice("", 44100, 1, 16);
+    if (inputEnabled) {
+        ::input_device = backend->openInputDevice("", 44100, 1, 16);
+        ::input_enabled = true;
+    }
     if (::input_device) {
         ::input_device->startCapture();
     }
@@ -270,6 +286,10 @@ std::vector<std::string> audio::get_output_devices_names() {
 
 void audio::set_input_device(const std::string& deviceName) {
     logger.info() << "setting input device to " << deviceName;
+    if (!::input_enabled) {
+        logger.warning() << "unable to set input device due to project permissions";
+        return;
+    }
     if (deviceName == audio::DEVICE_NONE) {
         if (::input_device) {
             ::input_device->stopCapture();
@@ -409,12 +429,12 @@ Speaker* audio::get_speaker(speakerid_t id) {
     return found->second.get();
 }
 
-int audio::create_channel(const std::string& name) {
+int audio::create_channel(const std::string& name, bool effects) {
     int index = get_channel_index(name);
     if (index != -1) {
         return index;
     }
-    channels.emplace_back(std::make_unique<Channel>(name));
+    channels.emplace_back(std::make_unique<Channel>(name, effects));
     return channels.size() - 1;
 }
 
@@ -484,6 +504,10 @@ void audio::update(double delta) {
             it++;
         }
     }
+}
+
+void audio::set_acoustics(Acoustics acoustics) {
+    backend->setAcoustics(std::move(acoustics));
 }
 
 void audio::reset_channel(int index) {

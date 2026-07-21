@@ -1,7 +1,6 @@
 #include "ServerMainloop.hpp"
 
 #include "Engine.hpp"
-#include "EnginePaths.hpp"
 #include "logic/scripting/scripting.hpp"
 #include "logic/LevelController.hpp"
 #include "interfaces/Process.hpp"
@@ -80,11 +79,10 @@ void ServerMainloop::run() {
 void ServerMainloop::setLevel(std::unique_ptr<Level> level) {
     if (level == nullptr) {
         controller->onWorldQuit();
-        engine.getPaths().setCurrentWorldFolder("");
         controller = nullptr;
     } else {
         controller = std::make_unique<LevelController>(
-            &engine, std::move(level), nullptr
+            engine, std::move(level), nullptr
         );
     }
 }

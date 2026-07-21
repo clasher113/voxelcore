@@ -406,7 +406,7 @@ static int l_meta_meta_call(lua::State* L) {
     return newuserdata<LuaCanvas>(
         L,
         nullptr,
-        std::make_shared<ImageData>(ImageFormat::rgba8888, size.x, size.y)
+        std::make_shared<ImageData>(ImageFormat::RGBA8888, size.x, size.y)
     );
 }
 

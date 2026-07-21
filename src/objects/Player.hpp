@@ -7,6 +7,7 @@
 #include "settings.hpp"
 #include "voxels/voxel.hpp"
 #include "util/Interpolation.hpp"
+#include "maths/util.hpp"
 
 class Chunks;
 class Camera;
@@ -44,12 +45,12 @@ struct CursorSelection {
 class Player : public Serializable {
     Level& level;
     int64_t id;
-    std::string name;
+    std::wstring name;
     float speed;
     
     int chosenSlot;
     glm::vec3 position;
-    glm::vec3 spawnpoint {};
+    glm::vec3 spawnpoint {std::nanf(""), std::nanf(""), std::nanf("")};
     std::shared_ptr<Inventory> inventory;
     bool suspended = false;
     bool flight = false;
@@ -63,6 +64,9 @@ class Player : public Serializable {
     entityid_t selectedEid = 0;
 
     glm::vec3 rotation {};
+    util::PseudoRandom random;
+
+    void attemptToChooseSpawnpoint();
 public:
     util::VecInterpolation<3, float, true> rotationInterpolation {true};
 
@@ -75,7 +79,7 @@ public:
     Player(
         Level& level,
         int64_t id,
-        const std::string& name,
+        const std::wstring& name,
         glm::vec3 position,
         float speed,
         std::shared_ptr<Inventory> inv,
@@ -87,8 +91,6 @@ public:
     void updateEntity();
     void updateSelectedEntity();
     void postUpdate();
-
-    void attemptToFindSpawnpoint();
 
     void setChosenSlot(int index);
 
@@ -122,8 +124,8 @@ public:
 
     entityid_t getSelectedEntity() const;
 
-    void setName(const std::string& name);
-    const std::string& getName() const;
+    void setName(const std::wstring& name);
+    const std::wstring& getName() const;
 
     const std::shared_ptr<Inventory>& getInventory() const;
 

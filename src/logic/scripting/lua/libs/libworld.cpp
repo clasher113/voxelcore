@@ -25,11 +25,15 @@
 using namespace scripting;
 namespace fs = std::filesystem;
 
-static WorldInfo& require_world_info() {
+static Level& require_level() {
     if (level == nullptr) {
-        throw std::runtime_error("no world open");
+        throw std::runtime_error("world is not open");
     }
-    return level->getWorld()->getInfo();
+    return *level;
+}
+
+static WorldInfo& require_world_info() {
+    return require_level().getWorld()->getInfo();
 }
 
 static int l_is_open(lua::State* L) {
@@ -56,10 +60,9 @@ static int l_get_list(lua::State* L) {
         lua::pushstring(L, name);
         lua::setfield(L, "name");
 
-        auto assets = engine->getAssets();
         std::string icon = "world#" + name + ".icon";
         if (!engine->isHeadless() && !AssetsLoader::loadExternalTexture(
-                assets,
+                engine->acquireBackgroundLoader(),
                 icon,
                 {worlds[i] / "icon.png",
                  worlds[i] / "preview.png"}
@@ -130,11 +133,11 @@ static int l_get_chunk_data(lua::State* L) {
     int z = static_cast<int>(lua::tointeger(L, 2));
     const auto& chunk = level->chunks->getChunk(x, z);
 
+    auto voxelData = std::make_unique<ubyte[]>(CHUNK_DATA_LEN);
     std::vector<ubyte> chunkData;
     if (chunk == nullptr) {
         auto& regions = level->getWorld()->wfile->getRegions();
-        auto voxelData = regions.getVoxels(x, z);
-        if (voxelData == nullptr) {
+        if (!regions.getVoxels(x, z, voxelData.get())) {
             return 0;
         }
         static util::Buffer<ubyte> rleBuffer(CHUNK_DATA_LEN * 2);

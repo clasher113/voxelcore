@@ -56,6 +56,11 @@ Enables translucency support in block textures (examples: water, ice).
 Should only be used when needed, as it impacts performance.
 Not required for full transparency (grass, flowers).
 
+### *solid*
+
+Explicitly specifies that the block is solid - completely overlapping the blocks behind it.
+Used by blocks with the `custom` model type, which must support culling of invisible geometry, as with the `block` type. If `false` specified then ignored.
+
 ### *rotation*
 
 Rotation profile (set of available block rotations and behaviour of placing block rotation) from list:
@@ -235,6 +240,15 @@ Number of block inventory slots. Default - 0 (no inventory).
 ### *size*
 
 Array of three integers. Default value is `[1, 1, 1]`.
+
+### *grounding-behaviour*
+
+Defines the behavior of the extended grounded block. Available behavior options:
+
+- "partial" - at least one segment must be grounded (default)
+- "complete" - all segments must be grounded
+- "origin" - origin segment must be grounded
+
 
 ## Block fields
 

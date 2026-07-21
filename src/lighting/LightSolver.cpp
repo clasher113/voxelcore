@@ -1,6 +1,3 @@
-#include <iostream>
-#include <assert.h>
-
 #include "LightSolver.hpp"
 #include "Lightmap.hpp"
 #include "content/Content.hpp"
@@ -8,6 +5,8 @@
 #include "voxels/Chunk.hpp"
 #include "voxels/voxel.hpp"
 #include "voxels/Block.hpp"
+
+#include <assert.h>
 
 LightSolver::LightSolver(const ContentIndices& contentIds, Chunks& chunks, int channel) 
     : blockDefs(contentIds.blocks.getDefs()),
@@ -55,7 +54,7 @@ void LightSolver::remove(int x, int y, int z) {
     lightmap.set(x-chunk->x*CHUNK_W, y, z-chunk->z*CHUNK_D, channel, 0);
 }
 
-void LightSolver::solve(){
+void LightSolver::solve(Chunk* prevailingChunk) {
     const int coords[] = {
             0, 0, 1,
             0, 0,-1,
@@ -66,47 +65,54 @@ void LightSolver::solve(){
     };
 
     while (!remqueue.empty()){
-        const lightentry entry = remqueue.front();
+        lightentry entry = std::move(remqueue.front());
         remqueue.pop();
 
         for (int i = 0; i < 6; i++) {
-            int imul3 = i*3;
+            int imul3 = i * 3;
             int x = entry.x+coords[imul3];
             int y = entry.y+coords[imul3+1];
             int z = entry.z+coords[imul3+2];
             
-            Chunk* chunk = chunks.getChunkByVoxel(x,y,z);
-            if (chunk) {
-                int lx = x - chunk->x * CHUNK_W;
-                int lz = z - chunk->z * CHUNK_D;
-                chunk->flags.modified = true;
+            Chunk* chunk = prevailingChunk;
+            if (chunk == nullptr || !chunk->isBlockInside(x, z)) {
+                chunk = chunks.getChunkByVoxel(x,y,z);
+                if (chunk == nullptr) {
+                    continue;
+                }
+            } else if (y < 0 || y >= CHUNK_H) {
+                continue;
+            }
 
-                assert(chunk->lightmap != nullptr);
-                auto& lightmap = *chunk->lightmap;
+            int lx = x - chunk->x * CHUNK_W;
+            int lz = z - chunk->z * CHUNK_D;
+            chunk->flags.modified = true;
 
-                ubyte light = lightmap.get(lx,y,lz, channel);
-                if (light != 0 && light == entry.light-1){
-                    voxel* vox = chunks.get(x, y, z);
-                    if (vox && vox->id != 0) {
-                        const Block* block = blockDefs[vox->id];
-                        if (uint8_t emission = block->emission[channel]) {
-                            addqueue.push(lightentry {x, y, z, emission});
-                            lightmap.set(lx, y, lz, channel, emission);
-                        }
-                        else lightmap.set(lx, y, lz, channel, 0);
+            assert(chunk->lightmap != nullptr);
+            auto& lightmap = *chunk->lightmap;
+
+            ubyte light = lightmap.get(lx,y,lz, channel);
+            if (light != 0 && light == entry.light-1) {
+                voxel* vox = chunks.get(x, y, z);
+                if (vox && vox->id != 0) {
+                    const Block* block = blockDefs[vox->id];
+                    if (uint8_t emission = block->emission[channel]) {
+                        addqueue.push(lightentry {x, y, z, emission});
+                        lightmap.set(lx, y, lz, channel, emission);
                     }
                     else lightmap.set(lx, y, lz, channel, 0);
-                    remqueue.push(lightentry {x, y, z, light});
                 }
-                else if (light >= entry.light){
-                    addqueue.push(lightentry {x, y, z, light});
-                }
+                else lightmap.set(lx, y, lz, channel, 0);
+                remqueue.push(lightentry {x, y, z, light});
+            }
+            else if (light >= entry.light) {
+                addqueue.push(lightentry {x, y, z, light});
             }
         }
     }
 
     while (!addqueue.empty()){
-        const lightentry entry = addqueue.front();
+        lightentry entry = std::move(addqueue.front());
         addqueue.pop();
 
         for (int i = 0; i < 6; i++) {
@@ -115,10 +121,16 @@ void LightSolver::solve(){
             int y = entry.y+coords[imul3+1];
             int z = entry.z+coords[imul3+2];
 
-            Chunk* chunk = chunks.getChunkByVoxel(x,y,z);
-            if (chunk == nullptr) {
+            Chunk* chunk = prevailingChunk;
+            if (chunk == nullptr || !chunk->isBlockInside(x, z)) {
+                chunk = chunks.getChunkByVoxel(x,y,z);
+                if (chunk == nullptr) {
+                    continue;
+                }
+            } else if (y < 0 || y >= CHUNK_H) {
                 continue;
             }
+
             assert(chunk->lightmap != nullptr);
             auto& lightmap = *chunk->lightmap;
             int lx = x - chunk->x * CHUNK_W;
