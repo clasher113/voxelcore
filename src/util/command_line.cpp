@@ -10,6 +10,10 @@
 #include "util/ArgsReader.hpp"
 #include "engine/Engine.hpp"
 
+#ifdef USE_DIRECTX
+#include "directx/util/AdapterReader.hpp"
+#endif // USE_DIRECTX
+
 namespace fs = std::filesystem;
 
 class ArgC {
@@ -78,6 +82,32 @@ static bool perform_keyword(
             params.debugServerString = reader.next();
             return true;
         }, "<serv>", "open debugging server where <serv> is {transport}:{port}"),
+#ifdef USE_DIRECTX
+        ArgC("--gpu-list", []() -> bool {
+            std::cout << "Avalable GPU's:" << std::endl;
+            const std::vector<AdapterData>& adapters = AdapterReader::GetAdapters();
+            for (size_t i = 0; i < adapters.size(); i++) {
+                const auto& description = adapters[i].m_description.Description;
+                std::cout << '[' << i << "] " << std::string(std::begin(description), std::end(description)) << std::endl;
+            }
+            return true;
+        }, "", "display available gpu's"),
+        ArgC("--gpu", [&reader]() -> bool {
+            const std::vector<AdapterData>& adapters = AdapterReader::GetAdapters();
+            const std::string preferredAdapterName = reader.next();
+            for (size_t i = 0; i < adapters.size(); i++) {
+                const auto& description = adapters[i].m_description.Description;
+                const std::string name(std::begin(description), std::end(description));
+                if (name.substr(0, name.find('\0')) == preferredAdapterName) {
+                    AdapterReader::setPreferedAdapter(i);
+                    return true;
+                }
+            }
+            MessageBoxA(NULL, std::string("Adapter \"" + preferredAdapterName + "\" not found").c_str(), "Error", MB_ICONERROR);
+
+            return false;
+        }, "<gpu name>", "select preferred gpu"),
+#endif // USE_DIRECTX
         ArgC("--help", []() -> bool {
             std::cout << "VoxelCore v" << ENGINE_VERSION_STRING << "\n\n";
             std::cout << "Command-line arguments:\n";

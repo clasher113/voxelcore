@@ -77,20 +77,11 @@ void Device::createDevice() {
 		D3D_FEATURE_LEVEL_9_1,
 	};
 
-	const std::vector<AdapterData>& adapters = AdapterReader::GetAdapters();
-	IDXGIAdapter* performanceAdapter = nullptr;
-
-	if (!adapters.empty()) {
-		auto it = std::max_element(adapters.begin(), adapters.end(), [](const AdapterData& a, const AdapterData& b) {
-			return a.m_description.DedicatedVideoMemory < b.m_description.DedicatedVideoMemory;
-		});
-		s_m_p_adapterData = &*it;
-	}
-    performanceAdapter = s_m_p_adapterData->m_adapter.Get();
+	s_m_p_adapterData = AdapterReader::chooseAdapter();
 
 	CHECK_ERROR2(D3D11CreateDevice(
-		performanceAdapter,
-		(performanceAdapter == nullptr ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_UNKNOWN),
+		(s_m_p_adapterData ? s_m_p_adapterData->m_adapter.Get() : nullptr),
+		(s_m_p_adapterData == nullptr ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_UNKNOWN),
 		nullptr,
 		creationFlags,
 		featureLevels,

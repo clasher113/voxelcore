@@ -21,6 +21,32 @@ const std::vector<AdapterData>& AdapterReader::GetAdapters() {
 	return s_m_adapters;
 }
 
+void AdapterReader::setPreferedAdapter(UINT index) {
+	if (index < s_m_adapters.size()) {
+		m_preferredAdapter = index;
+	}
+}
+
+AdapterData* AdapterReader::chooseAdapter() {
+	if (s_m_adapters.empty()) {
+		AdapterReader::GetAdapters();
+	}
+
+	if (m_preferredAdapter != -1) {
+		return &s_m_adapters.at(m_preferredAdapter);
+	}
+
+	AdapterData* adapter = nullptr;
+
+	if (!s_m_adapters.empty()) {
+		auto it = std::max_element(s_m_adapters.begin(), s_m_adapters.end(), [](const AdapterData& a, const AdapterData& b) {
+			return a.m_description.DedicatedVideoMemory < b.m_description.DedicatedVideoMemory;
+		});
+		adapter = &*it;
+	}
+	return adapter;
+}
+
 AdapterData::AdapterData(Microsoft::WRL::ComPtr<IDXGIAdapter> pAdapter) :
 	m_adapter(pAdapter),
 	m_vendor("Undefined")

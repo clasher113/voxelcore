@@ -16,6 +16,9 @@ public:
 class AdapterReader {
 public:
 	static const std::vector<AdapterData>& GetAdapters();
+	static void setPreferedAdapter(UINT index);
+	static AdapterData* chooseAdapter();
 private:
 	static inline std::vector<AdapterData> s_m_adapters;
+	static inline UINT m_preferredAdapter = -1;
 };
