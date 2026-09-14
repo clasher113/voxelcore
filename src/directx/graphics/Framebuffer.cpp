@@ -12,9 +12,7 @@
 
 Framebuffer::Framebuffer(std::unique_ptr<Texture> texture) :
 	m_width(texture->getWidth()),
-	m_height(texture->getHeight()),
-	m_p_depthTexture(nullptr),
-	m_p_depthStencil(nullptr)
+	m_height(texture->getHeight())
 {
 	ID3D11Device* const device = Device::getDevice();
 
@@ -97,8 +95,7 @@ static ID3D11Texture2D* create_texture(UINT width, UINT height, DXGI_FORMAT form
 
 Framebuffer::Framebuffer(uint width, uint height, bool alpha) :
 	m_width(0),
-	m_height(0),
-	m_renderTargetCount(0)
+	m_height(0)
 {
 	resize(width, height);
 }
@@ -158,9 +155,18 @@ void Framebuffer::releaseResources() {
 	for (size_t i = 0; i < m_renderTargetCount; i++) {
 		m_p_renderTarget[i]->Release();
 	}
-	delete[] m_p_renderTarget;
-	if (m_p_depthStencil) m_p_depthStencil->Release();
-	if (m_p_depthTexture) m_p_depthTexture->Release();
+    if (m_p_renderTarget) {
+		delete[] m_p_renderTarget;
+        m_p_renderTarget = nullptr;
+	}
+    if (m_p_depthStencil) {
+        m_p_depthStencil->Release();
+        m_p_depthStencil = nullptr;
+    }
+    if (m_p_depthTexture) {
+        m_p_depthTexture->Release();
+        m_p_depthTexture = nullptr;
+    }
 }
 
 std::shared_ptr<Texture> Framebuffer::getSharedTexture() const {

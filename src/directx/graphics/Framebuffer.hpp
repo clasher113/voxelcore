@@ -32,12 +32,12 @@ public:
 	ID3D11DepthStencilView* getDSV();
 private:
 	uint m_width, m_height;
-	size_t m_renderTargetCount;
+	size_t m_renderTargetCount = 0;
 
 	std::shared_ptr<Texture> m_p_texture;
-	ID3D11Texture2D* m_p_depthTexture;
-	ID3D11RenderTargetView** m_p_renderTarget;
-	ID3D11DepthStencilView* m_p_depthStencil;
+	ID3D11Texture2D* m_p_depthTexture = nullptr;
+	ID3D11RenderTargetView** m_p_renderTarget = nullptr;
+	ID3D11DepthStencilView* m_p_depthStencil = nullptr;
 
 	void releaseResources();
 };

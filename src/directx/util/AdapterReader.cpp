@@ -73,4 +73,8 @@ AdapterData::AdapterData(Microsoft::WRL::ComPtr<IDXGIAdapter> pAdapter) :
 	}
 }
 
+const std::string AdapterData::getAdapterName() const {
+	return std::string(std::begin(m_description.Description), std::begin(m_description.Description) + wcslen(m_description.Description));
+}
+
 #endif // USE_DIRECTX

@@ -33,7 +33,7 @@ void LineRenderer::initialize(ID3D11Device* device) {
 
 	geometryByteCode->Release();
 
-	s_m_p_cbLineWidth = new ConstantBuffer(cbuffBuilder.getData());
+	s_m_p_thickLineCBuff = new ConstantBuffer(cbuffBuilder.getData());
 	s_m_initialized = true;
 }
 
@@ -43,15 +43,17 @@ void LineRenderer::terminate() {
 		return;
 	}
 	s_m_p_geometryShader->Release();
-	delete s_m_p_cbLineWidth;
+	delete s_m_p_thickLineCBuff;
 	s_m_initialized = false;
 }
 
 void LineRenderer::setWidth(float width) {
-	if (s_m_width == width) return;
 	s_m_width = width;
+	s_m_p_thickLineCBuff->uniform1f("c_lineWidth", width);
+}
 
-	s_m_p_cbLineWidth->uniform1f("c_lineWidth", width);
+void LineRenderer::setViewportSize(float width, float height) {
+	s_m_p_thickLineCBuff->uniform2f("c_viewportSize", width, height);
 }
 
 template void LineRenderer::draw(const Mesh<Batch2DVertex>&);
@@ -60,10 +62,14 @@ template void LineRenderer::draw(const Mesh<LineVertex>&);
 template<typename VertexStructure>
 void LineRenderer::draw(const Mesh<VertexStructure>& mesh) {
 	ID3D11DeviceContext* const context = Device::getContext();
-	s_m_p_cbLineWidth->bind();
-	context->GSSetShader(s_m_p_geometryShader, 0, 0);
+	if (s_m_width > 1.f) {
+		s_m_p_thickLineCBuff->bind();
+		context->GSSetShader(s_m_p_geometryShader, 0, 0);
+	}
 	mesh.draw(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-	context->GSSetShader(nullptr, 0, 0);
+	if (s_m_width > 1.f) {
+		context->GSSetShader(nullptr, 0, 0);
+	}
 }
 
 #endif // USE_DIRECTX

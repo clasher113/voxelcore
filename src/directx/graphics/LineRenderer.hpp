@@ -10,6 +10,7 @@ private:
 	friend class Device;
 	static void initialize(ID3D11Device* device);
 	static void terminate();
+	static void setViewportSize(float width, float height);
 public:
 	static void setWidth(float width);
 
@@ -19,5 +20,5 @@ private:
 	static inline bool s_m_initialized = false;
 	static inline float s_m_width = 1.f;
 	static inline ID3D11GeometryShader* s_m_p_geometryShader = nullptr;
-	static inline ConstantBuffer* s_m_p_cbLineWidth = nullptr;
+	static inline ConstantBuffer* s_m_p_thickLineCBuff = nullptr;
 };

@@ -22,10 +22,10 @@ void Device::initialize(HWND window, UINT windowWidth, UINT windowHeight) {
 	s_m_windowHeight = windowHeight;
 
 	createDevice();
+	LineRenderer::initialize(s_m_device.Get());
 	createSwapChain();
 	createResources();
 	resizeViewPort(0.f, 0.f, windowWidth, windowHeight);
-	LineRenderer::initialize(s_m_device.Get());
 	s_m_initialized = true;
 }
 
@@ -205,7 +205,6 @@ void Device::createResources() {
 
 	s_m_rasterizerStateDesc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
 	s_m_rasterizerStateDesc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
-	s_m_rasterizerStateDesc.MultisampleEnable = true;
 	updateRasterizerState();
 
 	// create sampler state
@@ -333,6 +332,7 @@ void Device::onWindowResize(UINT windowWidth, UINT windowHeight) {
 void Device::resizeViewPort(FLOAT x, FLOAT y, FLOAT width, FLOAT height, FLOAT depthNear, FLOAT depthFar) {
 	D3D11_VIEWPORT viewport{ x, y, width, height, depthNear, depthFar };
 	s_m_context->RSSetViewports(1, &viewport);
+    LineRenderer::setViewportSize(width, height);
 }
 
 void Device::setScissorRect(LONG x, LONG y, LONG width, LONG height) {

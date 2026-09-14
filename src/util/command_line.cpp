@@ -96,9 +96,7 @@ static bool perform_keyword(
             const std::vector<AdapterData>& adapters = AdapterReader::GetAdapters();
             const std::string preferredAdapterName = reader.next();
             for (size_t i = 0; i < adapters.size(); i++) {
-                const auto& description = adapters[i].m_description.Description;
-                const std::string name(std::begin(description), std::end(description));
-                if (name.substr(0, name.find('\0')) == preferredAdapterName) {
+                if (adapters[i].getAdapterName() == preferredAdapterName) {
                     AdapterReader::setPreferedAdapter(i);
                     return true;
                 }

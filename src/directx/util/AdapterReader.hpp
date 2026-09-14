@@ -11,6 +11,8 @@ public:
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_adapter;
 	DXGI_ADAPTER_DESC m_description;
 	std::string m_vendor;
+
+    const std::string getAdapterName() const;
 };
 
 class AdapterReader {

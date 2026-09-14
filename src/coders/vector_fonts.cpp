@@ -3,9 +3,14 @@
 #include "io/io.hpp"
 #include "debug/Logger.hpp"
 #include "graphics/core/ImageData.hpp"
-#include "graphics/core/Texture.hpp"
 #include "graphics/core/Font.hpp"
 #include "constants.hpp"
+
+#ifdef USE_DIRECTX
+#include "directx/graphics/Texture.hpp"
+#elif USE_OPENGL
+#include "graphics/core/Texture.hpp"
+#endif // USE_DIRECTX
 
 #include <stdexcept>
 #include <ft2build.h>
