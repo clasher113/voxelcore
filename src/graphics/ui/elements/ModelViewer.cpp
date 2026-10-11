@@ -130,7 +130,6 @@ void ModelViewer::draw(const DrawContext& pctx, const Assets& assets) {
         ctx.setViewport({size.x, size.y});
         ctx.setDepthTest(true);
         ctx.setCullFace(true);
-        // transparent background, the screen clear color is restored below
         GLfloat clearColor[4];
         glGetFloatv(GL_COLOR_CLEAR_VALUE, clearColor);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
