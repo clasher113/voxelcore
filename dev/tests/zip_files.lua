@@ -86,6 +86,7 @@ local function check_zip(src, zipfile)
 
     debug.log("unmount "..m)
     file.unmount(m)
+    assert(not file.exists(m..":"))
     assert(not pcall(file.read, m..":root.txt"))
     assert(not pcall(file.unmount, m))
 end

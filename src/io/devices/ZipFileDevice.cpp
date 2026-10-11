@@ -182,7 +182,6 @@ ZipFileDevice::ZipFileDevice(
         entries[entry.fileName] = std::move(entry);
     }
 
-    // Add missing parent directories entries
     std::vector<std::string> names;
     names.reserve(entries.size());
     for (const auto& [name, _] : entries) {
