@@ -132,10 +132,14 @@ void Engine::initialize(CoreParameters coreParameters) {
         logger.info() << "engine runs in headless mode";
     }
     if (params.projectFolder.empty()) {
-        auto mainProjectPath =
+        auto userDefProjectPath =
+            params.userFolder / std::filesystem::u8path(DEFAULT_PROJECT_PATH);
+        auto resDefProjectPath =
             params.resFolder / std::filesystem::u8path(DEFAULT_PROJECT_PATH);
-        if (std::filesystem::is_directory(mainProjectPath)) {
-            params.projectFolder = mainProjectPath;
+        if (std::filesystem::is_directory(userDefProjectPath)) {
+            params.projectFolder = userDefProjectPath;
+        } else if (std::filesystem::is_directory(resDefProjectPath)) {
+            params.projectFolder = resDefProjectPath;
         } else {
             params.projectFolder = params.resFolder;
         }
