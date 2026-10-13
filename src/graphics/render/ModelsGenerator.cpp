@@ -255,17 +255,14 @@ model::Model ModelsGenerator::loadCustomBlockModel(
             modelBoxes.push_back(modelbox);
 
             if (boxarr.size() == 7) {
-                for (uint j = 6; j < 12; j++) {
-                    modelTextures.emplace_back(boxarr[6].asString());
-                }
+                const auto texture = boxarr[6].asString();
+                modelTextures.insert(modelTextures.end(), 6, texture);
             } else if (boxarr.size() == 12) {
                 for (uint j = 6; j < 12; j++) {
                     modelTextures.emplace_back(boxarr[j].asString());
                 }
             } else {
-                for (uint j = 6; j < 12; j++) {
-                    modelTextures.emplace_back("notfound");
-                }
+                modelTextures.insert(modelTextures.end(), 6, "notfound");
             }
         }
     }
