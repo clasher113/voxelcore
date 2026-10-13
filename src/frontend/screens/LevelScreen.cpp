@@ -271,8 +271,6 @@ void LevelScreen::draw(float delta) {
 
     if (!hud->isPause()) {
         scripting::on_entities_render(engine.getTime().getDelta());
-        // before the frame: changes made by hud scripts (hand skeleton,
-        // blockwraps, animations) must be rendered with the current camera
         scripting::on_frontend_render();
     }
     renderer->renderFrame(ctx, camera, hudVisible, *postProcessing);
