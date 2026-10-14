@@ -6,7 +6,7 @@ local INT_BEZIER = animation.INT_BEZIER
 local bezier_interpolation = animation.maths.bezier_interpolation
 
 local register_track = __skeleton and __skeleton.register_track
-local MAX_NATIVE_VALUES = 150
+local NATIVE_GROUP_VALUES = 32
 
 local patterns =  {}
 local exclude_patters = {
@@ -249,26 +249,44 @@ local function codegen_rig_target(raw_track, context)
     return code .. " end"
 end
 
--- the same as codegen_rig_target for the entities' skeletons: one
--- apply_track call instead of the matrix calls of every bone
+
 local function codegen_native_rig_target(raw_track, context, track_name)
     if not register_track or not track_name then
         return nil
     end
-    local layout = {}
-    local values = 0
-    local code = ""
     local axis_indices = {X=1, Y=2, Z=3}
     local rotation_order = raw_track.rotation_order or "XYZ"
+    local code = ""
+    local groups = 0
+    local group = {layout = {}, code = "", values = 0}
+
+    local function flush()
+        if #group.layout > 0 then
+            local id = register_track(track_name .. "#" .. groups, group.layout)
+            groups = groups + 1
+            local names = {}
+            for i = 1, group.values do
+                names[i] = "v" .. i
+            end
+            local declare = #names > 0 and ("\n  local " .. table.concat(names, ", ")) or ""
+            local args = #names > 0 and (", " .. table.concat(names, ", ")) or ""
+            code = code .. "\n  do" .. declare .. group.code
+                .. string.format("  apply_track(target.eid, %d%s)\n  end\n", id, args)
+        else
+            code = code .. group.code
+        end
+        group = {layout = {}, code = "", values = 0}
+    end
+
     for bone, lineset in pairs(raw_track.linesets) do
         if lineset.target_type ~= "bone" and lineset.target_type ~= "texture" then
             goto continue
         end
         local lineset_code = codegen_track(
             raw_track, lineset, context.memoised, context.keysets, false)
-        local exports = ""
+        local exported = {}
+        local entry = {name = bone}
         if lineset.target_type == "bone" then
-            -- the last line of a channel and axis wins, as in codegen_track
             local channels = {
                 [animation.CH_TRANSLATE] = {},
                 [animation.CH_ROTATE] = {},
@@ -281,11 +299,9 @@ local function codegen_native_rig_target(raw_track, context, track_name)
                 end
             end
             local function export(i)
-                values = values + 1
-                exports = exports .. string.format("\n   v%d = l%d", values, i)
-                return values
+                table.insert(exported, i)
+                return #exported
             end
-            local entry = {name = bone}
             local function vector(by_axis)
                 if not (by_axis[1] or by_axis[2] or by_axis[3]) then
                     return nil
@@ -307,25 +323,32 @@ local function codegen_native_rig_target(raw_track, context, track_name)
                 end
             end
             entry.s = vector(channels[animation.CH_SCALE])
-            if entry.t or entry.r or entry.s then
-                table.insert(layout, entry)
+        end
+        if group.values + #exported > NATIVE_GROUP_VALUES then
+            flush()
+        end
+        local offset = group.values
+        local exports = ""
+        for k, line in ipairs(exported) do
+            exports = exports .. string.format("\n   v%d = l%d", offset + k, line)
+        end
+        for _, v in pairs({t = entry.t, s = entry.s}) do
+            for axis = 1, 3 do
+                if v[axis] > 0 then v[axis] = v[axis] + offset end
             end
         end
-        code = code .. "\n  do" .. lineset_code .. exports .. "\n  end\n"
+        for i = 2, #(entry.r or {}), 2 do
+            entry.r[i] = entry.r[i] + offset
+        end
+        group.values = offset + #exported
+        group.code = group.code .. "\n  do" .. lineset_code .. exports .. "\n  end\n"
+        if entry.t or entry.r or entry.s then
+            table.insert(group.layout, entry)
+        end
         ::continue::
     end
-    if values > MAX_NATIVE_VALUES then
-        return nil
-    end
-    local id = register_track(track_name, layout)
-    local names = {}
-    for i = 1, values do
-        names[i] = "v" .. i
-    end
-    local args = #names > 0 and (", " .. table.concat(names, ", ")) or ""
-    local declare = #names > 0 and ("\n  local " .. table.concat(names, ", ")) or ""
-    return "\n if target.__native_rig then" .. declare .. code
-        .. string.format("  apply_track(target.eid, %d%s)\n", id, args)
+    flush()
+    return "\n if target.__native_rig then" .. code
 end
 
 local function codegen_object_target(raw_track, context)
@@ -373,6 +396,7 @@ function internals.compile_animation_track(raw_track, track_name)
 
     local native = codegen_native_rig_target(raw_track, context, track_name)
     local rig = codegen_rig_target(raw_track, context)
+    if native then
         rig = native .. " elseif" .. rig:sub(5)
     end
     code = code .. rig
