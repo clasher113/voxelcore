@@ -191,6 +191,10 @@ rig:set_visible(status: bool)
 -- Sets the visibility status of a bone by index
 rig:set_visible(index: int, status: bool)
 
+-- Checks if the entity is out of the camera view in this frame
+-- (updated before on_render)
+rig:is_culled() -> bool
+
 -- Returns the color of the entity
 rig:get_color() -> vec4
 -- Return the color of the bone by index

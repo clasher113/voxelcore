@@ -67,6 +67,8 @@ public:
         entityid_t fpsEntity
     );
 
+    void updateCulling(const Frustum* frustum, entityid_t fpsEntity);
+
     entityid_t spawn(
         const EntityDef& def,
         glm::vec3 position,
