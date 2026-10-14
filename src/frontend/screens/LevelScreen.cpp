@@ -271,11 +271,9 @@ void LevelScreen::draw(float delta) {
 
     if (!hud->isPause()) {
         scripting::on_entities_render(engine.getTime().getDelta());
-    }
-    renderer->renderFrame(ctx, camera, hudVisible, *postProcessing);
-    if (!hud->isPause()) {
         scripting::on_frontend_render();
     }
+    renderer->renderFrame(ctx, camera, hudVisible, *postProcessing);
 
     if (hudVisible) {
         hud->draw(ctx);
