@@ -218,6 +218,8 @@ namespace {
     };
 
     std::vector<NativeTrack> native_tracks;
+
+    constexpr int MAX_TRACK_VALUES = 256;
 }
 
 static void read_indices(lua::State* L, int idx, const char* field, int* dst) {
@@ -311,16 +313,15 @@ static int l_apply_track(lua::State* L) {
             track.indices.push_back(found ? static_cast<int>(found->getIndex()) : -1);
         }
     }
-    constexpr int MAX_VALUES = 256;
-    float values[MAX_VALUES + 1] {};
+    float values[MAX_TRACK_VALUES + 1] {};
     int top = lua_gettop(L);
-    int count = std::min({track.valuesCount, top - 2, MAX_VALUES});
+    int count = std::min({track.valuesCount, top - 2, MAX_TRACK_VALUES});
     for (int i = 1; i <= count; i++) {
         values[i] = static_cast<float>(lua_tonumber(L, i + 2));
     }
     static const glm::vec3 AXES[] {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
     auto value = [&values](int index, float fallback) {
-        return index > 0 && index <= MAX_VALUES ? values[index] : fallback;
+        return index > 0 && index <= MAX_TRACK_VALUES ? values[index] : fallback;
     };
     auto& matrices = skeleton->pose.matrices;
     for (size_t i = 0; i < track.bones.size(); i++) {
