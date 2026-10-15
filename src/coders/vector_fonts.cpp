@@ -122,10 +122,16 @@ namespace {
             std::vector<Glyph>& glyphs
         ) {
             int size = canvas.getWidth() / 16;
+
+            const size_t end = (pageid + 1) * 256;
+            if (glyphs.size() < end) {
+                glyphs.resize(end);
+            }
+            
             for (int c = 0; c < 256; c++) {
                 int codepoint = pageid << 8 | c;
                 if (!renderGlyph(codepoint, bitmapDst)) {
-                    glyphs.push_back(Glyph {0, size / 2});
+                    glyphs[codepoint] = Glyph {0, size / 2};
                     continue;
                 }
 
@@ -133,13 +139,10 @@ namespace {
                 
                 Glyph glyph {
                     face->glyph->bitmap_top - size,
-                    static_cast<int>(face->glyph->advance.x >> 6)
+                    static_cast<int>(face->glyph->advance.x >> 6),
+                    face->glyph->bitmap_left
                 };
-                if (codepoint < glyphs.size()) {
-                    glyphs[codepoint] = std::move(glyph);
-                } else {
-                    glyphs.push_back(std::move(glyph));
-                }
+                glyphs[codepoint] = glyph;
             }
             canvas.flipY();
         }

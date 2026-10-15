@@ -3,7 +3,7 @@
 ## Latest release
 
 - [Download](https://github.com/MihailRis/VoxelCore/releases/latest) | [Скачать](https://github.com/MihailRis/VoxelCore/releases/latest)
-- [Documentation](https://github.com/MihailRis/VoxelCore/blob/release-0.31/doc/en/main-page.md) | [Документация](https://github.com/MihailRis/VoxelCore/blob/release-0.31/doc/ru/main-page.md)
+- [Documentation](https://github.com/MihailRis/VoxelCore/blob/release-0.32/doc/en/main-page.md) | [Документация](https://github.com/MihailRis/VoxelCore/blob/release-0.32/doc/ru/main-page.md)
 
 ---
 
@@ -30,13 +30,13 @@ sudo make install
 
 ```sh
 su -
-apt-get install entt-devel libglfw3-devel libGLEW-devel libglm-devel libpng-devel libvorbis-devel libopenal-devel libluajit-devel libstdc++13-devel-static libcurl-devel libfreetype-devel
+apt-get install entt-devel libglfw3-devel libGLEW-devel libglm-devel libpng-devel libvorbis-devel libopenal-devel libluajit-devel libstdc++13-devel-static libcurl-devel libfreetype-devel libssl-devel
 ```
 
 #### Debian based distros
 
 ```sh
-sudo apt install libglfw3 libglfw3-dev libglew-dev libglm-dev libpng-dev libopenal-dev libluajit-5.1-dev libvorbis-dev libcurl4-openssl-dev libfreetype6-dev
+sudo apt install libglfw3 libglfw3-dev libglew-dev libglm-dev libpng-dev libopenal-dev libluajit-5.1-dev libvorbis-dev libcurl4-openssl-dev libssl-dev libfreetype6-dev
 ```
 
 > [!TIP]
@@ -50,13 +50,13 @@ sudo apt install libglfw3 libglfw3-dev libglew-dev libglm-dev libpng-dev libopen
 #### RHEL based distros
 
 ```sh
-sudo dnf install glfw-devel glew-devel glm-devel libpng-devel libvorbis-devel openal-soft-devel luajit-devel libcurl-devel libfreetype-devel
+sudo dnf install glfw-devel glew-devel glm-devel libpng-devel libvorbis-devel openal-soft-devel luajit-devel libcurl-devel libfreetype-devel openssl-devel
 ```
 
 #### Arch based distros
 
 ```sh
-sudo pacman -S glfw glew glm libpng libvorbis openal luajit curl freetype2
+sudo pacman -S glfw glew glm libpng libvorbis openal luajit curl freetype2 openssl
 ```
 
 ### Building engine with CMake
@@ -188,7 +188,7 @@ docker run --rm -it \
   -v "$XAUTHORITY:/home/user/.Xauthority:ro" \
   -e DISPLAY="$DISPLAY" \
   --network=host \
-  voxel-engine ./build/VoxelEngine
+  voxel-engine ./build/VoxelCore
 ```
 
 ### On Windows
@@ -218,5 +218,5 @@ docker run --rm -it -v "${PWD}:/project" voxel-engine bash -c "cmake -DCMAKE_BUI
 #### Step 4. Run the application
 
 ```powershell
-docker run --rm -it -v "${PWD}:/project" -e DISPLAY=host.docker.internal:0.0 --network=host voxel-engine ./build/VoxelEngine
+docker run --rm -it -v "${PWD}:/project" -e DISPLAY=host.docker.internal:0.0 --network=host voxel-engine ./build/VoxelCore
 ```

@@ -30,7 +30,7 @@ static int push_xml(lua::State* L, const xml::xmlelement& elem) {
 }
 
 static std::unique_ptr<xml::xmlelement> toxml(lua::State* L) {
-    lua::getfield(L, TAG_ATTR);
+    lua::requirefield(L, TAG_ATTR);
     auto tag = lua::require_lstring(L, -1);
     lua::pop(L);
     
@@ -39,6 +39,13 @@ static std::unique_ptr<xml::xmlelement> toxml(lua::State* L) {
 
     for (int i = 0; i < length; i++) {
         lua::rawgeti(L, i + 1);
+        if (lua::isstring(L, -1)) {
+            auto textElement = std::make_unique<xml::xmlelement>("#");
+            textElement->set("#", std::string(lua::require_lstring(L, -1)));
+            elem->add(std::move(textElement));
+            lua::pop(L);
+            continue;
+        }
         elem->add(toxml(L));
         lua::pop(L);
     }

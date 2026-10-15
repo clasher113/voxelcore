@@ -1,4 +1,4 @@
-local ALMOST_HUGE = 1e9
+local MAX_DURATION = animation.MAX_DURATION
 
 local rig = entity.skeleton
 
@@ -12,7 +12,7 @@ function create_state(name, track_id, max_intencity)
         fade_time = 0.0,
         fade_timer = 0.0,
         fade_in = false,
-        max_intencity = max_intencity,
+        max_intencity = max_intencity or 1.0,
     }
 end
 
@@ -25,19 +25,20 @@ function set_state(name, fade_time)
     end
     if current_state then
         current_state.fade_in = false
-        current_state.fade_time = fade_time
+        current_state.fade_time = fade_time or 0.0
         current_state.fade_timer = 0.0
     end
     current_state = state
     if state then
         state.timer = 0.0
         state.fade_in = true
-        state.fade_time = fade_time
+        state.fade_time = fade_time or 0.0
         state.fade_timer = 0.0
     end
 end
 
 local function update(delta)
+    rig:reset_pose()
     for _, state in pairs(states) do
         state.timer = state.timer + delta
 
@@ -51,10 +52,10 @@ local function update(delta)
         end
 
         state.track = state.track or animation.get_track(state.track_id)
-        if state.track and intensity > 0.0 then
+        if state.track then
             state.track.func(
                 rig,
-                state.timer % math.min(ALMOST_HUGE, state.track.duration),
+                state.timer % math.min(MAX_DURATION, state.track.duration),
                 intensity * state.max_intencity
             )
         end

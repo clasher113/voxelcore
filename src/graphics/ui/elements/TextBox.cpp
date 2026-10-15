@@ -255,9 +255,9 @@ void TextBox::draw(const DrawContext& pctx, const Assets& assets) {
     // drawing caret here
     if (isFocused() && editable && static_cast<int>((time - caretLastMove) * 2) % 2 == 0) {
         uint line = label->getLineByTextIndex(caret);
-        auto linestart = label->getTextLineOffset(line);
-        uint lcaret = caret - label->getTextLineOffset(line);
-        int width = rawTextCache.metrics.calcWidth(input.substr(linestart), 0, lcaret);
+        size_t lineStart = label->getTextLineOffset(line);
+        size_t lineCaret = caret - lineStart;
+        int width = rawTextCache.metrics.calcWidth(input, lineStart, lineCaret);
 
         batch->rect(
             lcoord.x + width,
@@ -275,11 +275,13 @@ void TextBox::draw(const DrawContext& pctx, const Assets& assets) {
         uint endLine = label->getLineByTextIndex(selectionEnd);
 
         batch->setColor(glm::vec4(0.8f, 0.9f, 1.0f, 0.25f));
+        size_t startLineOffset = label->getTextLineOffset(startLine);
+        size_t endLineOffset = label->getTextLineOffset(endLine);
         int start = rawTextCache.metrics.calcWidth(
-            labelText, 0, selectionStart - label->getTextLineOffset(startLine)
+            labelText, startLineOffset, selectionStart - startLineOffset
         );
         int end = rawTextCache.metrics.calcWidth(
-            labelText, 0, selectionEnd - label->getTextLineOffset(endLine)
+            labelText, endLineOffset, selectionEnd - endLineOffset
         );
         int lineY = label->getLineYOffset(startLine);
 
@@ -352,6 +354,11 @@ void TextBox::draw(const DrawContext& pctx, const Assets& assets) {
 }
 
 void TextBox::drawBackground(const DrawContext& pctx, const Assets& assets) {
+    if (lineNumbersLabel->getFontName() != label->getFontName()) {
+        lineNumbersLabel->setFontName(label->getFontName());
+    }
+    lineNumbersLabel->setLineInterval(label->getLineInterval());
+
     auto font = assets.getShared<Font>(label->getFontName());
     if (font != nullptr) {
         rawTextCache.prepare(font, font->getMetrics(), label->getSize().x);
@@ -681,13 +688,19 @@ int TextBox::calcIndexAt(int x, int y) const {
     uint line = label->getLineByYOffset(y - lcoord.y);
     line = std::min(line, label->getLinesNumber() - 1);
     size_t lineLength = getLineLength(line);
+    size_t lineStart = label->getTextLineOffset(line);
     uint offset = 0;
-    while (lcoord.x + rawTextCache.metrics.calcWidth(labelText, 0, offset) < x &&
-           offset < lineLength - 1) {
+    while (offset < lineLength - 1) {
+        int width = rawTextCache.metrics.calcWidth(
+            labelText, lineStart, offset
+        );
+        if (lcoord.x + width >= x) {
+            break;
+        }
         offset++;
     }
     return std::min(
-        offset + label->getTextLineOffset(line), labelText.length()
+        offset + lineStart, labelText.length()
     );
 }
 
@@ -1224,9 +1237,12 @@ void TextBox::setCaret(size_t position) {
         offset -= getSize().y;
         scrolled(-glm::ceil(offset / static_cast<double>(scrollStep) + 0.5f));
     }
-    int lcaret = caret - rawTextCache.getTextLineOffset(line);
-    int realoffset = rawTextCache.metrics.calcWidth(labelText, 0, lcaret) -
-                     static_cast<int>(textOffset);
+    size_t lineStart = rawTextCache.getTextLineOffset(line);
+    size_t lineCaret = caret - lineStart;
+    int caretWidth = rawTextCache.metrics.calcWidth(
+        labelText, lineStart, lineCaret
+    );
+    int realoffset = caretWidth - static_cast<int>(textOffset);
 
     if (realoffset - width > 0) {
         setTextOffset(textOffset + realoffset - width);

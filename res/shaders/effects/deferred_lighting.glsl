@@ -3,6 +3,7 @@
 
 #define CLOUDS_FOG_FACTOR_MUL 0.3f
 #define CLOUDS_FOG_CURVE_MUL 0.4f
+#define COLOR_TEMPERATURE_COMPENSATION 1.12f
 
 vec4 effect() {
     vec4 pos = texture(u_position, v_uv);
@@ -26,8 +27,12 @@ vec4 effect() {
 
     float emission = texture(u_emission, v_uv).r;
 
+    float rg = 1.0;
 #ifdef ENABLE_SHADOWS
-    light *= calc_shadow(modelpos, normal, length(pos));
+    float shadow_mul = calc_shadow(modelpos, normal, length(pos));
+    light *= shadow_mul;
+    rg *= min(1.0, shadow_mul + emission) * COLOR_TEMPERATURE_COMPENSATION;
+    light *= 2.0;
 #endif
 
     light = max(light, emission);
@@ -40,5 +45,5 @@ vec4 effect() {
         mix(1.0, CLOUDS_FOG_FACTOR_MUL, emission),
         mix(1.0, CLOUDS_FOG_CURVE_MUL, emission)
     );
-    return vec4(mix(texture(u_screen, v_uv).rgb * mix(1.0, light, 1.0), fogColor, fog), 1.0);
+    return vec4(mix(texture(u_screen, v_uv).rgb * mix(1.0, light, 1.0) * vec3(rg, 0.5 + rg * 0.5, 1.0), fogColor, fog), 1.0);
 }

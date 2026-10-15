@@ -1,10 +1,10 @@
-project(VoxelEngineSrc)
+project(VoxelCoreSrc)
 
 file(GLOB_RECURSE headers ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
 file(GLOB_RECURSE sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 list(REMOVE_ITEM sources ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
-add_library(VoxelEngineSrc STATIC ${sources} ${headers})
+add_library(VoxelCoreSrc STATIC ${sources} ${headers})
 
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
@@ -34,23 +34,23 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     find_package(vorbis REQUIRED)
+    
+    set(LUAJIT_PACKAGE_DIR "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
     if(VCPKG_TARGET_TRIPLET MATCHES "static")
         add_library(luajit STATIC IMPORTED)
         set_target_properties(
             luajit
             PROPERTIES
                 IMPORTED_LOCATION
-                "$ENV{VCPKG_ROOT}/packages/luajit_${VCPKG_TARGET_TRIPLET}/lib/libluajit-5.1.a"
+                "${LUAJIT_PACKAGE_DIR}/lib/libluajit-5.1.a"
                 INTERFACE_INCLUDE_DIRECTORIES
-                "$ENV{VCPKG_ROOT}/packages/luajit_${VCPKG_TARGET_TRIPLET}/include/"
+                "${LUAJIT_PACKAGE_DIR}/include/"
         )
     else()
-        set(LUAJIT_PACKAGE_DIR "$ENV{VCPKG_ROOT}/packages/luajit_${VCPKG_TARGET_TRIPLET}")
-
-        if(EXISTS "$ENV{VCPKG_ROOT}/packages/luajit_${VCPKG_TARGET_TRIPLET}/include/luajit-2.1")
-            set(LUAJIT_INCLUDE_DIR "$ENV{VCPKG_ROOT}/packages/luajit_${VCPKG_TARGET_TRIPLET}/include/luajit-2.1")
+        if(EXISTS "${LUAJIT_PACKAGE_DIR}/include/luajit-2.1")
+            set(LUAJIT_INCLUDE_DIR "${LUAJIT_PACKAGE_DIR}/include/luajit-2.1")
         else()
-            set(LUAJIT_INCLUDE_DIR "$ENV{VCPKG_ROOT}/packages/luajit_${VCPKG_TARGET_TRIPLET}/include/luajit")
+            set(LUAJIT_INCLUDE_DIR "${LUAJIT_PACKAGE_DIR}/include/luajit")
         endif()
 
         add_library(luajit SHARED IMPORTED)
@@ -58,9 +58,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             luajit
             PROPERTIES
                 IMPORTED_LOCATION
-                "$ENV{VCPKG_ROOT}/packages/luajit_${VCPKG_TARGET_TRIPLET}/bin/lua51.dll"
+                "${LUAJIT_PACKAGE_DIR}/bin/lua51.dll"
                 IMPORTED_IMPLIB
-                "$ENV{VCPKG_ROOT}/packages/luajit_${VCPKG_TARGET_TRIPLET}/lib/lua51.lib"
+                "${LUAJIT_PACKAGE_DIR}/lib/lua51.lib"
                 INTERFACE_INCLUDE_DIRECTORIES "${LUAJIT_INCLUDE_DIR}"
         )
     endif()
@@ -77,10 +77,10 @@ else()
     add_library(luajit::luajit ALIAS PkgConfig::luajit)
 endif()
 
-target_include_directories(VoxelEngineSrc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(VoxelCoreSrc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
-    VoxelEngineSrc
+    VoxelCoreSrc
     PRIVATE glfw
             OpenGL::GL
             GLEW::GLEW
@@ -98,7 +98,7 @@ target_link_libraries(
 )
 
 target_compile_options(
-    VoxelEngineSrc
+    VoxelCoreSrc
     PUBLIC $<$<CXX_COMPILER_ID:MSVC>:
            /utf-8
            /MP
@@ -136,7 +136,7 @@ target_compile_options(
            >)
 
 target_link_options(
-    VoxelEngineSrc
+    VoxelCoreSrc
     PUBLIC
     $<$<CXX_COMPILER_ID:GNU>:
     -no-pie
