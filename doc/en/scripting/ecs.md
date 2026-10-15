@@ -32,7 +32,7 @@ entity:require_component(name: str) -> component
 -- Enables/disables the component
 entity:set_enabled(name: str, enable: bool)
 
--- Returns id of player the entity is bound, otherwise -1 is returned.
+-- Returns id of player the entity is bound to, otherwise -1 is returned.
 -- At components initialization -1 is also returned,
 -- since the binding occurs after initialization.
 entity:get_player() -> int or nil
@@ -240,7 +240,7 @@ Called before component data is saved. Here you can write the data you want to s
 function on_update(tps: int)
 ```
 
-Called every entities tick (currently 20 times per second).
+Called every entity tick (currently 20 times per second).
 
 ```lua
 function on_physics_update(delta: number)
@@ -289,7 +289,7 @@ Called when an entity is attacked (LMB on the entity). The first argument is the
 function on_used(playerid: int)
 ```
 
-Called when an entity is used (RMB by entity). The player ID is passed as an argument.
+Called when an entity is used (RMB on the entity). The player ID is passed as an argument.
 
 ```lua
 function on_player_set(playerid: int)
