@@ -223,64 +223,72 @@ namespace {
 }
 
 static void read_indices(lua::State* L, int idx, const char* field, int* dst) {
-    lua_getfield(L, idx, field);
-    if (lua_istable(L, -1)) {
-        for (int i = 0; i < 3; i++) {
-            lua_rawgeti(L, -1, i + 1);
-            dst[i] = static_cast<int>(lua_tointeger(L, -1));
-            lua_pop(L, 1);
-        }
+    if (!lua::istable(L, -1)) {
+        return;
     }
-    lua_pop(L, 1);
+    for (int i = 0; i < 3; i++) {
+        lua::rawgeti(L, i + 1);
+        dst[i] = static_cast<int>(lua::tointeger(L, -1));
+        lua::pop(L);
+    }
 }
 
 static int l_register_track(lua::State* L) {
     NativeTrack track;
     track.name = lua::require_string(L, 1);
-    if (!lua_istable(L, 2)) {
+    if (!lua::istable(L, 2)) {
         throw std::runtime_error("layout table expected");
     }
     int maxValue = 0;
-    size_t count = lua_objlen(L, 2);
+    size_t count = lua::objlen(L, 2);
     for (size_t i = 1; i <= count; i++) {
-        lua_rawgeti(L, 2, static_cast<int>(i));
-        int bone = lua_gettop(L);
+        lua::rawgeti(L, static_cast<int>(i), 2);
+        int bone = lua::gettop(L);
         NativeTrackBone entry;
-        lua_getfield(L, bone, "name");
+        lua::requirefield(L, "name", bone);
         entry.name = lua::require_string(L, -1);
-        lua_pop(L, 1);
+        lua::pop(L);
 
-        lua_getfield(L, bone, "t");
-        entry.translate = lua_istable(L, -1);
-        lua_pop(L, 1);
-        read_indices(L, bone, "t", entry.translation);
-
-        lua_getfield(L, bone, "s");
-        entry.scale = lua_istable(L, -1);
-        lua_pop(L, 1);
-        read_indices(L, bone, "s", entry.scaling);
-
-        lua_getfield(L, bone, "r");
-        if (lua_istable(L, -1)) {
-            size_t n = lua_objlen(L, -1);
-            for (size_t j = 1; j + 1 <= n; j += 2) {
-                lua_rawgeti(L, -1, static_cast<int>(j));
-                int axis = static_cast<int>(lua_tointeger(L, -1));
-                lua_rawgeti(L, -2, static_cast<int>(j + 1));
-                int value = static_cast<int>(lua_tointeger(L, -1));
-                lua_pop(L, 2);
-                if (axis < 0 || axis > 2) {
-                    throw std::runtime_error("invalid rotation axis");
-                }
-                entry.rotations.emplace_back(axis, value);
-            }
+        if (lua::getfield(L, "t", bone)) {
+            entry.translate = lua::istable(L, -1);
+            read_indices(L, bone, "t", entry.translation);
+            lua::pop(L);
         }
-        lua_pop(L, 1);
-        for (int v : entry.translation) maxValue = std::max(maxValue, v);
-        for (int v : entry.scaling) maxValue = std::max(maxValue, v);
-        for (auto [_, v] : entry.rotations) maxValue = std::max(maxValue, v);
+
+        if (lua::getfield(L, "s", bone)) {
+            entry.scale = lua::istable(L, -1);
+            read_indices(L, bone, "s", entry.scaling);
+            lua::pop(L);
+        }
+
+        if (lua::getfield(L, "r", bone)) {
+            if (lua::istable(L, -1)) {
+                size_t n = lua::objlen(L, -1);
+                for (size_t j = 1; j + 1 <= n; j += 2) {
+                    lua::rawgeti(L, static_cast<int>(j), -1);
+                    int axis = static_cast<int>(lua::tointeger(L, -1));
+                    lua::rawgeti(L, static_cast<int>(j + 1), -2);
+                    int value = static_cast<int>(lua::tointeger(L, -1));
+                    lua::pop(L, 2);
+                    if (axis < 0 || axis > 2) {
+                        throw std::runtime_error("invalid rotation axis");
+                    }
+                    entry.rotations.emplace_back(axis, value);
+                }
+            }
+            lua::pop(L);
+        }
+        for (int v : entry.translation) {
+            maxValue = std::max(maxValue, v);
+        }
+        for (int v : entry.scaling) {
+            maxValue = std::max(maxValue, v);
+        }
+        for (auto [_, v] : entry.rotations) {
+            maxValue = std::max(maxValue, v);
+        }
         track.bones.push_back(std::move(entry));
-        lua_pop(L, 1);
+        lua::pop(L);
     }
     track.valuesCount = maxValue;
     for (size_t i = 0; i < native_tracks.size(); i++) {
@@ -298,7 +306,7 @@ static int l_apply_track(lua::State* L) {
     if (skeleton == nullptr || skeleton->config == nullptr) {
         return 0;
     }
-    auto id = lua_tointeger(L, 2);
+    auto id = lua::tointeger(L, 2);
     if (id < 0 || static_cast<size_t>(id) >= native_tracks.size()) {
         throw std::runtime_error("invalid track id");
     }
@@ -314,10 +322,10 @@ static int l_apply_track(lua::State* L) {
         }
     }
     float values[MAX_TRACK_VALUES + 1] {};
-    int top = lua_gettop(L);
+    int top = lua::gettop(L);
     int count = std::min({track.valuesCount, top - 2, MAX_TRACK_VALUES});
     for (int i = 1; i <= count; i++) {
-        values[i] = static_cast<float>(lua_tonumber(L, i + 2));
+        values[i] = static_cast<float>(lua::tonumber(L, i + 2));
     }
     static const glm::vec3 AXES[] {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
     auto value = [&values](int index, float fallback) {
