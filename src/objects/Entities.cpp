@@ -509,6 +509,19 @@ void Entities::render(
     }
 }
 
+void Entities::updateCulling(const Frustum* frustum, entityid_t fpsEntity) {
+    auto view = registry->view<EntityId, Transform, rigging::Skeleton, Rigidbody>();
+    for (auto [entity, eid, transform, skeleton, rigidbody] : view.each()) {
+        if (frustum == nullptr || eid.uid == fpsEntity) {
+            skeleton.culled = false;
+            continue;
+        }
+        const auto& pos = transform.pos;
+        const auto& halfSize = rigidbody.hitbox.getHalfSize();
+        skeleton.culled = !frustum->isBoxVisible(pos - halfSize, pos + halfSize);
+    }
+}
+
 bool Entities::hasBlockingInside(AABB aabb) {
     constexpr float eps = 0.05f;
     auto view = registry->view<EntityId, Rigidbody>();

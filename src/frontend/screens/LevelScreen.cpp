@@ -270,6 +270,7 @@ void LevelScreen::draw(float delta) {
     const DrawContext ctx(nullptr, engine.getWindow(), batch.get());
 
     if (!hud->isPause()) {
+        renderer->updateEntitiesCulling(camera);
         scripting::on_entities_render(engine.getTime().getDelta());
         scripting::on_frontend_render();
     }
